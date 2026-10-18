@@ -1,0 +1,20 @@
+import { afterEach, expect, it } from 'vitest';
+import { rm } from 'node:fs/promises';
+import { jobFixture } from '../jobs/fixture';
+import { createInstallPlan } from '../../src/jobs/plan';
+import { nativeInstallationServices } from '../../src/devices/installation';
+import type { Transport } from '../../src/devices/transport';
+const roots: string[] = [];
+afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
+it('routes only the bound generated VPK path to the verified VitaShell adapter', async () => {
+  const f = await jobFixture(); roots.push(f.root);
+  const device = { ...f.device, adapter: 'vitashell' as const, capabilities: { ...f.device.capabilities, install: true } };
+  f.transport.device = device;
+  const plan = await createInstallPlan(f.release, f.prepared, device, 'first_install', { transport: f.transport, artwork: f.artwork });
+  let calls = 0; const transport: Transport = f.transport; transport.promoteVpk = async () => { calls++; return 'accepted'; };
+  const services = nativeInstallationServices(plan, transport);
+  await expect(services.promote(device, 'ux0:app/OTHER/eboot.bin')).rejects.toMatchObject({ code: 'promotion_path_mismatch' });
+  await expect(services.promote({ ...device, identity: 'changed' }, plan.vpkDestination)).rejects.toMatchObject({ code: 'device_changed' });
+  await expect(services.promote({ ...device, capabilities: { ...device.capabilities, install: false } }, plan.vpkDestination)).rejects.toMatchObject({ code: 'promotion_not_supported' });
+  expect(calls).toBe(0); expect(await services.promote(device, plan.vpkDestination)).toBe('accepted'); expect(calls).toBe(1);
+});

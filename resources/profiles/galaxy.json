@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "releaseId": "galaxy-thp48d-held",
+  "titleId": "SMGV00001",
+  "displayName": "Galaxy",
+  "version": "Awaiting final package",
+  "minInstallerVersion": "0.1.0",
+  "visibility": "private",
+  "releaseState": "held",
+  "recipeId": "galaxy",
+  "package": null,
+  "requiredInputs": [{ "id": "game", "label": "Your supported Galaxy game dump", "kind": "galaxy-disc" }],
+  "optionalInputs": [],
+  "destinations": { "data": "ux0:data/smg/game" },
+  "protectedPaths": [],
+  "prerequisites": [],
+  "limits": { "maxFiles": 100000, "maxFileBytes": 17179869184, "maxTotalBytes": 68719476736 }
+}

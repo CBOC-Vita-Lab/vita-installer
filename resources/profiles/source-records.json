@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "meaning": "Reviewed source/documentation snapshots, not a claim of byte-reproducible runtime correspondence or public release acceptance.",
+  "projects": {
+    "strikers": { "repository": "CBOC-Vita-Lab/strikers-charged-vita", "commit": "f44a4f5c0e8c5802c620c52c20414e8f66e438d7", "treeSha256": "bff92c065471048b6141b108547f853dcc2dc313f56eac4a7284597abd9ab8bd", "runtimeSourceAccepted": false },
+    "infected": { "repository": "CBOC-Vita-Lab/infected-vita", "commit": "8f611b8ec2ced5bb609d11c06e244cc23e0ffe7d", "treeSha256": "e380f3d0002600a53f79bca9f325637a46771e9a5095b4f79c01c795849ae534", "runtimeSourceAccepted": false },
+    "vitadhoc": { "repository": "CBOC-Vita-Lab/vitadhoc", "commit": "0b5df5dde679feb58cdf04fe2a6fbe9d328145f9", "treeSha256": "b636f8b0604ada3f46668d91b01ba11fec3d54df808f1d1643a0feb6f952d109", "runtimeSourceAccepted": false },
+    "galaxy": { "repository": "CBOC-Vita-Lab/galaxy-vita", "commit": "5c4b331feb53f6e7631118a07cc062a20ccdbab1", "treeSha256": "3d06037da00867a5222d9c1337100bcb9f655ff47ab062eb0e357b200dc99fc5", "runtimeSourceAccepted": false }
+  }
+}

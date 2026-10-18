@@ -1,0 +1,2 @@
+# Developer-only loopback FTP fixture. Not included in the app.
+pyftpdlib==2.2.0

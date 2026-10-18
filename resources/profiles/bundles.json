@@ -1,0 +1,6 @@
+{
+  "strikers": { "source": "Strikers-a8d4ad6-install-private.zip", "sha256": "ca3ee518bc570a6581aa276f17c9928a4104be2e58b80c294e6415f1cac3baaf", "output": "Strikers-a8d4ad6-desktop-private.zip" },
+  "infected": { "source": "Infected-install-private.zip", "sha256": "56e91b2d053b36f53f3572dca019104fe1e969f49903c260d6a24d3639fa22f0", "output": "Infected-current-desktop-private.zip" },
+  "vitadhoc": { "source": "VitAdhoc-build21-install.zip", "sha256": "40428bb4b78b788f45d7a46b287b87dea9d587e3b77a2abe9ad577a6d5d2e920", "output": "VitAdhoc-build21-desktop-private.zip" },
+  "galaxy": { "source": "Galaxy-thp48d-preparation-private.zip", "sha256": "74b0efb4172dabd8504d65087d6b17866b08e34c25458aad91637108b1e37e39", "output": "Galaxy-thp48d-desktop-held.zip" }
+}
