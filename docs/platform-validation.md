@@ -22,13 +22,13 @@ SHA-256. All nine selected preparation/integrity checks pass. These are backend
 checks, not a full desktop install or gameplay test.
 
 The native source regression suites now pass on Intel macOS and Windows x64
-(368 app tests on Intel Mac and 366 on Windows, with five and seven skipped
+(371 app tests on Intel Mac and 369 on Windows, with five and seven skipped
 respectively). Native bundled
 preparation and volume tools also build and pass their empty-PATH checks.
 All 28 real-IO transfer/coordinator checks pass against the bundled tools on
 both platforms. Windows-only POSIX/symlink cases remain skipped.
 Evidence: [native worker checks](https://github.com/CBOC-Vita-Lab/vita-installer/actions/runs/39227449832)
-and [native package checks](https://github.com/CBOC-Vita-Lab/vita-installer/actions/runs/39236605679).
+and [refreshed native package checks](https://github.com/CBOC-Vita-Lab/vita-installer/actions/runs/39243107015).
 These automated checks do not establish interactive installer or physical-device
 acceptance; full native owned-input comparisons remain open.
 
@@ -49,7 +49,7 @@ reject owner paths/credentials and inspect compressed Python members. The
 bundle includes a component inventory, license texts and known notice gaps.
 Native image-library packaging checks all 28 declared component versions and
 the selected upstream notice hashes before staging and inside the finished app.
-The latest Apple Silicon package verifies 1,108 files, including unchanged
+The latest packages on all three platforms verify 1,108 notice files, including unchanged
 metadata/notices from all 357 registry archives in librsvg's release lockfile.
 Recovered notices carry their own source hashes. Original attribution and
 public-domain notices are retained too. This conservative collection is not
@@ -57,11 +57,10 @@ proof of the exact binary dependency set; four missing standalone Rust notices
 and the corresponding-source/relinking review remain open.
 
 Mac and Windows package metadata are checked separately; missing notices or
-dependency upgrades require review. The completed Intel/Windows runs below
-verified the earlier 81-file collection against their actual dependencies.
-Their packages must be refreshed for this expanded collection. Finished
-packages reject deliberately damaged notice copies; interactive installed-app
-acceptance remains open.
+dependency upgrades require review. The refreshed Intel/Windows packages include
+the expanded collection and verify it against their actual dependencies.
+Finished packages reject deliberately damaged notice copies; interactive
+installed-app acceptance remains open.
 
 A complete Intel Mac ZIP and Windows x64 setup program now build and pass final
 verification. Each packaged backend starts with an empty PATH, all seven
@@ -70,6 +69,12 @@ preparation, volume and 28 real-IO checks. The compressed-member privacy audit
 checks 750 Intel and 754 Windows members. The Windows volume suite skips one
 POSIX-only case. Neither package has been installed or tested interactively
 on a user machine of its native platform.
+
+This refresh was built from `ee19b9d88aeb0a81937f58ec193d8d621f3f9f48`.
+Its resource inventories contain 6,966 Intel files and 6,970 Windows files.
+Independent downloads match every listed resource hash, including the Windows
+setup program's embedded app payload, notices and all three helper executables.
+The retained packages are internal candidates, not public release assets.
 
 The Intel privacy finding was an upstream library's generic build path, not a
 publisher path. Its exact bytes match the official archive. A
