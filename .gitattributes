@@ -1,5 +1,7 @@
 # Preserve the reviewed bytes of profiles, integrity catalogs and notices.
 resources/** -text
+# Upstream notices retain their original whitespace as well as line endings.
+resources/notices/libvips/** -whitespace
 # Keep native movie build receipts comparable across Windows and macOS.
 workers/vendor/galaxy/tools/thp_transcode.cpp -text
 workers/vendor/galaxy/platform/src/sdk/thp_video.cpp -text

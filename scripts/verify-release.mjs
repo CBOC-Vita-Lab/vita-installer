@@ -6,6 +6,8 @@ import { execFileSync } from 'node:child_process';
 import { createReadStream } from 'node:fs';
 await build({ entryPoints: ['src/packaging/policy.ts'], bundle: true, platform: 'node', format: 'esm', outfile: 'dist/tools/package-policy.mjs' });
 const { validatePackagePolicy, NETWORK_POLICY } = await import('../dist/tools/package-policy.mjs');
+await build({ entryPoints: ['src/packaging/native-notices.ts'], bundle: true, platform: 'node', format: 'esm', outfile: 'dist/tools/native-notices.mjs' });
+const { verifyInstalledSharpNotices } = await import('../dist/tools/native-notices.mjs');
 const platform = `${process.platform}-${process.arch}`;
 const app = resolve(process.argv[2] ?? `out/CBOC Vita Installer-${platform}/${process.platform === 'darwin' ? 'CBOC Vita Installer.app' : ''}`);
 const resources = join(app, process.platform === 'darwin' ? 'Contents/Resources' : 'resources'), inventory = [];
@@ -29,6 +31,8 @@ async function walk(directory) {
   }
 }
 await walk(resources);
+const nativeNotices = await verifyInstalledSharpNotices(join(resources, 'installer-resources/notices/libvips'), join(resources, 'app/node_modules'), platform,
+  await fileHash('resources/notices/libvips/manifest.json'));
 const workerRoot = join(resources, 'installer-workers', platform), catalog = JSON.parse(await readFile(join(workerRoot, 'catalog.json'), 'utf8'));
 if (catalog.platform !== platform) throw new Error('Worker catalog platform mismatch');
 async function architecture(path) {
@@ -57,7 +61,9 @@ const policy = { platform, host: platform, signing: 'unsigned-internal', signing
 validatePackagePolicy(policy);
 const receipt = { schemaVersion: 1, ...policy, files: inventory, executableSha256: await fileHash(executable),
   notarized: false, publicReleaseAccepted: false, deviceInstalled: false, thirdPartyRedistributionReview: 'pending',
-  checks: ['required-resources', 'native-architecture', 'helper-hashes', 'no-personal-signing-subject', 'payload-inventory', 'owner-path-and-token-scan'],
+  nativeImageNotices: { declaredComponents: nativeNotices.components.length,
+    noticeFiles: nativeNotices.components.reduce((count, component) => count + component.notices.length, 0), completeRedistributionReview: false },
+  checks: ['required-resources', 'native-architecture', 'helper-hashes', 'no-personal-signing-subject', 'payload-inventory', 'owner-path-and-token-scan', 'native-image-notice-hashes-and-versions'],
   skipped: ['Windows', 'Intel-Mac', 'physical-Vita-install', 'public-redistribution-license-audit'] };
 await writeFile('out/package-verification.json', JSON.stringify(receipt, null, 2) + '\n');
 console.log(`Verified internal ${platform} package: ${inventory.length} resource files. Public/hardware acceptance remains held.`);

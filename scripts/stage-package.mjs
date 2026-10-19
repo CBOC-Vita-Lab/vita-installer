@@ -2,7 +2,12 @@ import { cp, mkdir, readdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { join, resolve, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
+import { build } from 'esbuild';
 const platform = `${process.platform}-${process.arch}`, root = process.cwd();
+await build({ entryPoints: ['src/packaging/native-notices.ts'], bundle: true, platform: 'node', format: 'esm', outfile: 'dist/tools/native-notices.mjs' });
+const { verifyInstalledSharpNotices } = await import('../dist/tools/native-notices.mjs');
+const reviewedManifest = createHash('sha256').update(await readFile('resources/notices/libvips/manifest.json')).digest('hex');
+await verifyInstalledSharpNotices('resources/notices/libvips', 'node_modules', platform, reviewedManifest);
 const python = process.env.VITA_WORKER_PYTHON ?? join(root, '.venv-workers', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
 const query = spawnSync(python, ['-c', 'import sys,sysconfig,importlib.metadata,json; print(json.dumps({"stdlib":sysconfig.get_path("stdlib"),"prefix":sys.base_prefix,"site":str(importlib.metadata.distribution("pycdlib").locate_file("")),"pycdlib":str(importlib.metadata.distribution("pycdlib")._path),"pyinstaller":str(importlib.metadata.distribution("pyinstaller")._path)}))'], { encoding: 'utf8' });
 if (query.status !== 0) throw new Error('Build-time worker environment unavailable.');
@@ -10,6 +15,7 @@ const paths = JSON.parse(query.stdout), notices = resolve('dist/installer-notice
 for (const dir of ['installer-resources', 'installer-workers', 'installer-notices']) await rm(join('dist', dir), { recursive: true, force: true });
 await mkdir(notices, { recursive: true });
 await cp('resources', 'dist/installer-resources', { recursive: true });
+await verifyInstalledSharpNotices('dist/installer-resources/notices/libvips', 'node_modules', platform, reviewedManifest);
 // Packager rewrites resource symlinks to the staging directory; materialize this runtime first.
 await cp(`workers/bin/${platform}`, `dist/installer-workers/${platform}`, { recursive: true, dereference: true });
 const catalog = JSON.parse(await readFile(`workers/bin/${platform}/catalog.json`, 'utf8'));
@@ -44,7 +50,10 @@ for (const [path, item] of Object.entries(lock.packages)) {
     await cp(join(supplemental, 'LICENSE'), join(destination, 'LICENSE'));
     await cp(join(supplemental, 'ORIGIN.md'), join(destination, 'ORIGIN.md'));
   } else if (!names.length) { await cp(join(path, 'README.md'), join(destination, 'README.md')); entries.push(`${pkg.name}: package supplies a license declaration/README, not a complete license text. Public redistribution review remains open.`); }
-  if (pkg.name.startsWith('@img/sharp-libvips')) { await cp(join(path, 'versions.json'), join(destination, 'versions.json')); entries.push(`${pkg.name}: libvips and linked-library notices/versions retained. Complete corresponding source and notice review required before public distribution.`); }
+  if (pkg.name.startsWith('@img/sharp-libvips') || pkg.name === '@img/sharp-win32-x64') {
+    await cp(join(path, 'versions.json'), join(destination, 'versions.json'));
+    entries.push(`${pkg.name}: selected native-library notices are in installer-resources/notices/libvips. Installed component versions and notice hashes checked; complete corresponding source and notice review still required before public distribution.`);
+  }
   components.push({ type: 'library', name: pkg.name, version: pkg.version, purl: `pkg:npm/${pkg.name.replace('@', '%40')}@${pkg.version}`, licenses: [{ expression: typeof pkg.license === 'string' ? pkg.license : 'NOASSERTION' }] });
 }
 components.push({ type: 'framework', name: 'Electron', version: lock.packages['node_modules/electron'].version, licenses: [{ license: { id: 'MIT' } }] },

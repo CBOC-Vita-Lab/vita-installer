@@ -38,6 +38,11 @@ open. Candidate helpers are not added to the accepted release pins.
 Package checks enumerate resources, verify helper hashes/architectures,
 reject owner paths/credentials and inspect compressed Python members. The
 bundle includes a component inventory, license texts and known notice gaps.
+Native image-library packaging now checks all 28 declared component versions
+and the hashes of 81 selected upstream notice files, both before staging and
+inside the finished app. Mac and Windows package metadata are checked separately;
+missing notices or dependency upgrades require review. This collection does not
+close the remaining transitive-notice and corresponding-source audit.
 
 ## Not yet accepted
 
@@ -93,6 +98,7 @@ npm test
 npm run typecheck
 npm run package
 node scripts/verify-release.mjs
+node --test tests/packaging/packaged-notices.test.mjs
 node scripts/smoke-installed.mjs PATH_TO_PACKAGED_APP
 ```
 
@@ -102,6 +108,10 @@ executables inside the packaged app to run the Python suites and real-IO tests.
 Retain `out/package-verification.json`, `out/packaged-smoke.json` and test logs
 with the exact app archive hash. Build on the actual target; renaming an arm64
 artifact is not an Intel or Windows build.
+
+The packaged-notice test checks a disposable copy of the app. It deliberately
+removes or changes notices, acknowledgments, the notice manifest and component
+metadata, then requires the real package verifier to reject each case.
 
 Native source/worker regression evidence does not replace the missing complete
 Windows and Intel Mac app acceptance. The Apple Silicon receipt cannot be

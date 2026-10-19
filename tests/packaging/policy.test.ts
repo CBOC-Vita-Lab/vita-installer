@@ -4,7 +4,8 @@ import { createRequire } from 'node:module';
 const forge = createRequire(import.meta.url)('../../forge.config.cjs');
 const receipt = () => ({ platform: 'darwin-arm64', host: 'darwin-arm64', signing: 'unsigned-internal', signingSubject: null,
   files: ['app/dist/main/index.cjs', 'app/dist/main/job-worker.mjs', 'app/dist/main/preload.cjs', 'app/dist/renderer/index.html', 'app/LICENSE',
-    'installer-resources/profiles/trust.json', 'installer-workers/darwin-arm64/catalog.json', 'installer-workers/darwin-arm64/vita-prepare',
+    'installer-resources/profiles/trust.json', 'installer-resources/notices/libvips/manifest.json', 'installer-resources/notices/libvips/README.md',
+    'installer-workers/darwin-arm64/catalog.json', 'installer-workers/darwin-arm64/vita-prepare',
     'installer-workers/darwin-arm64/vita-movies',
     'installer-workers/darwin-arm64/vita-volume/vita-volume', 'installer-workers/darwin-arm64/vita-volume/_internal/Python',
     'installer-notices/SBOM.cdx.json', 'installer-notices/THIRD_PARTY_NOTICES.md', 'installer-notices/Python-LICENSE.txt',

@@ -18,7 +18,8 @@ export function validatePackagePolicy(receipt: PackagePolicy) {
   requireThat(JSON.stringify(receipt.networkPolicy) === JSON.stringify(NETWORK_POLICY), 'unreviewed_network_policy');
   const worker = `installer-workers/${receipt.platform}`;
   const required = ['app/dist/main/index.cjs', 'app/dist/main/job-worker.mjs', 'app/dist/main/preload.cjs', 'app/dist/renderer/index.html', 'app/LICENSE',
-    'installer-resources/profiles/trust.json', `${worker}/catalog.json`, `${worker}/vita-prepare${exe}`, `${worker}/vita-volume/vita-volume${exe}`, `${worker}/vita-movies${exe}`,
+    'installer-resources/profiles/trust.json', 'installer-resources/notices/libvips/manifest.json', 'installer-resources/notices/libvips/README.md',
+    `${worker}/catalog.json`, `${worker}/vita-prepare${exe}`, `${worker}/vita-volume/vita-volume${exe}`, `${worker}/vita-movies${exe}`,
     `${worker}/vita-volume/_internal/${windows ? 'python314.dll' : 'Python'}`,
     ...['SBOM.cdx.json', 'THIRD_PARTY_NOTICES.md', 'Python-LICENSE.txt', 'pycdlib-LICENSE.txt', 'PyInstaller-COPYING.txt', 'Galaxy-LICENSE.txt',
       'libjpeg-turbo-LICENSE.md', 'libjpeg-turbo-README.ijg', 'Electron-LICENSE.txt', 'Chromium-LICENSES.html',
