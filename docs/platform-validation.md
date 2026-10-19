@@ -15,11 +15,11 @@ tests exercise transfers and backups. They are not physical-card or Vita
 installation acceptance.
 
 The native source regression suites now pass on Intel macOS and Windows x64
-(336 app tests per platform, plus source Python tests). Native bundled
+(345 app tests on Intel Mac and 344 on Windows, plus source Python tests). Native bundled
 preparation and volume tools also build and pass their empty-PATH checks.
 All 28 real-IO transfer/coordinator checks pass against the bundled tools on
-both platforms. The Windows source-only POSIX race case remains skipped.
-Evidence: [native worker checks](https://github.com/CBOC-Vita-Lab/vita-installer/actions/runs/39219547871).
+both platforms. Windows-only POSIX/symlink cases remain skipped.
+Evidence: [native worker checks](https://github.com/CBOC-Vita-Lab/vita-installer/actions/runs/39227449832).
 These results do not establish complete packaged-app or physical-device
 acceptance; full native owned-input comparisons remain open.
 
@@ -43,6 +43,9 @@ and the hashes of 81 selected upstream notice files, both before staging and
 inside the finished app. Mac and Windows package metadata are checked separately;
 missing notices or dependency upgrades require review. This collection does not
 close the remaining transitive-notice and corresponding-source audit.
+The finished Apple Silicon app also rejected six deliberately damaged copies.
+Intel/Windows tests verify the collection against their real installed native
+dependencies; complete packaged-app acceptance on those platforms remains open.
 
 ## Not yet accepted
 
