@@ -1,5 +1,5 @@
 import { emptySnapshot, type UiSnapshot, type UiRequest } from '../shared/ui';
-import type { ArtworkChoice, ArtworkSlot, DeviceCandidate, ImportedRelease, PreparationResult, PreparedPackage, JobSnapshot } from '../shared/contracts';
+import type { ArtworkChoice, ArtworkSlot, DeviceCandidate, ImportedRelease, PreparationResult, PreparedPackage, JobSnapshot, InputCheck } from '../shared/contracts';
 import type { TrustStore } from '../releases/trust';
 import type { InputSelections, PreparationTools } from '../preparation/inputs';
 import type { InstallPlan } from '../jobs/types';
@@ -11,7 +11,7 @@ import sharp from 'sharp';
 import { importRelease } from '../releases/import';
 import { prepareArtwork } from '../artwork/prepare';
 import { convertImage, imageSize, readImage } from '../artwork/images';
-import { inspectInputs, prepareInputs, SHADER_COMPILER } from '../preparation/inputs';
+import { inspectInputs, prepareInputs, SHADER_COMPILER, InputCheckError } from '../preparation/inputs';
 import { createInstallPlan } from '../jobs/plan';
 import { executeTransfer, writeScope } from '../jobs/transfer';
 import { FileJournal } from '../jobs/journal';
@@ -26,6 +26,7 @@ import { requireThat } from '../shared/errors';
 import { safeError } from './security';
 import { checkPublicRelease } from '../releases/github';
 import { detectRetroflow } from '../artwork/detect';
+import { FileIntegrityError, verifyFile } from '../shared/integrity';
 
 interface Options {
   userData: string; trust: TrustStore; volumeWorker?: VolumeWorker;
@@ -56,6 +57,40 @@ export class InstallerController {
     this.plan = undefined; this.state.plan = undefined;
     if (prepared) { this.prepared = undefined; this.state.prepared = false; }
   }
+  private inputIssue(check: InputCheck) {
+    const role = this.state.inputs.find(i => i.id === check.id);
+    this.state.inputs = this.state.inputs.map(i => i.id === check.id ? { ...i, status: check.status, message: check.message, problemFile: check.problemFile } : i);
+    this.state.error = check.message ?? 'source_missing';
+    this.state.errorFile = check.problemFile ?? role?.filename ?? (check.source ? basename(check.source) : undefined);
+    this.state.repairStep = role?.kind.endsWith('-disc') ? 'game' : 'required';
+    this.invalidate(true);
+  }
+  private async checkRelease(signal: AbortSignal) {
+    const release = this.release();
+    await verifyFile(join(release.sourceRoot, 'cboc-release.json'), { sha256: release.manifestSha256 }, signal);
+    if (release.vpkPath && release.manifest.package) await verifyFile(release.vpkPath, { sha256: release.manifest.package.sha256 }, signal);
+  }
+  private fileIssue(error: FileIntegrityError) {
+    this.state.error = error.code; this.state.errorFile = basename(error.path);
+    if (this.state.job) return;
+    const release = this.releases.get(this.state.selectedRelease!);
+    if (release && [release.vpkPath, join(release.sourceRoot, 'cboc-release.json')].includes(error.path)) {
+      this.invalidate(true); this.state.repairStep = 'release';
+      this.state.error = error.code === 'source_missing' ? 'release_files_missing' : 'release_files_changed'; return;
+    }
+    if (Object.values(this.choices).some(choice => choice.source === error.path)
+      || Object.values(this.plan?.package.images ?? {}).some(image => image.path === error.path)
+      || this.plan?.package.path === error.path) {
+      this.invalidate(); this.state.repairStep = 'artwork';
+      if (error.code === 'source_changed') this.state.error = 'artwork_changed'; return;
+    }
+    const file = this.prepared?.files.find(file => file.source === error.path);
+    const input = this.state.inputs.find(input => input.id === file?.inputId)
+      ?? this.state.inputs.find(input => this.selections.chosen[input.id]?.some(path => error.path === path || error.path.startsWith(path + '/')))
+      ?? this.state.inputs.find(input => input.kind.endsWith('-disc'));
+    if (input) this.inputIssue({ ...input, status: error.code === 'source_missing' ? 'missing' : 'invalid', message: error.code, problemFile: basename(error.path) });
+    else { this.invalidate(true); this.state.repairStep = 'required'; }
+  }
   private async preview(bytes: Buffer) { return `data:image/png;base64,${(await sharp(bytes).resize({ width: 480, height: 320, fit: 'inside', withoutEnlargement: true }).png().toBuffer()).toString('base64')}`; }
   async initialize() {
     await mkdir(this.options.userData, { recursive: true, mode: 0o700 });
@@ -69,7 +104,7 @@ export class InstallerController {
     this.emit();
   }
   async command(request: UiRequest, paths: string[] = []): Promise<void> {
-    if (request.command === 'clearError') { this.state.error = undefined; this.emit(); return; }
+    if (request.command === 'clearError') { this.state.error = undefined; this.state.errorFile = undefined; this.emit(); return; }
     if (request.command === 'pause' || request.command === 'cancel') {
       if (this.state.job && !this.state.job.availableActions.includes('cancel')) return;
       this.paused = request.command === 'pause'; this.abort?.abort(); this.discoveryAbort?.abort();
@@ -92,12 +127,13 @@ export class InstallerController {
     }
     if (request.command === 'openRepo') return;
     if (this.discoveryTask) { this.discoveryAbort?.abort(); await this.discoveryTask; }
-    this.state.error = undefined; this.abort = new AbortController(); const signal = this.abort.signal;
+    this.state.error = undefined; this.state.errorFile = undefined; this.abort = new AbortController(); const signal = this.abort.signal;
     try {
       if (request.command === 'import') {
         if (!paths.length) return;
         this.state.busy = 'importing'; this.emit();
         const imported = await importRelease(paths[0], this.options.trust, signal);
+        this.state.repairStep = undefined;
         this.releases.clear(); this.state.releases = []; this.state.selectedRelease = undefined; this.invalidate(true);
         for (const release of imported) {
           this.remember(release.ownedWorkspace); const id = randomBytes(16).toString('hex'); this.releases.set(id, release);
@@ -128,18 +164,27 @@ export class InstallerController {
         if (request.command === 'removeInput') delete this.selections.chosen[request.id];
         else { if (!paths.length) return; if (request.command === 'scanFolder') this.selections.roots = [...new Set([...this.selections.roots, paths[0]])]; else this.selections.chosen[request.id] = paths; }
         this.invalidate(true); this.state.busy = 'scanning'; this.emit(); await this.scan(signal);
+        if (this.state.repairStep) {
+          const issue = this.state.inputs.find(input => !['ready', 'unverified'].includes(input.status));
+          if (issue) this.inputIssue(issue); else this.state.repairStep = undefined;
+        }
       } else if (request.command === 'artwork') {
         this.state.busy = 'artwork'; this.emit(); await this.updateArtwork(request, paths[0], signal); this.invalidate();
       } else if (request.command === 'prepare') {
         this.selectedDevice(); this.invalidate(true); this.state.busy = 'preparing'; this.emit();
+        await this.checkRelease(signal); await this.scan(signal);
+        const issue = this.state.inputs.find(input => !['ready', 'unverified'].includes(input.status));
+        if (issue) { this.inputIssue(issue); return; }
         this.prepared = await prepareInputs(this.release(), this.selections, p => { this.state.preparationPhase = p.phase; this.emit(); }, signal,
           await this.options.tools(this.release().manifest.recipeId, signal));
-        this.remember(this.prepared.workspace); this.state.prepared = true;
+        this.remember(this.prepared.workspace); this.state.prepared = true; this.state.repairStep = undefined;
       } else if (request.command === 'plan') {
         const reviewed = this.plan;
         this.invalidate(); requireThat(this.prepared, 'preparation_required'); this.state.busy = 'planning'; this.emit();
+        await this.checkRelease(signal);
+        for (const file of this.prepared.files) await verifyFile(file.source, file, signal);
         for (const [slot, choice] of Object.entries(this.choices)) if (choice.source)
-          requireThat(await hashFile(choice.source, signal) === this.sourceHashes[slot as ArtworkSlot], 'artwork_changed');
+          await verifyFile(choice.source, { sha256: this.sourceHashes[slot as ArtworkSlot] }, signal);
         const artwork = await prepareArtwork(this.release(), this.choices, signal); this.remember(artwork.workspace);
         for (const slot of Object.keys(this.previewHashes) as ArtworkSlot[]) requireThat(artwork.images[slot]?.outputSha256 === this.previewHashes[slot], 'artwork_changed');
         const device = await (this.options.inspect ?? inspectDevice)(this.selectedDevice(), signal); requireThat(device.state === 'ready', 'device_not_ready');
@@ -161,6 +206,7 @@ export class InstallerController {
         finally { await transport.close(); }
         const p = this.plan; this.state.plan = { id: p.jobId, blockers: p.blockers, warnings: p.warnings, appExists: p.appExists,
           requiredBytes: p.requiredBytes, freeBytes: p.freeBytes, requiresUr0Action: p.requiresUr0Action, customArtwork: Object.keys(this.choices) as ArtworkSlot[], consents };
+        this.state.repairStep = undefined;
       } else if (request.command === 'execute' || request.command === 'resume') {
         let plan: InstallPlan;
         if (request.command === 'execute') { requireThat(this.plan?.jobId === request.id && !this.plan.blockers.length, 'install_blocked'); plan = this.plan; }
@@ -169,6 +215,7 @@ export class InstallerController {
           requireThat(this.options.trust.fingerprints.has(plan.manifestSha256), 'untrusted_release');
         }
         this.state.busy = 'installing'; this.emit(); this.paused = false;
+        if (request.command === 'execute') await this.checkRelease(signal);
         const device = await (this.options.inspect ?? inspectDevice)(plan.target, signal); requireThat(device.state === 'ready' && device.identity === plan.target.identity, 'device_changed');
         this.devices.set(device.id, device); this.state.selectedDevice = device.id; this.updateDeviceViews();
         const transport = await this.open(device, { scope: writeScope(plan) });
@@ -201,9 +248,19 @@ export class InstallerController {
         }
       } else if (request.command === 'reset') {
         this.invalidate(true); this.state.job = undefined; this.state.selectedRelease = undefined; this.state.inputs = []; this.state.artwork = [];
-        this.state.recoverableJobs = []; this.choices = {}; this.selections = { roots: [], chosen: {} };
+        this.state.recoverableJobs = []; this.state.repairStep = undefined; this.choices = {}; this.selections = { roots: [], chosen: {} };
       }
-    } catch (error) { this.state.error = safeError(error); }
+    } catch (error) {
+      if (error instanceof InputCheckError) this.inputIssue(error.check);
+      else if (error instanceof FileIntegrityError) this.fileIssue(error);
+      else {
+        this.state.error = safeError(error);
+        if (request.command === 'import' && ['ENOENT', 'ENOTDIR', 'package_hash_mismatch'].includes((error as { code?: string }).code ?? '')) {
+          this.invalidate(true); this.state.repairStep = 'release';
+          this.state.error = (error as { code?: string }).code === 'package_hash_mismatch' ? 'release_files_changed' : 'release_files_missing';
+        }
+      }
+    }
     finally { this.state.busy = undefined; this.abort = undefined; this.emit(); }
   }
   private updateDeviceViews() {
@@ -230,8 +287,9 @@ export class InstallerController {
   private async selectRelease(id: string, signal: AbortSignal) {
     const release = this.releases.get(id); requireThat(release, 'unknown_release'); requireThat(release.manifest.releaseState === 'ready' && release.manifest.recipeId !== 'galaxy', 'release_held');
     this.state.selectedRelease = id; this.invalidate(true); this.state.inputs = []; this.state.artwork = []; this.defaults = undefined;
-    this.state.publicRelease = undefined;
+    this.state.publicRelease = undefined; this.state.repairStep = undefined;
     this.selections = { roots: [release.sourceRoot], chosen: {} }; this.choices = {}; this.sourceHashes = {}; this.previewHashes = {};
+    await this.checkRelease(signal);
     this.defaults = await prepareArtwork(release, {}, signal); this.remember(this.defaults.workspace);
     this.state.artwork = [];
     for (const slot of ['bubble', 'livearea', 'retroflow'] as const) this.state.artwork.push({ slot, mode: 'default', fit: 'cover', x: .5, y: .5,
@@ -260,8 +318,7 @@ export class InstallerController {
     this.state.inputs = checks.map(({ source, ...check }) => {
       const role = [...release.manifest.requiredInputs, ...release.manifest.optionalInputs].find(i => i.id === check.id);
       const selected = this.selections.chosen[check.id]?.[0];
-      const archive = selected && /\.zip$/i.test(selected) && role && ['strikers-disc', 'infected-disc', 'roms'].includes(role.kind);
-      return { ...check, ...(archive ? { status: 'unverified' as const, message: undefined } : {}), kind: role?.kind ?? '',
+      return { ...check, kind: role?.kind ?? '',
         filename: source ? basename(source) : selected ? basename(selected) : undefined, onVita: source !== undefined && source === this.prerequisitePath };
     });
   }

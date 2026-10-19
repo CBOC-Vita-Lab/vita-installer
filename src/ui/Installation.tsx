@@ -1,4 +1,4 @@
-import { Check, AlertCircle, Pause, Play, X } from 'lucide-react';
+import { Check, AlertCircle, Pause, Play, X, FolderOpen } from 'lucide-react';
 import type { JobSnapshot } from '../shared/contracts';
 import type { UiRequest } from '../shared/ui';
 import { bytes, errorMessage } from './messages';
@@ -17,6 +17,8 @@ export function Installation({ job, run, busy }: { job: JobSnapshot; run: (reque
           : <>Import this cover in RetroFlow:<code>{action.from}</code></>}
     </li>)}</ol> : null}
     <div className="job-actions">
+      {job.availableActions.includes('cancel') && ['source_missing', 'source_changed', 'source_unreadable', 'preparation_changed', 'artwork_changed'].includes(job.errorCode ?? '') &&
+        <button disabled={busy} onClick={() => { void (async () => { await run({ command: 'cancel' }); await run({ command: 'reset' }); })(); }}><FolderOpen /> Choose files again</button>}
       {job.availableActions.some(a => a === 'resume' || a === 'retry') && <button className="primary" disabled={busy} onClick={() => { void run({ command: 'resume', id: job.jobId }); }}><Play /> {job.completionMode === 'needs_attention' ? 'Check again' : 'Resume'}</button>}
       {active && job.availableActions.includes('cancel') && <button onClick={() => { void run({ command: 'pause' }); }}><Pause /> Pause</button>}
       {job.availableActions.includes('cancel') && <button onClick={() => { void run({ command: 'cancel' }); }}><X /> Cancel</button>}

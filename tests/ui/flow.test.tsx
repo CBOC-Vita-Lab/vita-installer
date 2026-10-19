@@ -146,3 +146,34 @@ it.each(['release', 'destination', 'reset'] as const)('requires fresh consent af
   fireEvent.click(await screen.findByRole('button', { name: 'Review install' }));
   await waitFor(() => expect(h.calls.at(-1)).toEqual({ command: 'plan', explicitUpdate: false, acknowledgeUnknownSpace: false, replaceRetroflow: false }));
 });
+it('returns to the missing-file picker and blocks continuation until the replacement is checked', async () => {
+  const h = harness(); await toArtwork();
+  await act(() => h.set({ prepared: false, repairStep: 'game', error: 'source_missing', errorFile: 'game.rvz',
+    inputs: [{ ...ready().inputs[0], status: 'missing', message: 'source_missing' }] }));
+  expect(await screen.findByRole('heading', { name: 'Game files' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Choose USA Rev 1 game file' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
+  await act(() => h.set({ inputs: ready().inputs, repairStep: undefined, error: undefined, errorFile: undefined }));
+  expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+  expect(await screen.findByRole('button', { name: 'Prepare files' })).toBeVisible();
+});
+it('requires a fresh release selection when the bundle is missing files', async () => {
+  harness({ ...ready(), repairStep: 'release', error: 'release_files_missing', errorFile: 'install.vpk' });
+  expect(await screen.findByRole('button', { name: 'Continue' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Choose another release ZIP' })).toBeVisible();
+  expect(screen.getByRole('alert')).toHaveTextContent(/download|redownload/i);
+});
+it('reveals a missing selected optional file and blocks preparation instead of silently skipping it', async () => {
+  harness({ ...ready(), repairStep: 'required', optionalInputs: [{ id: 'roms', label: 'Your games', kind: 'roms' }],
+    inputs: [...ready().inputs, { id: 'roms', label: 'Your games', kind: 'roms', required: false, status: 'missing', message: 'source_missing', filename: 'game.gba' }] });
+  expect(await screen.findByRole('button', { name: 'Prepare files' })).toBeDisabled();
+  expect(screen.getByText('Optional extras').closest('details')).toHaveAttribute('open');
+  expect(screen.getByRole('button', { name: 'Choose Your games' })).toBeVisible();
+});
+it('lets a paused missing-file job return to file selection rather than retrying blindly', async () => {
+  const h = harness({ ...ready(), job: { jobId: id, phase: 'paused', errorCode: 'source_missing', bytesDone: 0, bytesTotal: 100,
+    verifiedFiles: 0, totalFiles: 2, availableActions: ['resume', 'cancel'] } });
+  fireEvent.click(await screen.findByRole('button', { name: 'Choose files again' }));
+  await waitFor(() => expect(h.calls.slice(-2)).toEqual([{ command: 'cancel' }, { command: 'reset' }]));
+});

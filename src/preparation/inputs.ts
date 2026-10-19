@@ -9,6 +9,9 @@ import { checkedChild, extractArchive } from '../releases/import';
 import { cancelled, InstallerError, requireThat } from '../shared/errors';
 import { digest, hashFile } from '../shared/files';
 import { inventoryTree } from './inventory';
+import { FileIntegrityError } from '../shared/integrity';
+import { verifyInventory } from './integrity';
+import strikersInventory from '../../resources/integrity/strikers-r4qe01-r1.json';
 
 export const STRIKERS_DOL = '8f811628ee6646c60620a9c599ef08ed929d2eccc98a779c211847f1500f81fd';
 export const INFECTED_BOOT = '952d4bb2c08209f4cbc0020d95c4cc601e9944cad5c7ade4c1d060fe8daab1bc';
@@ -19,17 +22,21 @@ export interface InputSelections { roots: string[]; chosen: Record<string, strin
 export interface PreparationTools { nod?: VerifiedTool; dataWorker?: VerifiedTool }
 export interface PreparationProgress { phase: 'checking' | 'extracting' | 'hashing'; files: number }
 type Input = ReleaseManifest['requiredInputs'][number];
+export class InputCheckError extends InstallerError {
+  constructor(public readonly check: InputCheck) { super('invalid_input'); }
+}
 
 export function checkStrikersInfo(info: string) {
   const header = info.split(/^Partition\s+\d+/m, 1)[0];
   requireThat(/^Game ID: R4QE01\s*$/m.test(header) && /^Disc 1, Revision 1\s*$/m.test(header), 'unsupported_game_revision');
 }
 
-export async function checkStrikersExtraction(root: string, signal?: AbortSignal) {
+export async function checkStrikersExtraction(root: string, signal?: AbortSignal, hashes = false) {
   const canonical = await realpath(root);
   requireThat(!(await lstat(root)).isSymbolicLink(), 'unsafe_source');
   const dol = await checkedChild(canonical, 'sys/main.dol');
   requireThat(await hashFile(dol, signal) === STRIKERS_DOL, 'unsupported_game_revision');
+  await verifyInventory(canonical, strikersInventory.files, signal, hashes);
   await checkedChild(canonical, 'sys/fst.bin');
   for (const path of [join(canonical, 'files'), join(canonical, 'files', 'Art')]) {
     const stat = await lstat(path); requireThat(stat.isDirectory() && !stat.isSymbolicLink(), 'incomplete_extraction');
@@ -56,7 +63,9 @@ async function discover(roots: string[], signal?: AbortSignal) {
     }
   }
   for (const root of roots) {
-    requireThat(!(await lstat(root)).isSymbolicLink(), 'unsafe_source');
+    const stat = await lstat(root).catch(error => { if (['ENOENT', 'ENOTDIR'].includes(error.code)) return undefined; throw error; });
+    if (!stat) continue;
+    requireThat(!stat.isSymbolicLink(), 'unsafe_source');
     const canonical = await realpath(root);
     requireThat(canonical !== parse(canonical).root && canonical !== homedir(), 'input_scope_too_broad');
     await scan(canonical, 0);
@@ -66,6 +75,7 @@ async function discover(roots: string[], signal?: AbortSignal) {
 
 async function inspectOne(input: Input, source: string, tools: PreparationTools, signal?: AbortSignal): Promise<'ready' | 'unverified'> {
   const stat = await lstat(source); requireThat(!stat.isSymbolicLink(), 'unsafe_source');
+  if (stat.isFile() && /\.zip$/i.test(source) && ['strikers-disc', 'infected-disc', 'roms'].includes(input.kind)) return 'unverified';
   switch (input.kind) {
     case 'strikers-disc':
       if (stat.isDirectory()) { await checkStrikersExtraction(source, signal); return 'ready'; }
@@ -113,7 +123,10 @@ export async function inspectInputs(release: ImportedRelease, selections: InputS
       checks.push({ ...base, status, source: candidates[0] });
     } catch (error) {
       cancelled(signal);
-      checks.push({ ...base, status: 'invalid', source: candidates[0], message: error instanceof InstallerError ? error.code : 'Could not read this file.' });
+      const missing = ['ENOENT', 'ENOTDIR', 'source_missing'].includes((error as { code?: string }).code ?? '');
+      checks.push({ ...base, status: missing ? 'missing' : 'invalid', source: candidates[0],
+        message: missing ? 'source_missing' : error instanceof InstallerError ? error.code : 'source_unreadable',
+        problemFile: error instanceof FileIntegrityError ? basename(error.path) : undefined });
     }
   }
   return checks;
@@ -152,7 +165,8 @@ export async function prepareInputs(release: ImportedRelease, selections: InputS
       }
     }
     const checks = await inspectInputs(release, selections, tools, signal);
-    requireThat(checks.every(c => c.status === 'ready' || c.status === 'unverified'), 'invalid_input');
+    const issue = checks.find(c => c.status !== 'ready' && c.status !== 'unverified');
+    if (issue) throw new InputCheckError(issue);
     for (const check of checks) {
       const input = [...release.manifest.requiredInputs, ...release.manifest.optionalInputs].find(i => i.id === check.id)!;
       const paths = selections.chosen[check.id]?.length ? selections.chosen[check.id] : [check.source!];
@@ -170,8 +184,8 @@ export async function prepareInputs(release: ImportedRelease, selections: InputS
             extracted = join(workspace, 'strikers'); onProgress({ phase: 'extracting', files: 0 });
             await runWorker(tools.nod, ['extract', '--quiet', '--validate', '--partition', 'data', source, extracted], { cwd: workspace, signal });
           }
-          await checkStrikersExtraction(extracted, signal);
-          for (const dir of ['sys', 'files']) result.files.push(...await inventoryTree(join(extracted, dir), `${data}/${dir}`, release.manifest.limits, signal));
+          await checkStrikersExtraction(extracted, signal, true);
+          for (const file of strikersInventory.files) result.files.push({ source: join(extracted, file.path), destination: `${data}/${file.path}`, bytes: file.bytes, sha256: file.sha256 });
         } else if (input.kind === 'roms' && stat.isDirectory()) {
           result.files.push(...await inventoryTree(source, data, release.manifest.limits, signal,
             p => p.split('/').length <= 3 && !p.split('/').some(n => n.startsWith('.')) && ROM.test(p)));
@@ -183,6 +197,7 @@ export async function prepareInputs(release: ImportedRelease, selections: InputS
           result.files.push({ source, destination, bytes: stat.size, sha256: beforeHash! });
         }
         if (beforeHash) requireThat(await hashFile(source, signal) === beforeHash, 'source_changed');
+        for (const file of result.files.slice(start)) file.inputId = check.id;
         const fingerprint = beforeHash ?? digest(JSON.stringify(result.files.slice(start).map(f => [f.destination, f.bytes, f.sha256])));
         result.inputFingerprints[`${check.id}:${paths.indexOf(sourcePath)}`] = fingerprint;
         onProgress({ phase: 'hashing', files: result.files.length });

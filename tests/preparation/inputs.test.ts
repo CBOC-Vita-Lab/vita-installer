@@ -121,3 +121,13 @@ it('rejects ambiguous and over-budget game archives without executing bundled sc
   const r = release('vitadhoc'); r.manifest.limits.maxFileBytes = 2;
   await expect(prepareInputs(r, { roots: [], chosen: { roms: [path] } }, () => {})).rejects.toMatchObject({ code: 'archive_size_limit' });
 });
+it('marks a deleted selected file missing and can recover after choosing its replacement', async () => {
+  const root = await directory(), path = join(root, 'gone.gba');
+  expect(await inspectInputs(release('vitadhoc'), { roots: [], chosen: { roms: [path] } })).toMatchObject([{ id: 'roms', status: 'missing', message: 'source_missing' }]);
+  await writeFile(path, 'restored');
+  expect(await inspectInputs(release('vitadhoc'), { roots: [], chosen: { roms: [path] } })).toMatchObject([{ id: 'roms', status: 'ready' }]);
+});
+it('does not let an obsolete scan folder prevent locating a valid replacement', async () => {
+  const root = await directory(), path = join(root, 'found.gba'); await writeFile(path, 'game');
+  expect(await inspectInputs(release('vitadhoc'), { roots: [join(root, 'deleted-folder')], chosen: { roms: [path] } })).toMatchObject([{ id: 'roms', status: 'ready' }]);
+});

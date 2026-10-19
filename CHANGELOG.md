@@ -1,5 +1,14 @@
 # Changes
 
+## 0.1.1 private preview
+
+- Stop on missing, moved, unreadable or changed required files.
+- Return to the relevant picker and identify the file that needs replacing.
+- Check every required Strikers extracted file against the supported revision.
+- Recheck release files before preparation and installation, and prepared files
+  before copying. Valid files continue through the normal flow.
+- Offer file reselection for paused jobs with missing sources.
+
 ## 0.1.0 private preview
 
 - Import a verified release ZIP or folder and choose a game visually.

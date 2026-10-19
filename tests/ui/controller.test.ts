@@ -107,3 +107,46 @@ it('requires a reviewed matching conflict before accepting update consent', asyn
   expect(f.c.snapshot().plan?.blockers).toContain('existing_app');
   expect(f.c.snapshot().plan?.consents?.update).toBe(false);
 });
+it('blocks a deleted release package before preparation and offers the release step', async () => {
+  const f = await fixture(); await f.c.command({ command: 'import', kind: 'folder' }, [f.root]); await f.c.command({ command: 'discover' });
+  await rm(join(f.root, 'Strikers.vpk'));
+  await f.c.command({ command: 'prepare' });
+  expect(f.c.snapshot()).toMatchObject({ prepared: false, repairStep: 'release', error: 'release_files_missing', errorFile: 'Strikers.vpk' });
+  expect(f.transport.writes).toEqual([]);
+  await writeFile(join(f.root, 'Strikers.vpk'), f.vpk);
+  await f.c.command({ command: 'prepare' }); expect(f.c.snapshot().prepared).toBe(true);
+});
+it.each(['missing', 'changed'] as const)('blocks a %s package when reselecting a release', async state => {
+  const f = await fixture(); await f.c.command({ command: 'import', kind: 'folder' }, [f.root]);
+  const id = f.c.snapshot().selectedRelease!;
+  if (state === 'missing') await rm(join(f.root, 'Strikers.vpk'));
+  else await writeFile(join(f.root, 'Strikers.vpk'), 'changed');
+  await f.c.command({ command: 'selectRelease', id });
+  expect(f.c.snapshot()).toMatchObject({ prepared: false, repairStep: 'release', error: `release_files_${state}`, errorFile: 'Strikers.vpk' });
+  expect(f.transport.writes).toEqual([]);
+  await writeFile(join(f.root, 'Strikers.vpk'), f.vpk);
+  await f.c.command({ command: 'selectRelease', id });
+  expect(f.c.snapshot().repairStep).toBeUndefined(); expect(f.c.snapshot().error).toBeUndefined();
+});
+it.each(['before-plan', 'before-copy'] as const)('blocks deleted input %s and accepts a located replacement without device writes', async when => {
+  const f = await fixture(), path = join(f.root, 'owned.gba'); await writeFile(path, 'game');
+  await f.c.command({ command: 'import', kind: 'folder' }, [f.root]); await f.c.command({ command: 'discover' });
+  await f.c.command({ command: 'chooseInput', id: 'roms', kind: 'file' }, [path]); await f.c.command({ command: 'prepare' });
+  const plan = { command: 'plan' as const, explicitUpdate: false, acknowledgeUnknownSpace: false, replaceRetroflow: false };
+  if (when === 'before-copy') await f.c.command(plan);
+  const id = f.c.snapshot().plan?.id; await rm(path);
+  await f.c.command(when === 'before-plan' ? plan : { command: 'execute', id: id! });
+  expect(f.c.snapshot()).toMatchObject({ prepared: false, repairStep: 'required', error: 'source_missing', errorFile: 'owned.gba' });
+  expect(f.c.snapshot().plan).toBeUndefined(); expect(f.transport.writes).toEqual([]);
+  const replacement = join(f.root, 'restored.gba'); await writeFile(replacement, 'game');
+  await f.c.command({ command: 'chooseInput', id: 'roms', kind: 'file' }, [replacement]); await f.c.command({ command: 'prepare' }); await f.c.command(plan);
+  expect(f.c.snapshot().plan?.blockers).toEqual([]); expect(f.c.snapshot().error).toBeUndefined(); expect(f.c.snapshot().repairStep).toBeUndefined();
+});
+it('does not retain ready status for a file deleted before preparation', async () => {
+  const f = await fixture(), path = join(f.root, 'owned.gba'); await writeFile(path, 'game');
+  await f.c.command({ command: 'import', kind: 'folder' }, [f.root]); await f.c.command({ command: 'discover' });
+  await f.c.command({ command: 'chooseInput', id: 'roms', kind: 'file' }, [path]); await rm(path);
+  await f.c.command({ command: 'prepare' });
+  expect(f.c.snapshot().inputs).toMatchObject([{ id: 'roms', status: 'missing' }]);
+  expect(f.c.snapshot().repairStep).toBe('required'); expect(f.c.snapshot().prepared).toBe(false); expect(f.transport.writes).toEqual([]);
+});

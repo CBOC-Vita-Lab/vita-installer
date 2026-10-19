@@ -16,6 +16,7 @@ export function App({ bridge = window.vitaInstaller }: { bridge?: InstallerBridg
   useEffect(() => { if (!bridge) return; let alive = true; void bridge.getSnapshot().then(s => { if (alive) setState(s); }); const off = bridge.subscribe(setState); return () => { alive = false; off(); }; }, [bridge]);
   useEffect(() => { heading.current?.focus(); }, [step]);
   useEffect(() => { if (!state.selectedRelease && !state.job) setStep('release'); }, [state.selectedRelease, state.job]);
+  useEffect(() => { if (state.repairStep && !state.job) setStep(state.repairStep); }, [state.repairStep, state.job]);
   const run = async (request: UiRequest) => {
     if (!bridge) return; setLocalError(undefined);
     const control = ['cancel', 'pause', 'discover', 'clearError'].includes(request.command);
@@ -27,7 +28,7 @@ export function App({ bridge = window.vitaInstaller }: { bridge?: InstallerBridg
   const selected = state.releases.find(r => r.id === state.selectedRelease), device = state.devices.find(d => d.id === state.selectedDevice);
   const connected = device?.state === 'ready', disabled = pending || !!state.busy, current = steps.findIndex(s => s.id === step);
   const gameReady = state.inputs.filter(i => i.required && i.kind.endsWith('-disc')).every(i => ['ready', 'unverified'].includes(i.status));
-  const allReady = state.inputs.filter(i => i.required).every(i => ['ready', 'unverified'].includes(i.status));
+  const allReady = state.inputs.every(i => ['ready', 'unverified'].includes(i.status));
   async function next() {
     if (step === 'release') { if (connected && selected && !selected.held) setStep('game'); }
     else if (step === 'game') setStep('required');
@@ -36,7 +37,7 @@ export function App({ bridge = window.vitaInstaller }: { bridge?: InstallerBridg
     else if (state.plan) await run({ command: 'execute', id: state.plan.id });
   }
   const replan = (space: boolean, upd: boolean, cover: boolean) => { void run({ command: 'plan', acknowledgeUnknownSpace: space, explicitUpdate: upd, replaceRetroflow: cover }); };
-  const nextDisabled = disabled || !connected || !selected || selected.held || (step === 'game' && !gameReady) || (step === 'required' && !allReady)
+  const nextDisabled = disabled || !connected || !selected || selected.held || state.repairStep === 'release' || (step === 'game' && !gameReady) || (step === 'required' && !allReady)
     || (step === 'install' && (!state.plan || state.plan.blockers.length > 0));
   if (!bridge) return <main className="unavailable"><h1>CBOC Vita Installer</h1><p>Open the desktop app to install a release.</p></main>;
   return <div className="app-shell">
@@ -45,7 +46,7 @@ export function App({ bridge = window.vitaInstaller }: { bridge?: InstallerBridg
     <nav className="steps" aria-label="Installation steps"><ol>{steps.map((item, i) => <li key={item.id} className={i < current ? 'done' : i === current ? 'current' : ''} aria-current={step === item.id ? 'step' : undefined}>
       <span className="step-dot">{i < current && <Check />}</span><span>{item.label}</span></li>)}</ol></nav>
     <main className="workspace">
-      {(state.error || localError) && <div role="alert" className="error-banner"><span>{errorMessage(state.error ?? localError, selected?.recipe)}</span><IconButton label="Dismiss error" onClick={() => { setLocalError(undefined); void run({ command: 'clearError' }); }}><X /></IconButton></div>}
+      {(state.error || localError) && <div role="alert" className="error-banner"><span>{errorMessage(state.error ?? localError, selected?.recipe)}{state.errorFile && <strong className="filename">{state.errorFile}</strong>}</span><IconButton label="Dismiss error" onClick={() => { setLocalError(undefined); void run({ command: 'clearError' }); }}><X /></IconButton></div>}
       {state.job ? <Installation job={state.job} busy={disabled} run={run} /> : <>
         <div className="section-heading"><div><h2 ref={heading} tabIndex={-1}>{step === 'release' ? selected ? 'Confirm release' : 'Choose release' : steps[current].label}</h2>{selected && step !== 'release' && <p>{selected.name}</p>}</div>
           {selected && <IconButton label="Open game releases" disabled={disabled} onClick={() => { void run({ command: 'openRepo', repo: selected.recipe as 'strikers' }); }}><ExternalLink /></IconButton>}
@@ -55,7 +56,8 @@ export function App({ bridge = window.vitaInstaller }: { bridge?: InstallerBridg
             <IconButton label="Choose release folder" disabled={disabled} onClick={() => { void run({ command: 'import', kind: 'folder' }); }}><FolderOpen /></IconButton></div></div>
             : <div className={`release-list ${state.releases.length === 1 ? 'single' : ''}`}>{state.releases.map(release => <button key={release.id} className={`release-choice ${state.selectedRelease === release.id ? 'selected' : ''}`} disabled={disabled || release.held} onClick={() => { void run({ command: 'selectRelease', id: release.id }); }}>
               {release.image ? <img src={release.image} alt={`${release.name} artwork`} /> : <FileArchive className="release-symbol" />}<span><strong>{release.name}</strong><small>{release.held ? 'Not ready to install' : release.version}</small></span>{release.id === state.selectedRelease && <Check />}</button>)}</div>}
-          {state.releases.length > 0 && <button className="text-button" disabled={disabled} onClick={() => { void run({ command: 'import', kind: 'folder' }); }}><FolderOpen /> Choose another release</button>}
+          {state.releases.length > 0 && <div className="release-actions"><button className="text-button" disabled={disabled} onClick={() => { void run({ command: 'import', kind: 'file' }); }}><FileArchive /> Choose another release ZIP</button>
+            <IconButton label="Choose another release folder" disabled={disabled} onClick={() => { void run({ command: 'import', kind: 'folder' }); }}><FolderOpen /></IconButton></div>}
           {selected && <div className="release-metadata"><IconButton label="Check public releases" disabled={disabled} onClick={() => { void run({ command: 'checkRelease' }); }}><RefreshCw /></IconButton>
             {state.publicRelease && <span className="muted">{state.publicRelease.status === 'available' ? `Latest public release: ${state.publicRelease.tag}` : 'Public release information unavailable. Your local bundle can still be used.'}</span>}</div>}
           {state.recoverableJobs.map(job => <button className="recovery-row" key={job.id} disabled={disabled} onClick={() => { void run({ command: 'resume', id: job.id }); }}><RefreshCw /> Resume {job.title}</button>)}

@@ -6,9 +6,9 @@ export interface ImportedRelease {
 }
 export interface InputCheck {
   id: string; label: string; status: 'ready' | 'missing' | 'invalid' | 'unverified';
-  required: boolean; source?: string; message?: string;
+  required: boolean; source?: string; message?: string; problemFile?: string;
 }
-export interface PreparedFile { source: string; destination: string; bytes: number; sha256: string }
+export interface PreparedFile { source: string; destination: string; bytes: number; sha256: string; inputId?: string }
 export interface PreparationResult {
   releaseId: string; inputFingerprints: Record<string, string>; recipeFingerprint: string;
   toolFingerprints?: Record<string, string>;

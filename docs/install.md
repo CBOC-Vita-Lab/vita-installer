@@ -29,6 +29,12 @@ Choose a release ZIP, extracted release folder, or parent folder containing
 several releases. Select your own game files. Only selected folders and the
 selected Vita's prerequisite location are checked, not your whole computer.
 
+Files are checked automatically before preparation and again before copying.
+If something is missing or changed, installation stops and shows what to
+replace. Locate the complete file/folder or redownload the release ZIP, then
+continue. Valid files need no extra confirmation. Strikers' extracted folder
+is checked against all 2,359 expected files, including their sizes and hashes.
+
 Review the bubble icon, bubble background and RetroFlow cover. Keep defaults
 or select PNG, JPEG or still WebP images. Custom images stay local. Existing
 RetroFlow artwork is kept unless you explicitly choose a backed-up replacement.

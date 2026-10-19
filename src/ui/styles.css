@@ -83,6 +83,9 @@ input[type="checkbox"] { accent-color: var(--cyan); width: 17px; height: 17px; m
 .plan-summary p { margin: 12px 0; }
 .error-text { color: var(--coral); display: flex; align-items: center; gap: 8px; overflow-wrap: anywhere; }
 .error-banner { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px 16px; background: #3c2528; border-left: 3px solid var(--coral); margin-bottom: 24px; }
+.error-banner > span { min-width: 0; flex: 1; }
+.error-banner .filename { white-space: normal; overflow-wrap: anywhere; margin-top: 6px; }
+.input-label > .error-text { display: block; }
 .busy-status { position: sticky; bottom: 0; background: var(--surface); border: 1px solid var(--border); padding: 12px 16px; margin-top: 24px; display: flex; align-items: center; gap: 12px; }
 .busy-status button { margin-left: auto; }
 .busy-status > svg, .pending > svg { animation: spin 1.4s linear infinite; color: var(--cyan); }

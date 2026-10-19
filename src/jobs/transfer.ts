@@ -3,13 +3,13 @@ import type { JobSnapshot } from '../shared/contracts';
 import type { InstallPlan } from './types';
 import type { FileJournal } from './journal';
 import { createReadStream } from 'node:fs';
-import { lstat } from 'node:fs/promises';
-import { cancelled, InstallerError, requireThat } from '../shared/errors';
+import { cancelled, requireThat } from '../shared/errors';
 import { hashFile } from '../shared/files';
 import { planFingerprint } from './plan';
 import { observeFile, observeTrees } from './observe';
 import { ensureBackups } from './backups';
 import { ensureBinding } from './binding';
+import { verifyFile } from '../shared/integrity';
 
 export function writeScope(plan: InstallPlan): WriteScope {
   requireThat(plan.fingerprint === planFingerprint(plan), 'plan_changed');
@@ -32,10 +32,9 @@ export async function verifyInstalledBaseline(plan: InstallPlan, transport: Tran
 export async function verifySources(plan: InstallPlan, signal?: AbortSignal) {
   requireThat(plan.fingerprint === planFingerprint(plan), 'plan_changed'); cancelled(signal);
   for (const file of plan.files) {
-    try { requireThat((await lstat(file.source)).size === file.bytes && await hashFile(file.source, signal) === file.sha256, 'source_changed'); }
-    catch (error) { cancelled(signal); if (error instanceof InstallerError) throw error; throw new InstallerError('source_changed'); }
+    await verifyFile(file.source, file, signal);
   }
-  for (const image of Object.values(plan.package.images)) requireThat(await hashFile(image.path, signal) === image.outputSha256, 'artwork_changed');
+  for (const image of Object.values(plan.package.images)) await verifyFile(image.path, { sha256: image.outputSha256 }, signal);
 }
 export async function executeTransfer(plan: InstallPlan, transport: Transport, journal: FileJournal,
   onProgress: (snapshot: JobSnapshot) => void, signal?: AbortSignal): Promise<JobSnapshot> {

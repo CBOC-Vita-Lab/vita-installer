@@ -12,7 +12,7 @@ export interface UiSnapshot {
   devices: DeviceView[]; selectedDevice?: string; discoveryStatus?: string;
   artwork: ArtworkView[]; prepared: boolean; plan?: PlanView; job?: JobSnapshot;
   busy?: 'importing' | 'scanning' | 'preparing' | 'planning' | 'installing' | 'artwork';
-  error?: string; discoveryBusy: boolean; preparationPhase?: string;
+  error?: string; errorFile?: string; repairStep?: Step; discoveryBusy: boolean; preparationPhase?: string;
   recoverableJobs: { id: string; title: string; phase: string }[];
   publicRelease?: { status: 'available' | 'unavailable'; tag?: string };
 }
