@@ -1,8 +1,10 @@
 # Downloads
 
-All repositories are private. Sign in with an account that has access and open
-**Releases > Assets**. Drafts need repository write access and do not appear in
-the app's public update check. A 404 does not mean you need a different download.
+Strikers and the installer repositories are public source previews. Infected,
+Galaxy and VitAdhoc remain private. All current release downloads are still
+unpublished drafts, requiring repository write access; they do not appear in
+the app's public update check. Public repository access alone does not expose
+draft assets. Licensing and full installation review remain pending.
 
 ## Desktop app
 

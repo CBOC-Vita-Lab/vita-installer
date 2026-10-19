@@ -5,12 +5,14 @@
 A desktop installer for reviewed CBOC Vita bundles. Choose your release, add
 your own game files, pick the artwork, then install.
 
-**Private preview.** Public downloads are not available yet. This preview does
+**Public source preview.** GitHub release downloads remain unpublished drafts.
+Binary redistribution, signing and full installation testing are still under
+review; publication is not a claim of third-party approval. This preview does
 not include commercial games, a proprietary BIOS or the shader compiler.
 Galaxy remains unavailable. Platform and device acceptance is tracked in
 [Acceptance](docs/acceptance.md).
 
-## Install a game
+## Install a game (existing preview testers)
 
 1. Download the [Apple Silicon Mac 0.1.9 preview](https://github.com/CBOC-Vita-Lab/vita-installer/releases/tag/untagged-09e00aebad3d79563276), unzip it and open the app.
 2. Connect your Vita, or attach its already configured memory card.
@@ -42,6 +44,9 @@ checked. Full setup remains available when data needs to change.
 Intel Mac and Windows x64 packages are retained separately for validation.
 They have passed automated package checks, not native interactive installation
 or full Vita acceptance. See [Downloads](docs/downloads.md) before choosing a file.
+Public visitors can read the source and build notes now; there is no public
+accepted installer release yet. Actions artifacts are unaccepted validation
+builds for developers, not recommended player downloads.
 
 ## While it runs
 
