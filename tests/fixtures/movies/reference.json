@@ -1,0 +1,10 @@
+{
+  "provenance": "Twelve generated flat, gradient, checkerboard and seeded block-noise frames. Audio is a synthetic byte pattern, not playable audio. No game data.",
+  "recipeId": "galaxy-q55-portable-f32-v1",
+  "quality": 55,
+  "frames": 12,
+  "referenceWorkerSha256": "59049f02fcc91522bd63d6314a3e55f20dee2dbdd06ce00a922da08212f2ea84",
+  "inputSha256": "0b30d06a994db057246dcedca0ad32399fcc5cf14b197bfd704d2ba20313f703",
+  "outputSha256": "2139c69516914af6a27e7ad0298f844b7863b5ae671e2068b990a7090d61974e",
+  "generatorSharpVersion": "0.35.5"
+}

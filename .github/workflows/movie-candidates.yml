@@ -1,0 +1,53 @@
+name: Native movie candidate checks
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: movie-candidates-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - runner: macos-15-intel
+            platform: darwin-x64
+          - runner: windows-2022
+            platform: win32-x64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '24.22.0'
+          architecture: x64
+      - name: Confirm native target
+        env:
+          EXPECTED_PLATFORM: ${{ matrix.platform }}
+        run: node -e "if (process.platform + '-' + process.arch !== process.env.EXPECTED_PLATFORM) process.exit(1); console.log(process.platform, process.arch, process.version)"
+      - name: Build isolated candidate from pinned sources
+        run: node scripts/build-movie-candidate.mjs
+      - name: Compare synthetic movies without system tools
+        run: node --test --test-reporter=tap tests/preparation/movie-candidate.test.mjs > out/movie-candidate/${{ matrix.platform }}/tests.tap
+      - name: Retain candidate and test results, not a release
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: movie-candidate-${{ matrix.platform }}
+          path: out/movie-candidate/${{ matrix.platform }}/
+          if-no-files-found: ignore
+          retention-days: 3

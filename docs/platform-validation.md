@@ -54,6 +54,22 @@ with the organization's zero-spend Actions budget in place.
 The movie-helper builder still rejects unvalidated platforms and unknown
 executable hashes. Native regression results do not bypass that release gate.
 
+The separate **Native movie candidate checks** workflow builds the unchanged
+converter with pinned libjpeg-turbo 3.1.4.1 and compares generated test movies
+against the reviewed helper's exact output. It retains isolated candidates
+under `out/movie-candidate`, never `workers/bin`, and does not update trust
+pins. Synthetic tests cannot replace complete owned-movie comparisons or Vita
+playback acceptance. No game assets are uploaded. To run the same check locally
+with CMake and Clang available:
+
+```sh
+node scripts/build-movie-candidate.mjs
+node --test tests/preparation/movie-candidate.test.mjs
+```
+
+Set `CMAKE` to an explicit CMake executable when it is not on PATH. These are
+build-time tools, not additional player requirements.
+
 Use the requested architecture, Node 24 and Python 3.14.4. Create
 `.venv-workers`, install `workers/requirements.txt` and test-only
 `pyftpdlib==2.2.0`, then run:
