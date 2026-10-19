@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, Wifi, Usb, FolderOpen, FileArchive, ExternalLink
 import { emptySnapshot, type InstallerBridge, type Step, type UiRequest, type UiSnapshot } from '../shared/ui';
 import { Artwork } from './Artwork';
 import { Connection } from './Connection';
+import { Updates } from './Updates';
 import { Inputs } from './Inputs';
 import { Installation } from './Installation';
 import { Progress, preparationLabel } from './Progress';
@@ -13,6 +14,7 @@ export function App({ bridge = window.vitaInstaller }: { bridge?: InstallerBridg
   const [state, setState] = useState<UiSnapshot>(emptySnapshot), [step, setStep] = useState<Step>('release'), [connecting, setConnecting] = useState(false);
   const [pending, setPending] = useState(false), [localError, setLocalError] = useState<string>();
   const [githubUrl, setGithubUrl] = useState('');
+  const [updatesOpen, setUpdatesOpen] = useState(false);
   const { space: ackSpace, update, cover: replaceCover } = state.plan?.consents ?? { space: false, update: false, cover: false };
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { if (!bridge) return; let alive = true; void bridge.getSnapshot().then(s => { if (alive) setState(s); }); const off = bridge.subscribe(setState); return () => { alive = false; off(); }; }, [bridge]);
@@ -21,7 +23,7 @@ export function App({ bridge = window.vitaInstaller }: { bridge?: InstallerBridg
   useEffect(() => { if (state.repairStep && !state.job) setStep(state.repairStep); }, [state.repairStep, state.job]);
   const run = async (request: UiRequest) => {
     if (!bridge) return; setLocalError(undefined);
-    const control = ['cancel', 'pause', 'discover', 'clearError'].includes(request.command);
+    const control = ['cancel', 'pause', 'discover', 'clearError', 'checkInstallerUpdate', 'downloadInstallerUpdate', 'openRepo'].includes(request.command);
     if (!control) setPending(true);
     try { await bridge.command(request); setState(await bridge.getSnapshot()); }
     catch { setLocalError('operation_failed'); }
@@ -50,7 +52,10 @@ export function App({ bridge = window.vitaInstaller }: { bridge?: InstallerBridg
   if (!bridge) return <main className="unavailable"><h1>CBOC Vita Installer</h1><p>Open the desktop app to install a release.</p></main>;
   return <div className={`app-shell ${state.busy && !state.job ? 'with-progress' : ''}`}>
     <header className="app-header"><div className="brand"><img src={new URL('../../resources/branding/cboc-mark.png', import.meta.url).href} alt="CBOC logo" width="48" height="48" /><div><strong>CBOC</strong><h1 aria-label="CBOC Vita Installer">Vita Installer</h1></div></div><button className={`connection-button ${connected ? 'connected' : ''}`} disabled={!!state.busy && state.busy !== 'installing'} onClick={() => { setConnecting(true); if (!state.discoveryBusy) void run({ command: 'discover' }); }} aria-label={connected ? 'Vita connected' : 'Connect Vita'}>
-      {device && device.transport !== 'ftp' ? <Usb /> : <Wifi />}<span>{connected ? device.transport === 'card' ? 'Card connected' : 'Vita connected' : 'Connect Vita'}</span></button></header>
+      {device && device.transport !== 'ftp' ? <Usb /> : <Wifi />}<span>{connected ? device.transport === 'card' ? 'Card connected' : 'Vita connected' : 'Connect Vita'}</span></button>
+      {state.desktopUpdate && <div className={`installer-version ${state.desktopUpdate.status === 'available' ? 'update-ready' : ''}`}>
+        <small>v{state.desktopUpdate.currentVersion}</small><IconButton label={state.desktopUpdate.status === 'available' ? 'Installer update available' : 'Installer updates'} onClick={() => setUpdatesOpen(true)}><Download /></IconButton>
+      </div>}</header>
     <nav className="steps" aria-label="Installation steps"><ol>{visibleSteps.map((item, i) => <li key={item.id} className={i < current ? 'done' : i === current ? 'current' : ''} aria-current={step === item.id ? 'step' : undefined}>
       <span className="step-dot">{i < current && <Check />}</span><span>{item.label}</span></li>)}</ol></nav>
     <main className="workspace">
@@ -104,5 +109,6 @@ export function App({ bridge = window.vitaInstaller }: { bridge?: InstallerBridg
     {!state.job && <footer className="app-footer"><button disabled={disabled || current <= 0} onClick={() => setStep(visibleSteps[current - 1].id)}><ArrowLeft /> Back</button>
       <button className="primary" disabled={nextDisabled} onClick={() => { void next(); }}>{step === 'required' ? 'Prepare files' : step === 'artwork' ? 'Review install' : step === 'install' ? 'Install' : step === 'release' && state.appUpdateAvailable ? 'Update app' : 'Continue'}<ArrowRight /></button></footer>}
     {connecting && <Connection state={state} run={run} close={() => setConnecting(false)} />}
+    {updatesOpen && state.desktopUpdate && <Updates update={state.desktopUpdate} busy={!!state.busy} run={run} close={() => setUpdatesOpen(false)} />}
   </div>;
 }

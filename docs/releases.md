@@ -1,5 +1,8 @@
 # Release bundles
 
+Desktop app releases live in the separate `vita-installer` repository. See
+[Installer updates](updates.md) for its versioning and publishing checklist.
+
 Each game repository points to the same CBOC Vita Installer. Paste its public
 repository/release URL, or import a reviewed ZIP/folder containing
 `cboc-release.json` and its VPK. A parent

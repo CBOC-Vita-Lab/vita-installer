@@ -50,6 +50,20 @@ Keep both devices awake. If the connection drops, reconnect the same Vita and
 choose **Resume**. Follow any final VitaShell action shown by the app. A copied
 package is not called installed until installation has been verified.
 
+## Update the installer
+
+The installer has its own [repository and downloads](https://github.com/CBOC-Vita-Lab/vita-installer/releases), separate from the games.
+It checks for a newer public version when opened and once a day while running.
+Use the download icon beside its version number to check at any time.
+
+When an update is available, click **Download update**. Once any installation
+has finished, quit the app and replace it with the download. Keep the app's
+data folder: your installation history and recovery records stay there.
+Updating the desktop app does not update or reinstall games on your Vita.
+
+Private previews still use browser downloads. The current unsigned preview
+does not replace itself or restart automatically. [Update details](docs/updates.md).
+
 ## Releases
 
 | Game/app | Guide | Current private bundle |

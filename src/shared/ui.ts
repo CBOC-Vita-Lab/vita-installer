@@ -4,6 +4,10 @@ export interface ReleaseView { id: string; name: string; version: string; held: 
 export interface InputView extends Omit<InputCheck, 'source'> { filename?: string; kind: string; onVita?: boolean }
 export interface ArtworkView { slot: ArtworkSlot; mode: 'default' | 'custom'; preview: string; fit: 'cover' | 'contain'; x: number; y: number; filename?: string }
 export interface DeviceView extends Omit<DeviceCandidate, 'root' | 'identity'> {}
+export interface DesktopUpdateView {
+  status: 'idle' | 'checking' | 'available' | 'current' | 'no-build' | 'unavailable';
+  currentVersion: string; latestVersion?: string; platform: string;
+}
 export interface PlanView { id: string; blockers: string[]; warnings: string[]; requiredBytes: number; freeBytes?: number; appExists: boolean; requiresUr0Action: boolean; customArtwork: ArtworkSlot[];
   appOnly?: boolean; transferBytes?: number;
   consents?: { update: boolean; space: boolean; cover: boolean } }
@@ -18,6 +22,7 @@ export interface UiSnapshot {
   error?: string; errorFile?: string; repairStep?: Step; discoveryBusy: boolean; preparation?: PreparationProgress;
   recoverableJobs: { id: string; title: string; phase: string }[];
   publicRelease?: { status: 'available' | 'unavailable'; tag?: string };
+  desktopUpdate?: DesktopUpdateView;
 }
 export const emptySnapshot = (): UiSnapshot => ({ releases: [], inputs: [], optionalInputs: [], devices: [], artwork: [], prepared: false, discoveryBusy: false, recoverableJobs: [] });
 export type UiRequest =
@@ -29,6 +34,7 @@ export type UiRequest =
   | { command: 'chooseInput'; id: string; kind: 'file' | 'folder' }
   | { command: 'scanFolder' }
   | { command: 'checkRelease' }
+  | { command: 'checkInstallerUpdate' | 'downloadInstallerUpdate' }
   | { command: 'removeInput'; id: string }
   | { command: 'artwork'; slot: ArtworkSlot; action: 'default' | 'choose' | 'adjust'; fit?: 'cover' | 'contain'; x?: number; y?: number }
   | { command: 'prepare' | 'prepareUpdate' | 'fullSetup' }

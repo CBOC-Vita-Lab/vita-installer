@@ -4,7 +4,11 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { CSP, isAllowedExternal, parseRequest, rendererPreferences, repoUrl, trustedSender } from './security';
 import { emptySnapshot, type UiRequest, type UiSnapshot } from '../shared/ui';
+import { DesktopUpdates } from '../releases/desktop-update';
 let window: BrowserWindow | undefined, worker: Worker | undefined, state = emptySnapshot(), serial = 0, closing = false, workerReady = false;
+let desktopUpdates: DesktopUpdates;
+const snapshot = (): UiSnapshot => ({ ...state, desktopUpdate: desktopUpdates?.snapshot() });
+const emit = () => { if (window && !window.isDestroyed()) window.webContents.send('installer:state', snapshot()); };
 const pending = new Map<number, { resolve: () => void; reject: (error: Error) => void }>();
 const appUrl = () => pathToFileURL(join(__dirname, '../renderer/index.html')).href;
 function requestWorker(request: UiRequest): Promise<void> { return sendWorker({ request }); }
@@ -59,25 +63,34 @@ else {
     session.defaultSession.setPermissionCheckHandler(() => false);
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => callback({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': [CSP] } }));
     Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' }]));
+    desktopUpdates = new DesktopUpdates({ version: app.getVersion(), platform: process.platform, arch: process.arch,
+      open: url => shell.openExternal(url), changed: emit });
     const root = app.getAppPath();
     worker = new Worker(join(__dirname, 'job-worker.mjs'), { workerData: { userData: app.getPath('userData'),
       resources: app.isPackaged ? join(process.resourcesPath, 'installer-resources') : join(root, 'resources'),
       workers: app.isPackaged ? join(process.resourcesPath, 'installer-workers') : join(root, 'workers/bin') } });
     worker.on('message', (message: { type: string; id?: number; state?: UiSnapshot; code?: string }) => {
       if (message.type === 'ready') { workerReady = true; void requestWorker({ command: 'discover' }).catch(() => {}); }
-      else if (message.type === 'snapshot') { state = message.state!; window?.webContents.send('installer:state', state); }
-      else if (message.type === 'fatal') { state = { ...state, error: 'worker_unavailable' }; window?.webContents.send('installer:state', state); }
+      else if (message.type === 'snapshot') { state = message.state!; emit(); }
+      else if (message.type === 'fatal') { state = { ...state, error: 'worker_unavailable' }; emit(); }
       else if (message.id !== undefined) { const call = pending.get(message.id); pending.delete(message.id); if (message.type === 'error') call?.reject(new Error('Operation failed')); else call?.resolve(); }
     });
-    worker.on('error', () => { workerReady = false; state = { ...state, busy: undefined, error: 'worker_unavailable' }; window?.webContents.send('installer:state', state); for (const call of pending.values()) call.reject(new Error('Worker unavailable')); pending.clear(); });
-    ipcMain.handle('installer:snapshot', event => { requireSender(event); return state; });
+    worker.on('error', () => { workerReady = false; state = { ...state, busy: undefined, error: 'worker_unavailable' }; emit(); for (const call of pending.values()) call.reject(new Error('Worker unavailable')); pending.clear(); });
+    ipcMain.handle('installer:snapshot', event => { requireSender(event); return snapshot(); });
     ipcMain.handle('installer:command', async (event, value: unknown) => {
       requireSender(event); const request = parseRequest(value);
+      if (request.command === 'checkInstallerUpdate') { await desktopUpdates.check(); return; }
+      if (request.command === 'downloadInstallerUpdate') { await desktopUpdates.openDownload(!!state.busy); return; }
       if (request.command === 'openRepo') { const url = repoUrl(request.repo); if (!isAllowedExternal(url)) throw new Error('Invalid URL'); await shell.openExternal(url); return; }
       const paths = await choosePaths(request); if (paths && !paths.length) return;
       await sendWorker({ request, paths });
     });
     createWindow(); app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) { closing = false; createWindow(); } });
+    if (app.isPackaged) {
+      void desktopUpdates.check();
+      const timer = setInterval(() => { void desktopUpdates.check(); }, 24 * 60 * 60 * 1000);
+      timer.unref(); app.once('will-quit', () => clearInterval(timer));
+    }
   });
   app.on('window-all-closed', () => { void worker?.terminate().finally(() => app.quit()); });
 }

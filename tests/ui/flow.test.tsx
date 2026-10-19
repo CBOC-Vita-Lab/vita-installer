@@ -28,6 +28,28 @@ function harness(initial: UiSnapshot = ready(), conflicts = false) {
   render(<App bridge={bridge} />); return { bridge, calls, set };
 }
 afterEach(cleanup);
+it('offers installer updates separately from game updates and blocks downloads during an install', async () => {
+  const h = harness({ ...ready(), desktopUpdate: { status: 'available', currentVersion: '0.1.7', latestVersion: '0.2.0', platform: 'macOS (Apple Silicon)' } });
+  fireEvent.click(await screen.findByRole('button', { name: 'Installer update available' }));
+  expect(screen.getByRole('dialog', { name: 'Installer updates' })).toBeVisible();
+  expect(screen.getByText('Version 0.1.7')).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Download update' }));
+  await waitFor(() => expect(h.calls).toContainEqual({ command: 'downloadInstallerUpdate' }));
+  await act(() => h.set({ busy: 'installing' }));
+  expect(screen.getByRole('button', { name: 'Download update' })).toBeDisabled();
+  expect(screen.getByText(/Finish the current operation/)).toBeVisible();
+});
+it('does not call private or offline update checks up to date and provides retry and releases', async () => {
+  const h = harness({ ...ready(), desktopUpdate: { status: 'unavailable', currentVersion: '0.1.7', platform: 'macOS (Apple Silicon)' } });
+  fireEvent.click(await screen.findByRole('button', { name: 'Installer updates' }));
+  expect(screen.queryByText(/up to date/i)).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Check for updates' }));
+  await waitFor(() => expect(h.calls).toContainEqual({ command: 'checkInstallerUpdate' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Open installer releases' }));
+  await waitFor(() => expect(h.calls).toContainEqual({ command: 'openRepo', repo: 'installer' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Close updates' }));
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
 it('takes a compatible update straight to artwork with full setup still available', async () => {
   const h = harness({ ...ready(), appUpdateAvailable: true,
     inputs: [{ ...ready().inputs[0], status: 'missing' }] });
