@@ -1,13 +1,14 @@
 # Preview acceptance
 
-The existing Apple Silicon 0.1.9 package and Strikers quiet package were made
-public at the publisher's request. No additional tests were run for publication.
-This does not mark the outstanding acceptance or licensing checks complete.
+Apple Silicon 0.1.10 adds the trusted Strikers LiveArea settings package. The
+app was repackaged and release files/checksums inspected, with no new tests or
+Vita changes at the publisher's request. Earlier results below are historical,
+not a fresh 0.1.10 test run. Acceptance and licensing checks remain open.
 
 | Area | Evidence/status |
 | --- | --- |
 | Import, preparation, artwork, transport, recovery, UI | Automated synthetic tests; current private VPK import checks |
-| GitHub URL import and repair | Automated URL, exact-version, checksum, redirect, interruption, cancellation and local-input preservation tests. No approved public game release is available for a full live URL-to-install test |
+| GitHub URL import and repair | Earlier automated URL, exact-version, checksum, redirect, interruption, cancellation and local-input preservation tests. Strikers is now public; a full live URL-to-install test remains pending |
 | Live download check | Public extraction helper downloaded and SHA-256 verified; deliberately damaged disposable cache restored to the same hash. Private game URL rejected without credentials or leftover files. No helper execution or Vita writes |
 | Download UI | Actual renderer with a synthetic bridge checked at 1200x813, 800x600 and 390x844. URL entry, progress, cancellation and loaded logo verified; no horizontal overflow. Progress occupies its own row rather than covering controls |
 | Progress and time | Automated live-worker line streaming, preparation frame/count reporting, verified-byte transfer estimates, stale/pause reset and final readback progress tests. No validated full Galaxy installation-time claim |
@@ -16,7 +17,7 @@ This does not mark the outstanding acceptance or licensing checks complete.
 | Owned inputs on Apple Silicon | Strikers revision and all 2,359 prepared reference files match; incomplete extraction rejected. Infected inspection passes through the rebuilt app's helper and preserves the original ISO hash. Nine selected backend/integrity checks pass; no installation or gameplay inferred |
 | Branding UI | Current logo and duplicate warning checked in a browser-only fixture at 1200x813, 800x600 and 390x844; no horizontal overflow or unloaded logo. Fresh native GUI inspection unavailable because desktop control timed out |
 | macOS Intel / Windows x64 | Refreshed internal packages include all 1,108 notice files and pass backend startup, notice-integrity, preparation/volume and 28 real-IO checks. Native source suites pass (371 Intel and 369 Windows tests). Interactive runs, full native owned-input comparisons and physical acceptance remain pending |
-| Actual installation | No installed game updated; full installation/gameplay acceptance remains pending |
+| Actual installation | The earlier alternate-title desktop transfer was cancelled before promotion. Separate executable-only Strikers device updates do not establish full desktop installation acceptance |
 | Real Vita safety check | Companion detected all four installed titles; three available profiles matched their installed runtime hashes. Scoped 128 KiB transfer, controlled interruption, reconnect, hash readback and test-file cleanup passed; all four runtime hashes unchanged afterward |
 | Duplicate prevention | Existing titles labelled before preparation; automatic update approval remains off. Regression tests cover all four profiles; real-device execution without an approved plan blocked |
 | App-only updates | Automated completed-receipt, compatibility, consecutive-update inventory, missing/corrupt data, wrong target/runtime, missing remote marker and pre-write mutation checks. The UI skips original-game preparation; manual update approval remains required |
@@ -24,7 +25,7 @@ This does not mark the outstanding acceptance or licensing checks complete.
 | Desktop update UI | Version 0.1.7 packaged Mac app launched; actual private-release status and manual check inspected. Synthetic available/busy/offline states checked at 1200x813, 800x600 and 390x844 with no horizontal overflow or console errors. No Vita writes |
 | Signing/notarization | No public signing identity selected; the current Apple Silicon download is unsigned |
 | Third-party redistribution | Native notice collection now includes metadata and available notices from 357 checksum-verified Rust archives. All three platform packages verify 1,108 notice files. Exact native build dependencies, four missing standalone Rust notices and the remaining source/relinking review are still open |
-| Strikers | Quiet runtime, source and install ZIP uploaded with matching checksums; installer 0.1.8+ accepts the exact package. Runtime matches the separate device-update receipt. Full VPK/desktop installation, quiet-build gameplay and public rights gates remain held |
+| Strikers | Settings runtime, source and install ZIP have matching hashes; installer 0.1.10 includes the exact manifest fingerprint. The runtime matches the earlier normal-title device update and LiveArea settings checks. Full VPK/desktop installation, full-match playthrough and public rights review remain open |
 | Infected | Private-only artwork; public release held |
 | VitAdhoc | The newer covers runtime matches the October 19 device readback. A local-only candidate removes the private BIOS and preserves all 16 existing notices; its content gate passes. Matching updated source, GPL compatibility and installation acceptance remain pending. The trusted private bundle still contains the earlier build21 runtime |
 | Galaxy | The October 19 thp48d-based quiet runtime has executable-only readback and matching source at `24e7eb9`; its local generic-art VPK remains held. Nine historical installed movie references are verified. A separately pinned portable q55 recipe passes complete host preparation: 2,375 files in 199.99 seconds on one Mac. Historical encoder reproduction and distributable-package/playback acceptance remain open |

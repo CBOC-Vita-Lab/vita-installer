@@ -1,5 +1,22 @@
 # Changes
 
+## 0.1.10 public preview
+
+- Recognize the Strikers LiveArea settings update from its GitHub URL, ZIP or folder.
+- Allow app-only updates from compatible movie/quiet releases with a completed
+  installer receipt; keep existing game data, saves and settings.
+- Retain the transfer-speed and resume fixes from 0.1.9.
+- Refresh the Apple Silicon app and bundled dependency notices. Signing,
+  redistribution review and full installation acceptance remain pending.
+- No new tests or Vita changes were made for this packaging update.
+
+## 0.1.9 preview
+
+- Reduce repeated FTP directory listings and redundant full-data readbacks.
+- Offer **Review installation again** when protected files changed, rather
+  than repeatedly resuming an outdated installation review.
+- Keep parallel FTP disabled; no full-install speed estimate is claimed.
+
 ## 0.1.5 private preview
 
 - Add app-only updates for verified, compatible installations. Skip ISO selection

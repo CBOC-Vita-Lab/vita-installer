@@ -14,7 +14,7 @@ Galaxy remains unavailable. Platform and device acceptance is tracked in
 
 ## Install Strikers
 
-1. Download [CBOC Vita Installer 0.1.9 for Apple Silicon Mac](https://github.com/CBOC-Vita-Lab/vita-installer/releases/download/v0.1.9/CBOC-Vita-Installer-0.1.9-darwin-arm64.zip), unzip it and open the app.
+1. Download [CBOC Vita Installer 0.1.10 for Apple Silicon Mac](https://github.com/CBOC-Vita-Lab/vita-installer/releases/download/v0.1.10/CBOC-Vita-Installer-0.1.10-darwin-arm64.zip), unzip it and open the app.
 2. Connect your Vita, or attach its already configured memory card.
 3. Paste `https://github.com/CBOC-Vita-Lab/strikers-charged-vita`, or select its [install ZIP](https://github.com/CBOC-Vita-Lab/strikers-charged-vita/releases/latest) or complete folder.
 4. Choose your game file and any missing required files.
@@ -43,7 +43,7 @@ checked. Full setup remains available when data needs to change.
 Intel Mac and Windows x64 packages are retained separately for validation.
 They have passed automated package checks, not native interactive installation
 or full Vita acceptance. See [Downloads](docs/downloads.md) before choosing a file.
-Only the existing Apple Silicon package is published for this release.
+Only the Apple Silicon package is published for this release.
 Full installation acceptance remains pending. Actions artifacts are validation
 builds for developers, not player downloads.
 
@@ -76,7 +76,7 @@ does not replace itself or restart automatically. [Update details](docs/updates.
 
 | Game/app | Guide | Current bundle / status |
 | --- | --- | --- |
-| Mario Strikers Charged | [Install](docs/games/strikers.md) | `Strikers-quiet-20261019-install.zip` (installer 0.1.8+) |
+| Mario Strikers Charged | [Install](docs/games/strikers.md) | `Strikers-settings-20261019-install.zip` (installer 0.1.10+) |
 | Infected | [Status](docs/games/infected.md) | Owner-only local bundle; GitHub has source, not an install ZIP |
 | VitAdhoc | [Status](docs/games/vitadhoc.md) | Earlier local build 21 only; newer covers build held |
 | Galaxy | [Status](docs/games/galaxy.md) | Current quiet source available; desktop installation held |

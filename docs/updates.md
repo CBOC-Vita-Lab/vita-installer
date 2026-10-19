@@ -33,10 +33,11 @@ Game app-only updates are separate and can skip unchanged prepared game data.
 
 ## Shipping a new version
 
-The publisher chose to make the existing Apple Silicon 0.1.9 package public
-with its pending-approval notice, without another test run. This is a publication
-decision, not evidence that the outstanding signing, rights or device checks
-have passed. The checklist below remains the normal process for future versions.
+Version 0.1.10 adds the trusted Strikers settings release and retains the 0.1.9
+speed/recovery changes. The Apple Silicon app was repackaged without another
+test run, as requested by the publisher. This does not close outstanding
+signing, rights or device checks. The checklist below remains the normal
+process for future versions.
 
 1. Bump `version` in `package.json` and the lockfile. Keep the app name,
    `org.cboc.vita-installer` bundle ID and app-data location unchanged.
