@@ -12,9 +12,11 @@ await build({ entryPoints: ['src/packaging/worker-catalog.ts'], bundle: true, pl
 const { verifyCandidateReceipt } = await import('../dist/tools/worker-catalog.mjs');
 await build({ entryPoints: ['src/packaging/application.ts'], bundle: true, platform: 'node', format: 'esm', outfile: 'dist/tools/application.mjs' });
 const { packagedApplication } = await import('../dist/tools/application.mjs');
+await build({ entryPoints: ['src/packaging/privacy.ts'], bundle: true, platform: 'node', format: 'esm', outfile: 'dist/tools/package-privacy.mjs' });
+const { inspectPackagePrivacy } = await import('../dist/tools/package-privacy.mjs');
 const platform = `${process.platform}-${process.arch}`;
 const { app, resources, executable } = packagedApplication(process.cwd(), platform, process.argv[2]);
-const inventory = [];
+const inventory = [], reviewedUpstreamBuildPaths = [];
 const ownerHome = process.env.HOME ?? process.env.USERPROFILE;
 async function fileHash(path) { const hash = createHash('sha256'); for await (const chunk of createReadStream(path)) hash.update(chunk); return hash.digest('hex'); }
 async function walk(directory) {
@@ -27,8 +29,8 @@ async function walk(directory) {
     } else if (entry.isFile()) {
       const size = (await lstat(path)).size;
       if (size < 20 * 1024 ** 2) {
-        const data = await readFile(path), text = data.toString('utf8');
-        if (ownerHome && text.includes(ownerHome + '/') || /(?:github_pat_|ghp_|sk-ant-api03-)[A-Za-z0-9_-]{30,}/.test(text)) throw new Error(`Private data in package: ${name}`);
+        const review = inspectPackagePrivacy(name, await readFile(path), ownerHome);
+        if (review) reviewedUpstreamBuildPaths.push(review);
       }
       inventory.push({ path: name, bytes: size, sha256: await fileHash(path) });
     } else throw new Error(`Unsupported package member: ${name}`);
@@ -69,6 +71,7 @@ validatePackagePolicy(policy);
 const receipt = { schemaVersion: 1, ...policy, files: inventory, executableSha256: await fileHash(executable),
   notarized: false, publicReleaseAccepted: false, deviceInstalled: false, thirdPartyRedistributionReview: 'pending',
   nativeCandidate: candidate ?? null,
+  reviewedUpstreamBuildPaths,
   nativeImageNotices: { declaredComponents: nativeNotices.components.length,
     noticeFiles: nativeNotices.components.reduce((count, component) => count + component.notices.length, 0), completeRedistributionReview: false },
   checks: ['required-resources', 'native-architecture', 'helper-hashes', 'no-personal-signing-subject', 'payload-inventory', 'owner-path-and-token-scan', 'native-image-notice-hashes-and-versions'],
