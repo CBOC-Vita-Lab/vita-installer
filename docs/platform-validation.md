@@ -21,7 +21,19 @@ All 28 real-IO transfer/coordinator checks pass against the bundled tools on
 both platforms. The Windows source-only POSIX race case remains skipped.
 Evidence: [native worker checks](https://github.com/CBOC-Vita-Lab/vita-installer/actions/runs/39219547871).
 These results do not establish complete packaged-app or physical-device
-acceptance; the movie helper and full owned-input comparisons remain open.
+acceptance; full native owned-input comparisons remain open.
+
+Native movie candidates now build on Intel Mac and Windows x64. Each passes
+three checks: matching reviewed source bytes, exact conversion of twelve
+synthetic frames with preserved timing/audio bytes, and clean invalid-input
+errors. The downloaded executable hashes match their build receipts.
+Evidence: [native movie checks](https://github.com/CBOC-Vita-Lab/vita-installer/actions/runs/39223928122).
+
+The same isolated build recipe on Apple Silicon reproduces all nine complete
+owned movies exactly (1,371,225,472 bytes). The Intel candidate reproduces those
+same outputs under Rosetta on Apple Silicon; this is not a full native Intel
+movie test. Complete Windows owned-movie and Vita playback checks are still
+open. Candidate helpers are not added to the accepted release pins.
 
 Package checks enumerate resources, verify helper hashes/architectures,
 reject owner paths/credentials and inspect compressed Python members. The
