@@ -1,5 +1,11 @@
 # Downloads
 
+**The games run on Vita. This desktop app is optional.**
+For Strikers, [Windows, Mac and Linux manual instructions](https://github.com/CBOC-Vita-Lab/strikers-charged-vita/blob/main/INSTALL.md)
+cover the standalone VPK and your own game files, without CBOC Vita Installer,
+Python or compiling. The Apple Silicon-only download below is the helper,
+not a requirement for playing the game.
+
 Strikers and the Apple Silicon installer are public downloads. Infected,
 Galaxy and VitAdhoc remain private. Licensing and full installation review
 remain pending; publication is not a claim of third-party approval.
@@ -29,7 +35,13 @@ system security protections. For a developer-verification warning, follow
 | [VitAdhoc](https://github.com/CBOC-Vita-Lab/vitadhoc/releases) | `VitAdhoc-build21-source-20261019.zip`; earlier source, not the newer covers installer | [Install](https://github.com/CBOC-Vita-Lab/vitadhoc/blob/main/INSTALL.md), [Build](https://github.com/CBOC-Vita-Lab/vitadhoc/blob/main/BUILDING.md) |
 | [Galaxy](https://github.com/CBOC-Vita-Lab/galaxy-vita/releases) | `Galaxy-quiet-source-20261019.zip`; current source and preparation tools, no accepted install bundle | [Install status](https://github.com/CBOC-Vita-Lab/galaxy-vita/blob/main/DESKTOP-INSTALL.md), [Technical notes](https://github.com/CBOC-Vita-Lab/galaxy-vita/blob/main/TECHNICAL.md) |
 
-The Strikers install ZIP opens directly in the app. The complete Strikers
+For manual setup, extract the Strikers install ZIP and follow `START-HERE.txt`,
+or download the standalone VPK and follow the online manual guide. **Do not
+unzip the VPK.** Your ISO/RVZ must be extracted separately; the game does not
+read disc-image files directly.
+
+For the optional helper, leave the Strikers install ZIP zipped and open it
+directly in the app. The complete Strikers
 repository folder also works because it contains `cboc-release.json` and the
 matching VPK. Source-only downloads for the other projects do not.
 

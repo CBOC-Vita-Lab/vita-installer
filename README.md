@@ -2,8 +2,14 @@
 
 <img src="resources/branding/cboc-mark.png" width="80" height="80" alt="CBOC logo">
 
-A desktop installer for reviewed CBOC Vita bundles. Choose your release, add
-your own game files, pick the artwork, then install.
+An **optional desktop setup helper** for CBOC Vita bundles. Choose your release,
+add your own game files, pick the artwork, then install.
+
+**You do not need this program to install or play Strikers.** The game runs on
+the PS Vita. [Manual setup from Windows, Mac or Linux](https://github.com/CBOC-Vita-Lab/strikers-charged-vita/blob/main/INSTALL.md)
+uses the ready-made VPK, your extracted game files and VitaShell. No compiling
+or Python is required. No computer or desktop app is needed while playing.
+The Apple Silicon restriction applies only to this helper's current download.
 
 **Public preview.** The Apple Silicon Mac app is available below.
 Binary redistribution, Apple notarization and full installation testing are still under
@@ -12,7 +18,20 @@ not include commercial games, a proprietary BIOS or the shader compiler.
 Galaxy remains unavailable. Platform and device acceptance is tracked in
 [Acceptance](docs/acceptance.md).
 
-## Install Strikers
+## Choose Your Method
+
+| Method | Computer | What to do |
+| --- | --- | --- |
+| [Manual setup](https://github.com/CBOC-Vita-Lab/strikers-charged-vita/blob/main/INSTALL.md) | Windows, macOS (Intel or Apple Silicon), Linux | Extract your own ISO/RVZ, copy `sys/` and `files/` to the Vita, install the VPK in VitaShell. USB, FTP and configured memory-card transfers are covered. |
+| Optional CBOC helper | Apple Silicon Mac preview | Follow the steps below to automate preparation and transfer. |
+
+Both routes install the same Strikers VPK. You still need your own supported
+Wii USA Rev 1 (`R4QE01`) game and a legitimately obtained `libshacccg.suprx`.
+Already extracted the game? The manual route needs only copying and VitaShell
+installation. [Dolphin extraction instructions](https://github.com/CBOC-Vita-Lab/strikers-charged-vita/blob/main/PREPARE-GAME.md#dolphin-no-python-needed)
+are available for ISO/RVZ users; Dolphin is used for extraction, not Vita gameplay.
+
+## Install With This Helper
 
 1. Download [CBOC Vita Installer 0.1.11 for Apple Silicon Mac](https://github.com/CBOC-Vita-Lab/vita-installer/releases/download/v0.1.11/CBOC-Vita-Installer-0.1.11-darwin-arm64.zip), unzip it and move the app to Applications.
 2. Connect your Vita, or attach its already configured memory card.
@@ -82,7 +101,7 @@ does not replace itself or restart automatically. [Update details](docs/updates.
 
 | Game/app | Guide | Current bundle / status |
 | --- | --- | --- |
-| Mario Strikers Charged | [Install](docs/games/strikers.md) | `Strikers-settings-20261019-install.zip` (installer 0.1.10+) |
+| Mario Strikers Charged | [Manual](https://github.com/CBOC-Vita-Lab/strikers-charged-vita/blob/main/INSTALL.md) / [Optional helper](docs/games/strikers.md) | Standalone VPK or `Strikers-settings-20261019-install.zip`; use helper 0.1.11 for the automated Mac route |
 | Infected | [Status](docs/games/infected.md) | Owner-only local bundle; GitHub has source, not an install ZIP |
 | VitAdhoc | [Status](docs/games/vitadhoc.md) | Earlier local build 21 only; newer covers build held |
 | Galaxy | [Status](docs/games/galaxy.md) | Current quiet source available; desktop installation held |

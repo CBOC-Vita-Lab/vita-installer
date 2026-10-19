@@ -1,5 +1,11 @@
 # Mario Strikers Charged
 
+**CBOC Vita Installer is optional.** This page describes the automated helper,
+not a requirement to play the game. For Windows, Mac (Intel or Apple Silicon)
+or Linux, follow [Manual Install](https://github.com/CBOC-Vita-Lab/strikers-charged-vita/blob/main/INSTALL.md):
+extract your own game, copy its folders and install the VPK in VitaShell.
+Both routes use the same VPK. No computer is needed while playing.
+
 This package adds the LiveArea settings fix and keeps the intro, stadium-preview
 and movie-audio fixes, with runtime logging disabled.
 The install ZIP and Apple Silicon desktop app are available from the public
