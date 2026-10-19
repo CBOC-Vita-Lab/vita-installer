@@ -102,6 +102,7 @@ must remain enabled. Native package results are still pending.
 To build the same internal candidate locally:
 
 ```sh
+node scripts/bootstrap-packaging.mjs
 node scripts/package-native-candidate.mjs
 npm run build
 node scripts/stage-package.mjs --native-candidate
@@ -122,6 +123,7 @@ Use the requested architecture, Node 24 and Python 3.14.4. Create
 
 ```sh
 npm ci
+node scripts/bootstrap-packaging.mjs
 node scripts/package-workers.mjs
 npm test
 npm run typecheck

@@ -49,6 +49,7 @@ jobs:
           python -m venv .venv-workers
           "${{ matrix.python }}" -m pip install -r workers/requirements.txt -r tests/requirements.txt
           npm ci
+          node scripts/bootstrap-packaging.mjs
           mkdir -p out
       - name: App regression checks
         run: |

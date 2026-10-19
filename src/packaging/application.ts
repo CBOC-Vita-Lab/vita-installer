@@ -5,6 +5,15 @@ function checkedPlatform(platform: string) {
   return platform.startsWith('win32-');
 }
 
+export function packagingEnvironment(platform: string, original: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  checkedPlatform(platform);
+  const blocked = new Set(['electron_override_dist_path', 'electron_use_remote_checksums',
+    'npm_config_electron_use_remote_checksums', 'electron_install_platform', 'electron_install_arch', 'npm_config_arch']);
+  const env = Object.fromEntries(Object.entries(original).filter(([key]) => !blocked.has(key.toLowerCase())));
+  const [os, arch] = platform.split('-');
+  return { ...env, ELECTRON_INSTALL_PLATFORM: os, ELECTRON_INSTALL_ARCH: arch, npm_config_arch: arch };
+}
+
 export function packagedApplication(root: string, platform: string, override?: string) {
   const windows = checkedPlatform(platform);
   const app = resolve(root, override ?? join('out', `CBOC Vita Installer-${platform}`, windows ? '' : 'CBOC Vita Installer.app'));

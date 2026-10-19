@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { join, resolve } from 'node:path';
-import { packagedApplication, smokeEnvironment } from '../../src/packaging/application';
+import { packagedApplication, smokeEnvironment, packagingEnvironment } from '../../src/packaging/application';
 
 it('locates native app executables and helpers without a Mac bundle suffix on Windows', () => {
   const root = resolve('fixture');
@@ -24,4 +24,14 @@ it('keeps Windows system access but removes tools, credentials and real user fol
   expect(env.GH_TOKEN).toBeUndefined();
   expect(() => smokeEnvironment('/isolated', 'win32-x64', {})).toThrow();
   expect(smokeEnvironment('/isolated', 'darwin-arm64', {}).SystemRoot).toBeUndefined();
+});
+it('pins the native download target and strips case-insensitive checksum and path overrides', () => {
+  const env = packagingEnvironment('win32-x64', {
+    PATH: 'build-tools', SystemRoot: 'C:\\Windows', ELECTRON_USE_REMOTE_CHECKSUMS: '1',
+    NPM_CONFIG_ELECTRON_USE_REMOTE_CHECKSUMS: '1', Electron_Override_Dist_Path: 'elsewhere',
+    electron_install_platform: 'darwin', electron_install_arch: 'arm64', NPM_CONFIG_ARCH: 'arm64',
+  });
+  expect(env).toEqual({ PATH: 'build-tools', SystemRoot: 'C:\\Windows',
+    ELECTRON_INSTALL_PLATFORM: 'win32', ELECTRON_INSTALL_ARCH: 'x64', npm_config_arch: 'x64' });
+  expect(() => packagingEnvironment('linux-x64', {})).toThrow();
 });
