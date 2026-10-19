@@ -26,9 +26,13 @@ def inspect_infected(path):
         before = path.stat()
         image.open(str(path))
         opened = True
+        boot_names = [entry.file_identifier() for entry in image.list_children(iso_path="/PSP_GAME/SYSDIR")
+                      if entry.file_identifier() in (b"BOOT.BIN", b"BOOT.BIN;1") and not entry.is_dir()]
+        if len(boot_names) != 1:
+            raise ValueError("invalid_disc")
         digest = hashlib.sha256()
         size = 0
-        with image.open_file_from_iso(iso_path="/PSP_GAME/SYSDIR/BOOT.BIN;1") as source:
+        with image.open_file_from_iso(iso_path="/PSP_GAME/SYSDIR/" + boot_names[0].decode("ascii")) as source:
             while chunk := source.read(1024 * 1024):
                 size += len(chunk)
                 if size > 64 * 1024 * 1024:

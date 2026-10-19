@@ -1,6 +1,6 @@
 import type { ArtworkSlot, InputCheck, JobSnapshot, DeviceCandidate } from './contracts';
 export type Step = 'release' | 'game' | 'required' | 'artwork' | 'install';
-export interface ReleaseView { id: string; name: string; version: string; held: boolean; image?: string; recipe: string }
+export interface ReleaseView { id: string; name: string; version: string; held: boolean; image?: string; recipe: string; installed?: boolean }
 export interface InputView extends Omit<InputCheck, 'source'> { filename?: string; kind: string; onVita?: boolean }
 export interface ArtworkView { slot: ArtworkSlot; mode: 'default' | 'custom'; preview: string; fit: 'cover' | 'contain'; x: number; y: number; filename?: string }
 export interface DeviceView extends Omit<DeviceCandidate, 'root' | 'identity'> {}

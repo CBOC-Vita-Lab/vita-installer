@@ -29,6 +29,10 @@ Choose a release ZIP, extracted release folder, or parent folder containing
 several releases. Select your own game files. Only selected folders and the
 selected Vita's prerequisite location are checked, not your whole computer.
 
+An existing title is labelled **Already installed**. Choosing it does not
+approve a reinstall. Updates require the separate checkbox on the final review;
+changing the game or destination clears that approval.
+
 Files are checked automatically before preparation and again before copying.
 If something is missing or changed, installation stops and shows what to
 replace. Locate the complete file/folder or redownload the release ZIP, then

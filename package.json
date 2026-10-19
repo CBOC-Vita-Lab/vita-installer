@@ -1,7 +1,7 @@
 {
   "name": "cboc-vita-installer",
   "productName": "CBOC Vita Installer",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "description": "Prepare and install reviewed Vita releases without replacing existing data.",

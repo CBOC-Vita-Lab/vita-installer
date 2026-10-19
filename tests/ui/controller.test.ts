@@ -34,6 +34,42 @@ it('connects automatically to one ready FTP candidate without writing to it', as
   const f = await fixture(); await f.c.command({ command: 'discover' });
   expect(f.c.snapshot().selectedDevice).toBe(device.id); expect(f.transport.writes).toEqual([]);
 });
+it.each(['before-import', 'after-import'] as const)('detects an existing installation %s without approving an update or writing', async when => {
+  const f = await fixture(); f.transport.files.set('ux0:app/GBAD00001/eboot.bin', runtime);
+  if (when === 'before-import') await f.c.command({ command: 'discover' });
+  await f.c.command({ command: 'import', kind: 'folder' }, [f.root]);
+  if (when === 'after-import') await f.c.command({ command: 'discover' });
+  expect(f.c.snapshot().releases[0]).toMatchObject({ installed: true });
+  expect(f.c.snapshot().plan).toBeUndefined(); expect(f.transport.writes).toEqual([]);
+  f.transport.files.delete('ux0:app/GBAD00001/eboot.bin');
+  await f.c.command({ command: 'discover' });
+  expect(f.c.snapshot().releases[0]).toMatchObject({ installed: false });
+});
+it('serializes target selection so an installed warning cannot belong to another Vita', async () => {
+  const f = await fixture(), second = new MemoryTransport();
+  second.device = { ...device, id: 'ftp:second', identity: 'unbound:second' };
+  f.transport.files.set('ux0:app/GBAD00001/eboot.bin', runtime);
+  let releaseList!: () => void, enteredList!: () => void;
+  const entered = new Promise<void>(resolve => { enteredList = resolve; });
+  const gate = new Promise<void>(resolve => { releaseList = resolve; });
+  const originalList = f.transport.list.bind(f.transport);
+  f.transport.list = async path => { enteredList(); await gate; return originalList(path); };
+  const c = new InstallerController({ userData: join(f.root, 'switch-state'),
+    trust: { fingerprints: new Set([digest(await readFile(join(f.root, 'cboc-release.json')))]), keys: new Map() },
+    discover: async function* () { yield f.transport.device; yield second.device; }, inspect: async candidate => candidate,
+    open: async candidate => candidate.id === second.device.id ? second : f.transport, tools: async () => ({}) }, () => {});
+  controllers.push(c); await c.command({ command: 'import', kind: 'folder' }, [f.root]); await c.command({ command: 'discover' });
+  const first = c.command({ command: 'selectDevice', id: device.id }); await entered;
+  try {
+    expect(c.snapshot().busy).toBe('scanning');
+    await c.command({ command: 'selectDevice', id: second.device.id });
+    expect(c.snapshot().selectedDevice).toBe(device.id);
+  } finally { releaseList(); await first; }
+  expect(c.snapshot().releases[0].installed).toBe(true);
+  await c.command({ command: 'selectDevice', id: second.device.id });
+  expect(c.snapshot().selectedDevice).toBe(second.device.id); expect(c.snapshot().releases[0].installed).toBe(false);
+  expect(f.transport.writes).toEqual([]); expect(second.writes).toEqual([]);
+});
 it('previews custom art, resets to the trusted default, and binds the exact preview before installing', async () => {
   const f = await fixture(); await f.c.command({ command: 'import', kind: 'folder' }, [f.root]); await f.c.command({ command: 'discover' });
   const before = f.c.snapshot().artwork[0].preview, path = join(f.root, 'private-art.png');

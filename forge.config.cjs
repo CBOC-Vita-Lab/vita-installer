@@ -6,6 +6,7 @@ module.exports = {
     appBundleId: 'org.cboc.vita-installer',
     appCategoryType: 'public.app-category.utilities',
     executableName: 'CBOC Vita Installer',
+    icon: 'resources/branding/app-icon',
     osxSign: false,
     ignore: path => {
       path = path.replaceAll('\\', '/');

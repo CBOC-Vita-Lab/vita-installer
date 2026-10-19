@@ -145,6 +145,7 @@ export class InstallerController {
           this.state.releases.push({ id, name: release.manifest.displayName, version: release.manifest.version,
             held: release.manifest.releaseState !== 'ready' || release.manifest.recipeId === 'galaxy', recipe: release.manifest.recipeId, image });
         }
+        await this.checkInstalled(signal);
         if (imported.length === 1 && !this.state.releases[0].held) await this.selectRelease(this.state.releases[0].id, signal);
       } else if (request.command === 'checkRelease') {
         this.state.busy = 'scanning'; this.emit();
@@ -155,8 +156,10 @@ export class InstallerController {
         const device = this.devices.get(request.id); requireThat(device, 'unknown_device');
         const selected = request.confirmUx0 && device.storageRole === 'unknown' ? { ...device, storageRole: 'ux0' as const, state: 'ready' as const } : device;
         requireThat(selected.state === 'ready', 'storage_role_unknown');
+        this.state.busy = 'scanning'; this.emit();
         const current = await (this.options.inspect ?? inspectDevice)(selected, signal); requireThat(current.state === 'ready', 'device_not_ready');
         this.devices.set(current.id, current); this.state.selectedDevice = current.id; this.invalidate(); this.updateDeviceViews();
+        await this.checkInstalled(signal);
         if (this.state.selectedRelease) { this.state.busy = 'scanning'; this.emit(); await this.scan(signal); }
       } else if (request.command === 'chooseInput' || request.command === 'scanFolder' || request.command === 'removeInput') {
         const release = this.release();
@@ -266,6 +269,17 @@ export class InstallerController {
   private updateDeviceViews() {
     this.state.devices = [...this.devices.values()].map(({ root: _root, identity: _identity, ...device }) => device);
   }
+  private async checkInstalled(signal: AbortSignal) {
+    this.state.releases = this.state.releases.map(({ installed: _installed, ...release }) => release);
+    const device = this.devices.get(this.state.selectedDevice!);
+    if (device?.state !== 'ready' || !this.state.releases.length) return;
+    const transport = await this.open(device);
+    try {
+      const apps = new Set((await transport.list('ux0:app')).map(entry => entry.name));
+      if (signal.aborted) return;
+      this.state.releases = this.state.releases.map(view => ({ ...view, installed: apps.has(this.releases.get(view.id)!.manifest.titleId) }));
+    } finally { await transport.close(); }
+  }
   private async discover(manual?: { host: string; port: number }) {
     if (this.state.discoveryBusy) return;
     this.discoveryAbort = new AbortController(); this.state.discoveryBusy = true; this.state.error = undefined; this.emit();
@@ -280,6 +294,7 @@ export class InstallerController {
       this.state.selectedDevice = selected && found.get(selected)?.state === 'ready' ? selected : ready.length === 1 ? ready[0].id : undefined;
       if (this.state.selectedDevice !== selected) this.invalidate();
       this.updateDeviceViews();
+      await this.checkInstalled(this.discoveryAbort.signal);
       if (this.state.selectedRelease && this.state.selectedDevice && !this.state.job) await this.scan(this.discoveryAbort.signal);
     } catch (error) { this.state.error = safeError(error); }
     finally { this.state.discoveryBusy = false; this.discoveryAbort = undefined; this.emit(); }

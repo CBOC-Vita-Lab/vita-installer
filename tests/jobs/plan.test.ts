@@ -24,6 +24,14 @@ it('blocks different existing files and installed applications by default', asyn
   const result = await plan(f); expect(result.blockers).toContain('existing_app'); expect(result.blockers).toContain('file_conflict');
   expect(f.transport.writes).toEqual([]);
 });
+it.each(['strikers', 'infected', 'vitadhoc'] as const)('requires explicit update mode for an installed %s title', async recipe => {
+  const f = await jobFixture(recipe); roots.push(f.root);
+  f.transport.files.set(`ux0:app/${f.release.manifest.titleId}/sce_sys/param.sfo`, sfo(f.release.manifest.titleId));
+  const blocked = await createInstallPlan(f.release, f.prepared, f.device, 'first_install', { transport: f.transport, artwork: f.artwork });
+  expect(blocked.appExists).toBe(true); expect(blocked.blockers).toContain('existing_app'); expect(f.transport.writes).toEqual([]);
+  const approved = await createInstallPlan(f.release, f.prepared, f.device, 'explicit_update', { transport: f.transport, artwork: f.artwork });
+  expect(approved.blockers).not.toContain('existing_app'); expect(approved.backupFiles).toHaveLength(1); expect(f.transport.writes).toEqual([]);
+});
 it('does not turn unknown or insufficient capacity into ready', async () => {
   const f = await fixture(); f.transport.free = undefined; expect((await plan(f)).blockers).toContain('capacity_unknown');
   f.transport.free = 2; expect((await plan(f)).blockers).toContain('insufficient_space');

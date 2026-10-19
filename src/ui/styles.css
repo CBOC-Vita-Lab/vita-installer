@@ -16,6 +16,12 @@ h3 { font-size: 16px; line-height: 1.4; font-weight: 550; }
 .muted, small, .status-text { color: var(--muted); }
 .app-shell { height: 100%; display: grid; grid-template-rows: auto auto 1fr auto; overflow: hidden; }
 .app-header { background: var(--surface); min-height: 64px; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid #252c30; }
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.brand img { width: 48px; height: 48px; flex: 0 0 48px; object-fit: contain; }
+.brand strong { color: var(--cyan); font-size: 16px; font-weight: 750; line-height: 1.25; }
+.brand h1 { font-size: 13px; font-weight: 500; color: #d6dde2; }
+.installed-badge { color: var(--lime); font-weight: 600; }
+.installed-notice { border-left: 3px solid var(--lime); padding: 12px 16px; background: var(--surface); }
 .connection-button { background: transparent; border-color: transparent; font-size: 13px; flex-shrink: 0; }
 .connection-button.connected svg { color: var(--lime); }
 .steps { padding: 24px 48px 20px; }

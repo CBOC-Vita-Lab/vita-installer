@@ -1,5 +1,15 @@
 # Changes
 
+## 0.1.2 private preview
+
+- Add the CBOC logo, desktop app icon and compact wordmark.
+- Label titles already on the selected Vita or card before preparation.
+- Keep updates blocked until the separate manual approval is checked.
+- Accept the supported Infected PSP disc with either valid BOOT.BIN naming
+  form; reject ambiguous records and retain the executable hash check.
+- Verify real-Vita detection for all four titles, scoped FTP transfer and
+  reconnect without updating installed games. Galaxy installation stays held.
+
 ## 0.1.1 private preview
 
 - Stop on missing, moved, unreadable or changed required files.

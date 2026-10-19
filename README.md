@@ -1,5 +1,7 @@
 # CBOC Vita Installer
 
+<img src="resources/branding/cboc-mark.png" width="80" height="80" alt="CBOC logo">
+
 A desktop installer for reviewed CBOC Vita bundles. Choose your release, add
 your own game files, pick the artwork, then install.
 
@@ -19,6 +21,8 @@ Galaxy remains unavailable. Platform and device acceptance is tracked in
 The app prepares the folders; no separate Python or Dolphin installation is
 needed. It shows the exact remaining VitaShell step when automatic installation
 is unavailable. Existing different files are not silently replaced.
+Installed titles are labelled before setup. Installing over one requires a
+separate, unchecked update approval; choosing a ZIP never approves an update.
 
 [Connection options](docs/install.md) / [Artwork](docs/artwork.md) /
 [Recovery](docs/recovery.md)

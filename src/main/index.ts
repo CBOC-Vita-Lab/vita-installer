@@ -29,6 +29,7 @@ async function choosePaths(request: UiRequest): Promise<string[] | undefined> {
 }
 function createWindow() {
   window = new BrowserWindow({ width: 1280, height: 800, minWidth: 800, minHeight: 600, title: 'CBOC Vita Installer', backgroundColor: '#141719', show: false,
+    icon: join(app.isPackaged ? join(process.resourcesPath, 'installer-resources') : join(app.getAppPath(), 'resources'), 'branding/cboc-mark.png'),
     webPreferences: rendererPreferences(join(__dirname, 'preload.cjs')) });
   window.webContents.on('will-navigate', event => event.preventDefault());
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));

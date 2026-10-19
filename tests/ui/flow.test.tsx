@@ -44,6 +44,17 @@ it('offers a visual multi-release choice rather than guessing one', async () => 
   expect(h.calls).toContainEqual({ command: 'selectRelease', id: 'c'.repeat(32) });
   expect(screen.getByRole('img', { name: 'VitAdhoc artwork' })).toBeVisible();
 });
+it('warns about an installed release before preparation without authorizing an update', async () => {
+  const h = harness({ ...ready(), releases: [{ ...ready().releases[0], installed: true }] });
+  expect(await screen.findByText('Already installed')).toBeVisible();
+  expect(h.calls.some(call => call.command === 'plan' && call.explicitUpdate)).toBe(false);
+  await toArtwork(); fireEvent.click(screen.getByRole('button', { name: 'Review install' }));
+  await act(() => h.set({ plan: { id, blockers: ['existing_app'], warnings: [], requiredBytes: 1, appExists: true,
+    requiresUr0Action: false, customArtwork: [], freeBytes: 100, consents: { update: false, cover: false, space: false } } }));
+  expect(await screen.findByText(/Already installed on this/)).toBeVisible();
+  expect(screen.getByRole('checkbox', { name: /Update this game/ })).not.toBeChecked();
+  expect(screen.getByRole('button', { name: 'Install' })).toBeDisabled();
+});
 it('skips profile prompts for a detected Companion and keeps connection available throughout', async () => {
   harness(); await toArtwork();
   expect(screen.getByRole('button', { name: /Vita connected/ })).toBeVisible(); expect(screen.queryByText('Start VitaShell')).not.toBeInTheDocument();

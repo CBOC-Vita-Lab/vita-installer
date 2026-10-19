@@ -24,17 +24,38 @@ def inspect_infected(path):
     return json.loads(result.stdout)
 
 
-def create_iso(path, boot):
+def create_iso(path, boot, name="BOOT.BIN;1"):
     image = pycdlib.PyCdlib()
     image.new(interchange_level=3)
     image.add_directory(iso_path="/PSP_GAME")
     image.add_directory(iso_path="/PSP_GAME/SYSDIR")
-    image.add_fp(io.BytesIO(boot), len(boot), iso_path="/PSP_GAME/SYSDIR/BOOT.BIN;1")
+    image.add_fp(io.BytesIO(boot), len(boot), iso_path=f"/PSP_GAME/SYSDIR/{name}")
     image.write(str(path))
     image.close()
 
 
 class IsoInspectionTests(unittest.TestCase):
+    def test_accepts_a_psp_boot_record_without_a_version_suffix(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "psp.iso"
+            create_iso(path, b"synthetic PSP executable", "BOOT.BIN")
+            result = inspect_infected(path)
+            self.assertEqual(result["bootSha256"], hashlib.sha256(b"synthetic PSP executable").hexdigest())
+
+    def test_rejects_ambiguous_boot_records(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "ambiguous.iso"
+            image = pycdlib.PyCdlib()
+            image.new(interchange_level=3)
+            image.add_directory(iso_path="/PSP_GAME")
+            image.add_directory(iso_path="/PSP_GAME/SYSDIR")
+            for name in ("BOOT.BIN", "BOOT.BIN;1"):
+                image.add_fp(io.BytesIO(b"executable"), 10, iso_path=f"/PSP_GAME/SYSDIR/{name}")
+            image.write(str(path))
+            image.close()
+            with self.assertRaises(ValueError):
+                inspect_infected(path)
+
     def test_hashes_actual_boot_content_without_extracting_or_changing_image(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "random.iso"
