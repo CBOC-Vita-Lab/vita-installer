@@ -5,7 +5,15 @@ the distributable package's installation acceptance remain open.
 
 ## Verified
 
-- Installed title `SMGV00001` uses the exact recovered `thp48d` runtime.
+- The October 19 executable-only readback for `SMGV00001` matches the
+  thp48d-based quiet update, SHA-256
+  `3ee3b0a8792dd3f3f28b95c743b90393f088624656435b2cefe8bb44bd9b833c`.
+  Its matching source is in the private Galaxy repository at
+  `24e7eb9e94f1dbb275c88e7fc548a85815f48659`. This is historical readback,
+  not a new full-package install or gameplay test.
+- The held local VPK preserves all 11 non-runtime members from the reviewed
+  generic-art package. Its full hash is recorded in Galaxy's `RELEASE.json`;
+  it is not yet an accepted installer release.
 - USA Rev 0 (RMGE01) extraction is checked against 2,374 payload records and
   two metadata records. Two reviewed boot/FST variants accommodate offsets
   rewritten by extraction tools; the game payloads match.

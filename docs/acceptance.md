@@ -25,7 +25,7 @@ This is an internal preview, not an accepted public installer release.
 | Strikers | Quiet runtime, source and install ZIP uploaded with matching checksums; installer 0.1.8+ accepts the exact package. Runtime matches the separate device-update receipt. Full VPK/desktop installation, quiet-build gameplay and public rights gates remain held |
 | Infected | Private-only artwork; public release held |
 | VitAdhoc | The newer covers runtime matches the October 19 device readback. A local-only candidate removes the private BIOS and preserves all 16 existing notices; its content gate passes. Matching updated source, GPL compatibility and installation acceptance remain pending. The trusted private bundle still contains the earlier build21 runtime |
-| Galaxy | Exact thp48d runtime and nine installed movie references verified. A separately pinned portable q55 recipe passes complete host preparation: 2,375 files in 199.99 seconds on one Mac. Historical encoder reproduction and distributable-package/playback acceptance remain open; profile held |
+| Galaxy | The October 19 thp48d-based quiet runtime has executable-only readback and matching source at `24e7eb9`; its local generic-art VPK remains held. Nine historical installed movie references are verified. A separately pinned portable q55 recipe passes complete host preparation: 2,375 files in 199.99 seconds on one Mac. Historical encoder reproduction and distributable-package/playback acceptance remain open |
 
 The full VitAdhoc destination review was stopped during its large protected
 media inventory; that hardware step remains unaccepted. The safe live test did
