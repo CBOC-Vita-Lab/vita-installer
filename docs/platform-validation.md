@@ -15,13 +15,14 @@ tests exercise transfers and backups. They are not physical-card or Vita
 installation acceptance.
 
 The native source regression suites now pass on Intel macOS and Windows x64
-(353 app tests on Intel Mac and 352 on Windows, plus source Python tests). Native bundled
+(368 app tests on Intel Mac and 366 on Windows, with five and seven skipped
+respectively). Native bundled
 preparation and volume tools also build and pass their empty-PATH checks.
 All 28 real-IO transfer/coordinator checks pass against the bundled tools on
 both platforms. Windows-only POSIX/symlink cases remain skipped.
 Evidence: [native worker checks](https://github.com/CBOC-Vita-Lab/vita-installer/actions/runs/39227449832)
-and [native package checks](https://github.com/CBOC-Vita-Lab/vita-installer/actions/runs/39232376952).
-These results do not establish complete packaged-app or physical-device
+and [native package checks](https://github.com/CBOC-Vita-Lab/vita-installer/actions/runs/39236605679).
+These automated checks do not establish interactive installer or physical-device
 acceptance; full native owned-input comparisons remain open.
 
 Native movie candidates now build on Intel Mac and Windows x64. Each passes
@@ -44,25 +45,32 @@ and the hashes of 81 selected upstream notice files, both before staging and
 inside the finished app. Mac and Windows package metadata are checked separately;
 missing notices or dependency upgrades require review. This collection does not
 close the remaining transitive-notice and corresponding-source audit.
-The finished Apple Silicon app also rejected six deliberately damaged copies.
+Finished packages on all three platforms reject six deliberately damaged copies.
 Intel/Windows tests verify the collection against their real installed native
-dependencies; complete installed-app acceptance on those platforms remains open.
+dependencies; interactive installed-app acceptance remains open.
 
-A complete Windows x64 candidate now builds. Its packaged backend starts with
-an empty PATH, all seven notice-integrity cases pass, and the helpers inside the
-finished app pass preparation, volume and 28 real-IO checks. The Windows setup
-program has not been installed or tested interactively on a user machine.
+A complete Intel Mac ZIP and Windows x64 setup program now build and pass final
+verification. Each packaged backend starts with an empty PATH, all seven
+notice-integrity cases pass, and the helpers inside the finished app pass
+preparation, volume and 28 real-IO checks. The compressed-member privacy audit
+checks 750 Intel and 754 Windows members. The Windows volume suite skips one
+POSIX-only case. Neither package has been installed or tested interactively
+on a user machine of its native platform.
 
-The Intel Mac candidate builds, but final verification stops on a privacy-scan
-finding in the upstream native image library. That finding still needs review;
-the check has not been bypassed. One earlier Intel source run hit a 10-second
+The Intel privacy finding was an upstream library's generic build path, not a
+publisher path. Its exact bytes match the official archive. A
+[provenance-bound exception](package-privacy.md) records that one artifact;
+changed files, different paths and token patterns still fail. Windows home-path
+checks also cover mixed separators and JSON escaping.
+
+One earlier Intel source run hit a 10-second
 loopback-transfer timeout. Twenty local repeats and the unchanged native retry
 passed, but its cause has not been established. No timeout or assertion was
 weakened to obtain a pass.
 
 ## Not yet accepted
 
-- Intel Mac final-package verification and native installed-app runs on both platforms.
+- Native interactive installation and app runs on Intel Mac and Windows.
 - First install and reconnect/update acceptance on a separately approved Vita.
 - Physical removable-media detection and card-swap tests on both operating systems.
 - End-to-end preparation comparisons for every enabled game on each platform.
@@ -110,8 +118,8 @@ and real file operations through the helpers inside the finished app.
 It retains internal artifacts for one day, never publishes a release and never
 changes approved movie hashes. Its two sequential jobs each have a 20-minute
 timeout, allowing up to 40 runner-minutes per dispatch; the zero-spend budget
-must remain enabled. Windows checks pass; Intel final verification remains held
-as described above.
+must remain enabled. Both native package jobs pass; public, interactive and
+physical acceptance remain held as described above.
 
 To build the same internal candidate locally:
 
