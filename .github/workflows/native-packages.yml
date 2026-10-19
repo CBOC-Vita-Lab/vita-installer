@@ -1,0 +1,96 @@
+name: Native package validation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-packages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - runner: macos-15-intel
+            platform: darwin-x64
+            python: .venv-workers/bin/python
+          - runner: windows-2022
+            platform: win32-x64
+            python: .venv-workers/Scripts/python.exe
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '24.22.0'
+          architecture: x64
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.14.4'
+          architecture: x64
+      - name: Confirm native target and install build dependencies
+        env:
+          EXPECTED_PLATFORM: ${{ matrix.platform }}
+        run: |
+          node -e "if (process.platform + '-' + process.arch !== process.env.EXPECTED_PLATFORM) process.exit(1)"
+          python -m venv .venv-workers
+          "${{ matrix.python }}" -m pip install -r workers/requirements.txt -r tests/requirements.txt
+          npm ci
+          mkdir -p out
+      - name: App regression checks
+        run: |
+          npm test -- --reporter=default --reporter=json --outputFile=out/native-tests.json
+          npm run typecheck
+      - name: Build isolated native helpers and compare synthetic movies
+        run: node scripts/package-native-candidate.mjs
+      - name: Build a full native app and installer, without release approval
+        run: |
+          npm run build
+          node scripts/stage-package.mjs --native-candidate
+          npx --no-install electron-forge make
+      - name: Verify packaged resources and reject damaged copies
+        run: |
+          node scripts/verify-release.mjs
+          node --test --test-reporter=tap tests/packaging/packaged-notices.test.mjs > out/packaged-notices.tap
+      - name: Start packaged backend with no system tools on PATH
+        run: node scripts/smoke-installed.mjs
+      - name: Exercise the workers inside the final app
+        run: |
+          export VITA_TEST_WORKER="$(node --input-type=module -e "import {packagedApplication} from './dist/tools/application.mjs'; console.log(packagedApplication(process.cwd(),process.platform+'-'+process.arch).prepare)")"
+          export VITA_TEST_VOLUME_WORKER="$(node --input-type=module -e "import {packagedApplication} from './dist/tools/application.mjs'; console.log(packagedApplication(process.cwd(),process.platform+'-'+process.arch).volume)")"
+          "${{ matrix.python }}" scripts/audit-worker-privacy.py "$VITA_TEST_WORKER" "$VITA_TEST_VOLUME_WORKER"
+          "${{ matrix.python }}" -m unittest discover -s tests/preparation -p 'test_*.py' -v
+          "${{ matrix.python }}" -m unittest discover -s tests/devices -p 'test_*.py' -v
+          npm test -- tests/devices/transports.test.ts tests/jobs/integration.test.ts --reporter=default --reporter=json --outputFile=out/packaged-worker-tests.json
+          git diff --exit-code
+      - name: Retain internal packages and evidence, not a release
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: native-package-${{ matrix.platform }}
+          path: |
+            out/make/**/*.zip
+            out/make/**/*.exe
+            out/package-verification.json
+            out/packaged-smoke.json
+            out/packaged-notices.tap
+            out/native-tests.json
+            out/packaged-worker-tests.json
+            out/native-package-workers/${{ matrix.platform }}/native-candidate.json
+            out/native-package-workers/${{ matrix.platform }}/catalog.json
+            out/movie-candidate/${{ matrix.platform }}/candidate.json
+          if-no-files-found: ignore
+          retention-days: 1

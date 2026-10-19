@@ -4,6 +4,9 @@ import { join, resolve, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { build } from 'esbuild';
 const platform = `${process.platform}-${process.arch}`, root = process.cwd();
+await build({ entryPoints: ['src/packaging/worker-catalog.ts'], bundle: true, platform: 'node', format: 'esm', outfile: 'dist/tools/worker-catalog.mjs' });
+const { packageWorkerSelection } = await import('../dist/tools/worker-catalog.mjs');
+const selection = await packageWorkerSelection(root, platform, process.argv.slice(2));
 await build({ entryPoints: ['src/packaging/native-notices.ts'], bundle: true, platform: 'node', format: 'esm', outfile: 'dist/tools/native-notices.mjs' });
 const { verifyInstalledSharpNotices } = await import('../dist/tools/native-notices.mjs');
 const reviewedManifest = createHash('sha256').update(await readFile('resources/notices/libvips/manifest.json')).digest('hex');
@@ -15,13 +18,14 @@ const paths = JSON.parse(query.stdout), notices = resolve('dist/installer-notice
 for (const dir of ['installer-resources', 'installer-workers', 'installer-notices']) await rm(join('dist', dir), { recursive: true, force: true });
 await mkdir(notices, { recursive: true });
 await cp('resources', 'dist/installer-resources', { recursive: true });
+if (selection.candidate) await writeFile('dist/installer-resources/native-candidate.json', JSON.stringify(selection.candidate, null, 2) + '\n');
 await verifyInstalledSharpNotices('dist/installer-resources/notices/libvips', 'node_modules', platform, reviewedManifest);
 // Packager rewrites resource symlinks to the staging directory; materialize this runtime first.
-await cp(`workers/bin/${platform}`, `dist/installer-workers/${platform}`, { recursive: true, dereference: true });
-const catalog = JSON.parse(await readFile(`workers/bin/${platform}/catalog.json`, 'utf8'));
+await cp(selection.root, `dist/installer-workers/${platform}`, { recursive: true, dereference: true });
+const catalog = JSON.parse(await readFile(join(selection.root, 'catalog.json'), 'utf8'));
 if (catalog.platform !== platform) throw new Error('Worker architecture mismatch.');
 const sha = b => createHash('sha256').update(b).digest('hex');
-for (const entry of [catalog.worker, catalog.volumeWorker, catalog.movieWorker]) if (!entry || sha(await readFile(join('workers/bin', platform, entry.path))) !== entry.sha256) throw new Error('Worker catalog mismatch.');
+for (const entry of [catalog.worker, catalog.volumeWorker, catalog.movieWorker]) if (!entry || sha(await readFile(join(selection.root, entry.path))) !== entry.sha256) throw new Error('Worker catalog mismatch.');
 async function firstCopy(candidates, target) {
   for (const path of candidates) { try { await cp(path, join(notices, target)); return; } catch (error) { if (error.code !== 'ENOENT') throw error; } }
   throw new Error(`Missing license: ${target}`);

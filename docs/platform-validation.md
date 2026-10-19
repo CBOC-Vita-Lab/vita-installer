@@ -90,6 +90,32 @@ node --test tests/preparation/movie-candidate.test.mjs
 Set `CMAKE` to an explicit CMake executable when it is not on PATH. These are
 build-time tools, not additional player requirements.
 
+The manual **Native package validation** workflow builds complete Intel Mac
+and Windows app packages using isolated candidate helpers. It checks resource
+integrity, deliberately damaged copies, backend startup with an empty PATH,
+and real file operations through the helpers inside the finished app.
+It retains internal artifacts for one day, never publishes a release and never
+changes approved movie hashes. Its two sequential jobs each have a 20-minute
+timeout, allowing up to 40 runner-minutes per dispatch; the zero-spend budget
+must remain enabled. Native package results are still pending.
+
+To build the same internal candidate locally:
+
+```sh
+node scripts/package-native-candidate.mjs
+npm run build
+node scripts/stage-package.mjs --native-candidate
+npx --no-install electron-forge make
+node scripts/verify-release.mjs
+node --test tests/packaging/packaged-notices.test.mjs
+node scripts/smoke-installed.mjs
+```
+
+The candidate receipt says `acceptedForRelease: false` and binds the selected
+platform and helper catalog. The normal packaging path below remains gated by
+the approved movie helper; this build-only option does not clear GUI, game,
+device, signing or redistribution acceptance.
+
 Use the requested architecture, Node 24 and Python 3.14.4. Create
 `.venv-workers`, install `workers/requirements.txt` and test-only
 `pyftpdlib==2.2.0`, then run:

@@ -2,9 +2,11 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-const app = resolve(process.argv[2] ?? `out/CBOC Vita Installer-${process.platform}-${process.arch}/CBOC Vita Installer.app`);
-const resources = join(app, process.platform === 'darwin' ? 'Contents/Resources' : 'resources');
-const executable = join(app, process.platform === 'darwin' ? 'Contents/MacOS/CBOC Vita Installer' : 'CBOC Vita Installer.exe');
+import { build } from 'esbuild';
+await build({ entryPoints: ['src/packaging/application.ts'], bundle: true, platform: 'node', format: 'esm', outfile: 'dist/tools/application.mjs' });
+const { packagedApplication, smokeEnvironment } = await import('../dist/tools/application.mjs');
+const platform = `${process.platform}-${process.arch}`;
+const { resources, executable } = packagedApplication(process.cwd(), platform, process.argv[2]);
 const root = await mkdtemp(join(tmpdir(), 'vita-packaged-smoke-'));
 const bootstrap = `
 const { Worker } = require('node:worker_threads');
@@ -36,7 +38,7 @@ worker.on('message', async message => {
 try {
   const script = join(root, 'bootstrap.cjs'); await writeFile(script, bootstrap);
   const args = [script, root, resources]; if (process.argv[3]) args.push(resolve(process.argv[3]));
-  const child = spawn(executable, args, { env: { HOME: root, TMPDIR: root, PATH: '', ELECTRON_RUN_AS_NODE: '1' }, stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(executable, args, { env: smokeEnvironment(root, platform, process.env), stdio: ['ignore', 'pipe', 'pipe'] });
   let output = '', error = ''; child.stdout.on('data', chunk => { output += chunk; }); child.stderr.on('data', chunk => { error += chunk; });
   await new Promise((resolve, reject) => { child.once('error', reject); child.once('close', code => code === 0 ? resolve() : reject(new Error(`Packaged smoke failed (${code}): ${error.slice(0, 1500)}`))); });
   const receipt = JSON.parse(output.trim()); await writeFile('out/packaged-smoke.json', JSON.stringify(receipt, null, 2) + '\n'); console.log(output.trim());

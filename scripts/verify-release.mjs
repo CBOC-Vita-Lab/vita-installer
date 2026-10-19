@@ -8,9 +8,13 @@ await build({ entryPoints: ['src/packaging/policy.ts'], bundle: true, platform: 
 const { validatePackagePolicy, NETWORK_POLICY } = await import('../dist/tools/package-policy.mjs');
 await build({ entryPoints: ['src/packaging/native-notices.ts'], bundle: true, platform: 'node', format: 'esm', outfile: 'dist/tools/native-notices.mjs' });
 const { verifyInstalledSharpNotices } = await import('../dist/tools/native-notices.mjs');
+await build({ entryPoints: ['src/packaging/worker-catalog.ts'], bundle: true, platform: 'node', format: 'esm', outfile: 'dist/tools/worker-catalog.mjs' });
+const { verifyCandidateReceipt } = await import('../dist/tools/worker-catalog.mjs');
+await build({ entryPoints: ['src/packaging/application.ts'], bundle: true, platform: 'node', format: 'esm', outfile: 'dist/tools/application.mjs' });
+const { packagedApplication } = await import('../dist/tools/application.mjs');
 const platform = `${process.platform}-${process.arch}`;
-const app = resolve(process.argv[2] ?? `out/CBOC Vita Installer-${platform}/${process.platform === 'darwin' ? 'CBOC Vita Installer.app' : ''}`);
-const resources = join(app, process.platform === 'darwin' ? 'Contents/Resources' : 'resources'), inventory = [];
+const { app, resources, executable } = packagedApplication(process.cwd(), platform, process.argv[2]);
+const inventory = [];
 const ownerHome = process.env.HOME ?? process.env.USERPROFILE;
 async function fileHash(path) { const hash = createHash('sha256'); for await (const chunk of createReadStream(path)) hash.update(chunk); return hash.digest('hex'); }
 async function walk(directory) {
@@ -35,6 +39,10 @@ const nativeNotices = await verifyInstalledSharpNotices(join(resources, 'install
   await fileHash('resources/notices/libvips/manifest.json'));
 const workerRoot = join(resources, 'installer-workers', platform), catalog = JSON.parse(await readFile(join(workerRoot, 'catalog.json'), 'utf8'));
 if (catalog.platform !== platform) throw new Error('Worker catalog platform mismatch');
+const candidateBytes = await readFile(join(resources, 'installer-resources/native-candidate.json')).catch(error => {
+  if (error.code === 'ENOENT') return undefined; throw error;
+});
+const candidate = candidateBytes ? verifyCandidateReceipt(JSON.parse(candidateBytes), platform, await fileHash(join(workerRoot, 'catalog.json'))) : undefined;
 async function architecture(path) {
   if (process.platform === 'darwin') { const value = execFileSync('/usr/bin/lipo', ['-archs', path], { encoding: 'utf8' }).trim().split(/\s+/); return value.includes('arm64') && process.arch === 'arm64' ? 'arm64' : value.includes('x86_64') ? 'x64' : 'unknown'; }
   const data = await readFile(path), offset = data.readUInt32LE(0x3c);
@@ -46,7 +54,6 @@ for (const item of [catalog.worker, catalog.volumeWorker, catalog.movieWorker]) 
   const path = resolve(workerRoot, item.path); if (!path.startsWith(workerRoot + sep) || await fileHash(path) !== item.sha256) throw new Error('Packaged helper hash mismatch');
   helperArchitectures.push(await architecture(path));
 }
-const executable = join(app, process.platform === 'darwin' ? 'Contents/MacOS/CBOC Vita Installer' : 'CBOC Vita Installer.exe');
 if (await architecture(executable) !== process.arch) throw new Error('App architecture mismatch');
 let signature = 'Not authenticated for public distribution';
 if (process.platform === 'darwin') {
@@ -61,9 +68,10 @@ const policy = { platform, host: platform, signing: 'unsigned-internal', signing
 validatePackagePolicy(policy);
 const receipt = { schemaVersion: 1, ...policy, files: inventory, executableSha256: await fileHash(executable),
   notarized: false, publicReleaseAccepted: false, deviceInstalled: false, thirdPartyRedistributionReview: 'pending',
+  nativeCandidate: candidate ?? null,
   nativeImageNotices: { declaredComponents: nativeNotices.components.length,
     noticeFiles: nativeNotices.components.reduce((count, component) => count + component.notices.length, 0), completeRedistributionReview: false },
   checks: ['required-resources', 'native-architecture', 'helper-hashes', 'no-personal-signing-subject', 'payload-inventory', 'owner-path-and-token-scan', 'native-image-notice-hashes-and-versions'],
-  skipped: ['Windows', 'Intel-Mac', 'physical-Vita-install', 'public-redistribution-license-audit'] };
+  skipped: ['GUI-and-device-acceptance', 'full-owned-input-comparisons', 'public-redistribution-license-audit'] };
 await writeFile('out/package-verification.json', JSON.stringify(receipt, null, 2) + '\n');
 console.log(`Verified internal ${platform} package: ${inventory.length} resource files. Public/hardware acceptance remains held.`);
