@@ -14,6 +14,13 @@ and execution without Python on `PATH`. Loopback FTP and temporary-directory
 tests exercise transfers and backups. They are not physical-card or Vita
 installation acceptance.
 
+The current Apple Silicon preparation check recognizes the owned Strikers
+disc revision, matches all 2,359 prepared files against the retained reference
+and rejects an incomplete extraction. Infected inspection uses the helper
+inside the rebuilt app; its prepared ISO and original input keep the same
+SHA-256. All nine selected preparation/integrity checks pass. These are backend
+checks, not a full desktop install or gameplay test.
+
 The native source regression suites now pass on Intel macOS and Windows x64
 (368 app tests on Intel Mac and 366 on Windows, with five and seven skipped
 respectively). Native bundled

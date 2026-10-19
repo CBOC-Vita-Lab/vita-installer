@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { readFile, realpath, rm } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { manifest, digest } from '../fixtures/releases';
 import { manifestSchema } from '../../src/releases/manifest';
 import { checkStrikersInfo, prepareInputs } from '../../src/preparation/inputs';
@@ -36,7 +36,7 @@ describe('owner-supplied data, read only', () => {
       requiredInputs: [{ id: 'game', label: 'Your game', kind: 'infected-disc' }], prerequisites: [] });
     const originalHash = await hashFile(path);
     const release = { manifest: m, manifestSha256: digest(JSON.stringify(m)), sourceRoot: '', vpkPath: null, inventory: null };
-    const catalog = JSON.parse(await readFile(`workers/bin/${process.platform}-${process.arch}/catalog.json`, 'utf8'));
+    const catalog = JSON.parse(await readFile(join(dirname(worker), 'catalog.json'), 'utf8'));
     const result = await prepareInputs(release, { roots: [], chosen: { game: [path] } }, () => {}, undefined,
       { dataWorker: { path: worker, sha256: catalog.worker.sha256 } });
     owned.push(result.workspace);
