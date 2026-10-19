@@ -18,6 +18,11 @@ Galaxy remains unavailable. Platform and device acceptance is tracked in
 4. Choose your game file and any missing required files.
 5. Keep the default artwork or choose your own, then click **Install**.
 
+Download the game ZIP listed under **Releases > Assets**, not GitHub's
+**Code > Download ZIP** or source-code archives. Keep the release ZIP intact;
+the app opens it for you. Private releases must be downloaded in your browser
+first, using an account with access.
+
 The app prepares the folders; no separate Python or Dolphin installation is
 needed. It shows the exact remaining VitaShell step when automatic installation
 is unavailable. Existing different files are not silently replaced.
@@ -29,6 +34,17 @@ still use a local ZIP or folder; the app has no GitHub login.
 
 [Connection options](docs/install.md) / [Artwork](docs/artwork.md) /
 [Recovery](docs/recovery.md)
+
+## While it runs
+
+Preparation happens on your computer before copying. The app shows the current
+step, measured progress and elapsed time. A remaining-time estimate appears
+once enough work has completed; it applies to that step, or the current movie,
+not the whole installation. Checks can take time after copying finishes.
+
+Keep both devices awake. If the connection drops, reconnect the same Vita and
+choose **Resume**. Follow any final VitaShell action shown by the app. A copied
+package is not called installed until installation has been verified.
 
 ## Releases
 

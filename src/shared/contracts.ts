@@ -34,7 +34,13 @@ export type CompletionMode = 'installed' | 'ready_on_vita' | 'ready_on_card' | '
 export interface JobSnapshot {
   jobId: string; phase: 'preparing' | 'checking' | 'transferring' | 'verifying' | 'installing' | 'paused' | 'cancelled' | 'complete' | 'failed';
   bytesDone: number; bytesTotal: number; verifiedFiles: number; totalFiles: number;
+  verifiedBytes?: number;
+  verification?: { completed: number; total: number };
   errorCode?: string; availableActions: ('retry' | 'resume' | 'cancel' | 'done')[];
   completionMode?: CompletionMode; vpkDestination?: string;
   nextActions?: { kind: 'install_vpk' | 'copy_prerequisite' | 'import_cover' | 'eject_card'; from?: string; to?: string }[];
+}
+export interface PreparationProgress {
+  phase: 'checking' | 'extracting' | 'converting' | 'optimizing' | 'hashing';
+  completed: number; total?: number; unit: 'files' | 'frames' | 'bytes'; item?: number; items?: number;
 }

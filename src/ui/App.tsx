@@ -5,6 +5,7 @@ import { Artwork } from './Artwork';
 import { Connection } from './Connection';
 import { Inputs } from './Inputs';
 import { Installation } from './Installation';
+import { Progress, preparationLabel } from './Progress';
 import { IconButton } from './controls';
 import { bytes, errorMessage } from './messages';
 const steps: { id: Step; label: string }[] = [{ id: 'release', label: 'Release' }, { id: 'game', label: 'Game files' }, { id: 'required', label: 'Required files' }, { id: 'artwork', label: 'Artwork' }, { id: 'install', label: 'Install' }];
@@ -84,8 +85,10 @@ export function App({ bridge = window.vitaInstaller }: { bridge?: InstallerBridg
       </>}
     </main>
       {state.busy && !state.job && <div role="status" className="busy-status"><RefreshCw /><div className="busy-detail">
-        <span>{state.busy === 'repairing' ? 'Repairing release' : state.busy === 'downloading' ? 'Downloading release' : state.busy === 'artwork' ? 'Updating preview' : state.busy === 'preparing' ? 'Preparing files' : state.busy === 'planning' ? 'Checking destination' : state.busy === 'importing' ? 'Checking release' : 'Checking files'}</span>
-        {state.download && <><progress aria-label="Download progress" value={state.download.total ? state.download.bytes : undefined} max={state.download.total ?? 1} /><small>{bytes(state.download.bytes)}{state.download.total ? ` / ${bytes(state.download.total)}` : ''}</small></>}
+        <span>{state.busy === 'repairing' ? 'Repairing release' : state.busy === 'downloading' ? 'Downloading release' : state.busy === 'artwork' ? 'Updating preview' : state.busy === 'preparing' ? state.preparation ? preparationLabel(state.preparation.phase) : 'Preparing files' : state.busy === 'planning' ? 'Checking destination' : state.busy === 'importing' ? 'Checking release' : state.busy === 'installing' ? 'Checking installation' : 'Checking files'}</span>
+        {state.download && <Progress key={`download:${state.busy}`} label="Download progress" completed={state.download.bytes} total={state.download.total} />}
+        {state.busy === 'preparing' && state.preparation && <Progress key={`${state.preparation.phase}:${state.preparation.unit}:${state.preparation.item ?? 0}`}
+          label="Preparation progress" {...state.preparation} />}
         </div><button onClick={() => { void run({ command: 'cancel' }); }}>Cancel</button></div>}
     {!state.job && <footer className="app-footer"><button disabled={disabled || current === 0} onClick={() => setStep(steps[current - 1].id)}><ArrowLeft /> Back</button>
       <button className="primary" disabled={nextDisabled} onClick={() => { void next(); }}>{step === 'required' ? 'Prepare files' : step === 'artwork' ? 'Review install' : step === 'install' ? 'Install' : 'Continue'}<ArrowRight /></button></footer>}

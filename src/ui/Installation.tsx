@@ -2,15 +2,18 @@ import { Check, AlertCircle, Pause, Play, X, FolderOpen } from 'lucide-react';
 import type { JobSnapshot } from '../shared/contracts';
 import type { UiRequest } from '../shared/ui';
 import { bytes, errorMessage } from './messages';
+import { Progress } from './Progress';
 export function Installation({ job, run, busy }: { job: JobSnapshot; run: (request: UiRequest) => Promise<void>; busy: boolean }) {
   const title = job.completionMode ? { installed: 'Installed', ready_on_vita: 'Ready on Vita', ready_on_card: 'Ready on card', needs_attention: 'Check your Vita' }[job.completionMode]
-    : { preparing: 'Preparing files', checking: 'Checking files', transferring: 'Copying to Vita', verifying: 'Verifying files', installing: 'Installing', paused: 'Transfer paused', cancelled: 'Cancelled', complete: 'Complete', failed: 'Could not finish' }[job.phase];
+    : { preparing: 'Preparing files', checking: 'Checking files', transferring: 'Copying and checking files', verifying: 'Verifying files', installing: 'Installing', paused: 'Transfer paused', cancelled: 'Cancelled', complete: 'Complete', failed: 'Could not finish' }[job.phase];
   const active = ['checking', 'transferring', 'verifying', 'installing'].includes(job.phase);
   return <section className="installation-result"><h2>{title}</h2>
     {job.completionMode === 'installed' && <Check className="result-icon success" />}
     {job.errorCode && <p className="error-text"><AlertCircle /> {errorMessage(job.errorCode)}</p>}
-    {active && <><progress aria-label="Installation progress" max={job.bytesTotal || 1} value={job.phase === 'transferring' ? job.bytesDone : undefined} />
-      {job.phase === 'transferring' && <p>{bytes(job.bytesDone)} / {bytes(job.bytesTotal)} <span className="muted"> · {job.verifiedFiles} / {job.totalFiles} files verified</span></p>}</>}
+    {active && <><Progress key={`${job.jobId}:${job.phase}:${!!job.verification}`} label="Installation progress"
+      completed={job.phase === 'transferring' ? job.verifiedBytes ?? 0 : job.verification?.completed ?? 0}
+      total={job.phase === 'transferring' ? job.bytesTotal : job.verification?.total} />
+      {job.phase === 'transferring' && <p className="muted">{bytes(job.bytesDone)} processed · {job.verifiedFiles} / {job.totalFiles} files verified</p>}</>}
     {job.nextActions?.length ? <ol className="next-actions">{job.nextActions.map((action, index) => <li key={index}>
       {action.kind === 'eject_card' ? 'Safely eject the card. Return it to the powered-off Vita.' : action.kind === 'install_vpk' ? <>Open in VitaShell to finish installing:<code>{action.from}</code></>
         : action.kind === 'copy_prerequisite' ? <>In VitaShell, copy:<code>{action.from}</code><span>to</span><code>{action.to}</code></>

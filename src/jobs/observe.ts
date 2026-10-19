@@ -11,12 +11,13 @@ export async function readSmallFile(transport: Transport, path: string, limit: n
   requireThat(bytes === entry.bytes, 'target_changed'); return Buffer.concat(chunks);
 }
 
-export async function observeFile(transport: Transport, path: string, signal?: AbortSignal): Promise<ObservedFile> {
+export async function observeFile(transport: Transport, path: string, signal?: AbortSignal,
+  onProgress?: (completed: number) => void): Promise<ObservedFile> {
   devicePath(path); cancelled(signal); const before = await transport.stat(path);
   requireThat(before?.kind === 'file' && before.bytes >= 0 && before.bytes <= 128 * 1024 ** 3, 'invalid_target_file');
   const hash = createHash('sha256'); let bytes = 0;
   for await (const chunk of transport.read(path, signal)) {
-    cancelled(signal); bytes += chunk.length; requireThat(bytes <= before.bytes, 'target_changed'); hash.update(chunk);
+    cancelled(signal); bytes += chunk.length; requireThat(bytes <= before.bytes, 'target_changed'); hash.update(chunk); onProgress?.(bytes);
   }
   const after = await transport.stat(path);
   requireThat(bytes === before.bytes && after?.kind === 'file' && after.bytes === before.bytes, 'target_changed');

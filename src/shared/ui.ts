@@ -1,4 +1,4 @@
-import type { ArtworkSlot, InputCheck, JobSnapshot, DeviceCandidate } from './contracts';
+import type { ArtworkSlot, InputCheck, JobSnapshot, DeviceCandidate, PreparationProgress } from './contracts';
 export type Step = 'release' | 'game' | 'required' | 'artwork' | 'install';
 export interface ReleaseView { id: string; name: string; version: string; held: boolean; image?: string; recipe: string; installed?: boolean }
 export interface InputView extends Omit<InputCheck, 'source'> { filename?: string; kind: string; onVita?: boolean }
@@ -13,7 +13,7 @@ export interface UiSnapshot {
   artwork: ArtworkView[]; prepared: boolean; plan?: PlanView; job?: JobSnapshot;
   busy?: 'importing' | 'scanning' | 'preparing' | 'planning' | 'installing' | 'artwork' | 'downloading' | 'repairing';
   download?: { bytes: number; total?: number }; notice?: 'release_repaired';
-  error?: string; errorFile?: string; repairStep?: Step; discoveryBusy: boolean; preparationPhase?: string;
+  error?: string; errorFile?: string; repairStep?: Step; discoveryBusy: boolean; preparation?: PreparationProgress;
   recoverableJobs: { id: string; title: string; phase: string }[];
   publicRelease?: { status: 'available' | 'unavailable'; tag?: string };
 }

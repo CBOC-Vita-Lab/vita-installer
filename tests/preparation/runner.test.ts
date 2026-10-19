@@ -35,3 +35,14 @@ it('bounds execution time and output size', async () => {
   await expect(runWorker(tool, ['-e', 'setInterval(()=>{},100)'], { cwd, timeoutMs: 30 })).rejects.toMatchObject({ code: 'worker_timeout' });
   await expect(runWorker(tool, ['-e', 'console.log("x".repeat(4096))'], { cwd, maxOutputBytes: 50 })).rejects.toMatchObject({ code: 'worker_output_limit' });
 });
+it('streams complete stderr lines before exit without changing the final receipt', async () => {
+  const lines: string[] = [], abort = new AbortController();
+  const task = runWorker(tool, ['-e', 'process.stderr.write("first\\npar");setTimeout(()=>process.stderr.write("tial\\n"),25);setInterval(()=>{},100)'], {
+    cwd: await work(), signal: abort.signal, onStderrLine: line => { lines.push(line); if (line === 'partial') abort.abort(); }, timeoutMs: 3000,
+  });
+  await expect(task).rejects.toMatchObject({ code: 'cancelled' });
+  expect(lines).toEqual(['first', 'partial']);
+  const result = await runWorker(tool, ['-e', 'console.error("progress");console.log("{\\"prepared\\":true}")'], { cwd: await work(), onStderrLine: line => lines.push(line) });
+  expect(JSON.parse(result.stdout)).toEqual({ prepared: true });
+  expect(result.stderr).toBe('progress\n');
+});

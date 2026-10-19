@@ -101,6 +101,28 @@ it('does not fall back to unoptimized movies when the optimizer is missing', asy
     { ...tools, movieWorker: undefined })).rejects.toMatchObject({ code: 'preparation_tool_missing' });
   expect(worker).not.toHaveBeenCalled();
 });
+it('reports cooker and movie work while running, then hashes output before preparation completes', async () => {
+  const root = await directory(); await tree(root, fixtures.input);
+  const progress: import('../../src/preparation/inputs').PreparationProgress[] = [];
+  vi.spyOn(runner, 'runWorker').mockImplementation(async (tool, args, options) => {
+    if (tool.path === 'movie-worker') {
+      options.onStderrLine?.('500 frames, 40.0 -> 22.0 KB/frame');
+      expect(progress.at(-1)).toMatchObject({ phase: 'optimizing', completed: 500, total: 1000, unit: 'frames', item: 1, items: 1 });
+      options.onStderrLine?.('999999 frames, 40.0 -> 22.0 KB/frame');
+      expect(progress.at(-1)?.completed).toBe(500);
+      await writeFile(args[1], 'optimized movie'); return { stdout: '', stderr: '' };
+    }
+    options.onStderrLine?.('CBOC_PROGRESS {"completed":2,"total":5}');
+    expect(progress.at(-1)).toMatchObject({ phase: 'converting', completed: 2, total: 5, unit: 'files' });
+    await tree(args[2], fixtures.output);
+    const header = Buffer.alloc(48); header.write('THP\0'); header.writeUInt32LE(1000, 0x14);
+    await writeFile(join(args[2], 'files/MovieData/opening.thp'), header);
+    return { stdout: '{"prepared":true,"movies":true,"layoutVerified":true}', stderr: '' };
+  });
+  const result = await prepareInputs(release(), { roots: [], chosen: { game: [root] } }, p => progress.push(p), undefined, tools); roots.push(result.workspace);
+  expect(progress.some(p => p.phase === 'hashing' && p.completed > 0)).toBe(true);
+  expect(progress.some(p => p.phase === 'optimizing' && p.completed === 1000)).toBe(true);
+});
 it('never uses a preparation recipe belonging to a different game build', async () => {
   const root = await directory(); await tree(root, fixtures.input);
   const worker = vi.spyOn(runner, 'runWorker'), otherBuild = release();

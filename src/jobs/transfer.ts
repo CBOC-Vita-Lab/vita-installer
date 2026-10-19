@@ -54,7 +54,7 @@ export async function executeTransfer(plan: InstallPlan, transport: Transport, j
   try {
     await ensureBackups(record, transport, journal, signal);
     await ensureBinding(record, transport, journal, signal);
-    record.snapshot = { ...record.snapshot, phase: 'transferring', bytesDone: 0, verifiedFiles: 0,
+    record.snapshot = { ...record.snapshot, phase: 'transferring', bytesDone: 0, verifiedFiles: 0, verifiedBytes: 0,
       errorCode: undefined, completionMode: undefined, availableActions: ['cancel'] }; report();
     for (const file of plan.files) {
       cancelled(signal); requireThat(await transport.identity() === plan.target.identity, 'device_changed');
@@ -104,7 +104,8 @@ export async function executeTransfer(plan: InstallPlan, transport: Transport, j
         requireThat((await observeFile(transport, file.destination, signal)).sha256 === file.sha256, 'transfer_verification_failed');
       }
       if (!record.verified.includes(file.destination)) record.verified.push(file.destination);
-      record.snapshot.bytesDone += file.bytes; record.snapshot.verifiedFiles++; await journal.save(record); report();
+      record.snapshot.bytesDone += file.bytes; record.snapshot.verifiedBytes! += file.bytes;
+      record.snapshot.verifiedFiles++; await journal.save(record); report();
     }
     await verifyProtection(plan, transport, signal);
     record.snapshot.phase = 'verifying'; record.snapshot.vpkDestination = plan.vpkDestination;

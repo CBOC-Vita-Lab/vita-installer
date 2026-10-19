@@ -1,4 +1,4 @@
-import { lstat, realpath, rename } from 'node:fs/promises';
+import { lstat, open, realpath, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import { checkedChild } from '../releases/import';
 import { InstallerError, requireThat } from '../shared/errors';
@@ -9,6 +9,7 @@ import { inventoryTree } from './inventory';
 import { runWorker, type VerifiedTool } from './runner';
 import type { ArchiveLimits } from '../releases/archive';
 import type { ReleaseManifest } from '../releases/manifest';
+import type { PreparationProgress } from '../shared/contracts';
 import inputCatalog from '../../resources/integrity/galaxy-rmge01-r0.json';
 import cookedCatalog from '../../resources/integrity/galaxy-cooked-rmge01-r0.json';
 
@@ -45,26 +46,54 @@ export async function checkGalaxyExtraction(source: string, signal?: AbortSignal
 }
 
 export async function prepareGalaxy(source: string, output: string, destination: string, limits: ArchiveLimits,
-  worker: VerifiedTool, movieWorker: VerifiedTool, signal?: AbortSignal) {
+  worker: VerifiedTool, movieWorker: VerifiedTool, signal?: AbortSignal, onProgress: (progress: PreparationProgress) => void = () => {}) {
+  onProgress({ phase: 'checking', completed: 0, unit: 'files' });
   const root = await checkGalaxyExtraction(source, signal, true);
   const fst = await hashFile(join(root, 'sys/fst.bin'), signal);
-  const result = await runWorker(worker, ['galaxy-cook', root, output], { cwd: source, signal });
+  onProgress({ phase: 'converting', completed: 0, unit: 'files' });
+  let cooked = 0;
+  const result = await runWorker(worker, ['galaxy-cook', root, output], { cwd: source, signal, onStderrLine: line => {
+    if (!line.startsWith('CBOC_PROGRESS ')) return;
+    let progress; try { progress = JSON.parse(line.slice(14)); } catch { return; }
+    if (progress && Number.isSafeInteger(progress.completed) && Number.isSafeInteger(progress.total)
+      && progress.completed >= cooked && progress.completed <= progress.total && progress.total > 0 && progress.total <= limits.maxFiles) {
+      cooked = progress.completed; onProgress({ phase: 'converting', completed: cooked, total: progress.total, unit: 'files' });
+    }
+  } });
   const receipt = JSON.parse(result.stdout);
   requireThat(receipt.prepared === true && receipt.movies === true && receipt.layoutVerified === true, 'galaxy_conversion_failed');
-  for (const movie of cookedCatalog.files.filter(f => f.path.startsWith('files/MovieData/'))) {
+  const movies = cookedCatalog.files.filter(f => f.path.startsWith('files/MovieData/'));
+  for (const [index, movie] of movies.entries()) {
     const path = await checkedChild(output, movie.path), optimized = `${path}.optimized`;
-    await runWorker(movieWorker, [path, optimized, '55'], { cwd: output, signal });
+    const handle = await open(path, 'r'), header = Buffer.alloc(24);
+    let total: number | undefined;
+    try {
+      const read = await handle.read(header, 0, header.length, 0);
+      const frames = header.readUInt32LE(0x14);
+      if (read.bytesRead === header.length && header.subarray(0, 4).equals(Buffer.from('THP\0')) && frames > 0 && frames <= 10000000) total = frames;
+    } finally { await handle.close(); }
+    let completed = 0;
+    const report = () => onProgress({ phase: 'optimizing', completed, total, unit: 'frames', item: index + 1, items: movies.length });
+    report();
+    await runWorker(movieWorker, [path, optimized, '55'], { cwd: output, signal, onStderrLine: line => {
+      const match = /^(\d+) frames, [\d.]+ -> [\d.]+ KB\/frame$/.exec(line);
+      if (match && total !== undefined && Number(match[1]) > completed && Number(match[1]) <= total) { completed = Number(match[1]); report(); }
+    } });
     try { await verifyFile(optimized, movie, signal); }
     catch (error) {
       if (error instanceof FileIntegrityError) throw new InstallerError('optimization_verification_failed');
       throw error;
     }
     await rename(optimized, path);
+    if (total !== undefined) { completed = total; report(); }
   }
+  onProgress({ phase: 'checking', completed: 0, unit: 'files' });
   await checkGalaxyExtraction(root, signal, true);
   requireThat(await hashFile(join(root, 'sys/fst.bin'), signal) === fst, 'source_changed');
-  await verifyInventory(output, cookedCatalog.files, signal, true);
+  await verifyInventory(output, cookedCatalog.files, signal, true,
+    (completed, total) => onProgress({ phase: 'hashing', completed, total, unit: 'bytes' }));
   await verifyFile(join(output, 'sys/fst.bin'), { sha256: fst }, signal);
+  onProgress({ phase: 'hashing', completed: 0, unit: 'files' });
   const files = await inventoryTree(output, destination, limits, signal);
   requireThat(files.length === cookedCatalog.files.length + 1, 'unexpected_conversion_output');
   return files;

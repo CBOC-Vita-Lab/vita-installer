@@ -24,6 +24,13 @@ it('verifies final data and VPK, preserves saves and never promotes from transfe
   for (const file of f.plan.files) expect(digest(f.transport.files.get(file.destination)!)).toBe(file.sha256);
   expect(f.transport.files.get(f.save)?.toString()).toBe('save'); expect((await f.journal.load(f.plan.jobId)).promotion).toBe('not_started');
 });
+it('only advances verified byte progress after readback, not when data is queued', async () => {
+  const f = await fixture(), snapshots: import('../../src/shared/contracts').JobSnapshot[] = [];
+  const result = await executeTransfer(f.plan, f.transport, f.journal, s => snapshots.push(s));
+  const uploading = snapshots.find(s => s.bytesDone > 0 && s.verifiedFiles === 0)!;
+  expect(uploading.verifiedBytes).toBe(0);
+  expect(result.verifiedBytes).toBe(f.plan.files.reduce((n, file) => n + file.bytes, 0));
+});
 it('makes verified local backups before any explicit update can finish', async () => {
   const f = await fixture(true); await executeTransfer(f.plan, f.transport, f.journal, () => {});
   const state = await f.journal.load(f.plan.jobId); expect(state.backups).toHaveLength(1);

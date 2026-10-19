@@ -1,4 +1,5 @@
-import type { ImportedRelease, InputCheck, PreparationResult } from '../shared/contracts';
+import type { ImportedRelease, InputCheck, PreparationResult, PreparationProgress } from '../shared/contracts';
+export type { PreparationProgress } from '../shared/contracts';
 import type { ReleaseManifest } from '../releases/manifest';
 import type { VerifiedTool } from './runner';
 import { runWorker } from './runner';
@@ -21,7 +22,6 @@ export const GBA_BIOS = 'fd2547724b505f487e6dcb29ec2ecff3af35a841a77ab2e85fd8735
 const ROM = /\.(gba|gb|gbc)$/i;
 export interface InputSelections { roots: string[]; chosen: Record<string, string[]> }
 export interface PreparationTools { nod?: VerifiedTool; dataWorker?: VerifiedTool; movieWorker?: VerifiedTool }
-export interface PreparationProgress { phase: 'checking' | 'extracting' | 'hashing'; files: number }
 type Input = ReleaseManifest['requiredInputs'][number];
 export class InputCheckError extends InstallerError {
   constructor(public readonly check: InputCheck) { super('invalid_input'); }
@@ -147,7 +147,7 @@ export async function prepareInputs(release: ImportedRelease, selections: InputS
     checkGalaxyRecipe(release.manifest);
     requireThat(tools.dataWorker && tools.movieWorker, 'preparation_tool_missing');
   }
-  onProgress({ phase: 'checking', files: 0 });
+  onProgress({ phase: 'checking', completed: 0, unit: 'files' });
   const workspace = await mkdtemp(join(await realpath(tmpdir()), 'vita-prepare-'));
   const result: PreparationResult = { releaseId: release.manifest.releaseId, inputFingerprints: {}, recipeFingerprint: recipeFingerprint(release),
     toolFingerprints: Object.fromEntries(Object.entries(tools).filter(([, tool]) => !!tool).map(([name, tool]) => [name, tool!.sha256])), files: [], workspace };
@@ -190,7 +190,7 @@ export async function prepareInputs(release: ImportedRelease, selections: InputS
           let extracted = source;
           if (stat.isFile()) {
             requireThat(tools.nod, 'preparation_tool_missing');
-            extracted = join(workspace, 'strikers'); onProgress({ phase: 'extracting', files: 0 });
+            extracted = join(workspace, 'strikers'); onProgress({ phase: 'extracting', completed: 0, unit: 'files' });
             await runWorker(tools.nod, ['extract', '--quiet', '--validate', '--partition', 'data', source, extracted], { cwd: workspace, signal });
           }
           await checkStrikersExtraction(extracted, signal, true);
@@ -198,13 +198,13 @@ export async function prepareInputs(release: ImportedRelease, selections: InputS
         } else if (input.kind === 'galaxy-disc') {
           requireThat(tools.dataWorker && tools.movieWorker, 'preparation_tool_missing');
           let extracted = source;
-          onProgress({ phase: 'extracting', files: 0 });
+          onProgress({ phase: 'extracting', completed: 0, unit: 'files' });
           if (stat.isFile()) {
             requireThat(tools.nod, 'preparation_tool_missing');
             extracted = join(workspace, 'galaxy-disc');
             await runWorker(tools.nod, ['extract', '--quiet', '--validate', '--partition', 'data', source, extracted], { cwd: workspace, signal });
           }
-          result.files.push(...await prepareGalaxy(extracted, join(workspace, 'galaxy-cooked'), data, release.manifest.limits, tools.dataWorker, tools.movieWorker, signal));
+          result.files.push(...await prepareGalaxy(extracted, join(workspace, 'galaxy-cooked'), data, release.manifest.limits, tools.dataWorker, tools.movieWorker, signal, onProgress));
         } else if (input.kind === 'roms' && stat.isDirectory()) {
           result.files.push(...await inventoryTree(source, data, release.manifest.limits, signal,
             p => p.split('/').length <= 3 && !p.split('/').some(n => n.startsWith('.')) && ROM.test(p)));
@@ -219,7 +219,7 @@ export async function prepareInputs(release: ImportedRelease, selections: InputS
         for (const file of result.files.slice(start)) file.inputId = check.id;
         const fingerprint = beforeHash ?? digest(JSON.stringify(result.files.slice(start).map(f => [f.destination, f.bytes, f.sha256])));
         result.inputFingerprints[`${check.id}:${paths.indexOf(sourcePath)}`] = fingerprint;
-        onProgress({ phase: 'hashing', files: result.files.length });
+        onProgress({ phase: 'hashing', completed: result.files.length, unit: 'files' });
       }
     }
     const seen = new Set<string>(); let bytes = 0;

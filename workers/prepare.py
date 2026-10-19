@@ -70,7 +70,10 @@ def cook_galaxy(source, output):
             if name in (b".", b"..") or any(c in name for c in (b"/", b"\\", b":", b"\0")):
                 raise ValueError("unsafe_conversion_input")
         with contextlib.redirect_stdout(sys.stderr):
-            status = cook.convert(str(source), str(output), jobs=min(4, os.cpu_count() or 1), with_movies=True, vita_layout=True)
+            def progress(completed, total):
+                print("CBOC_PROGRESS " + json.dumps({"completed": completed, "total": total}), file=sys.stderr, flush=True)
+
+            status = cook.convert(str(source), str(output), jobs=min(4, os.cpu_count() or 1), with_movies=True, vita_layout=True, progress=progress)
             if status or vita_layout.main(["vita_layout.py", str(output), "--verify"]):
                 raise ValueError("galaxy_conversion_failed")
         return {"prepared": True, "movies": True, "layoutVerified": True}

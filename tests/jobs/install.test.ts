@@ -30,6 +30,14 @@ it('reports installed only after VitaShell promotion and installed-title/runtime
   expect(result.completionMode).toBe('installed'); expect(f.calls).toEqual([f.plan.vpkDestination]);
   expect(await verifyInstalled(f.plan, f.transport)).toMatchObject({ titleId: f.plan.titleId, runtimeSha256: f.plan.package.runtimeSha256, preserved: true });
 });
+it('reports final verification bytes separately and clears them before promotion readback', async () => {
+  const f = await fixture(), snapshots: import('../../src/shared/contracts').JobSnapshot[] = [];
+  const result = await finishInstall(f.plan, f.transport, f.journal, s => snapshots.push(s), f.services);
+  const total = f.plan.files.reduce((n, file) => n + file.bytes, 0);
+  expect(snapshots.some(s => s.phase === 'verifying' && s.verification?.completed === total && s.verification?.total === total)).toBe(true);
+  expect(snapshots.find(s => s.phase === 'installing')?.verification).toBeUndefined();
+  expect(result.completionMode).toBe('installed');
+});
 it('passes Companion a fully verified extracted directory, not a VPK filename', async () => {
   const f = await fixture('companion');
   f.services.promote = async (_device, path) => {

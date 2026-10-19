@@ -66,6 +66,7 @@ export async function finishInstall(plan: InstallPlan, transport: Transport, jou
     .map(file => ({ kind: 'import_cover' as const, from: file.destination }));
   const report = () => onProgress(structuredClone(record.snapshot));
   async function reconcile() {
+    record.snapshot.verification = undefined;
     record.snapshot.phase = 'verifying'; record.snapshot.completionMode = undefined; record.snapshot.availableActions = []; report();
     let evidence: InstalledEvidence | null = null, errorCode = 'installed_bytes_unverified';
     try { evidence = await verifyInstalled(plan, transport); }
@@ -87,8 +88,16 @@ export async function finishInstall(plan: InstallPlan, transport: Transport, jou
   cancelled(signal);
   requireThat(plan.files.every(f => record.verified.includes(f.destination)), 'transfer_incomplete');
   await verifySources(plan); await verifyProtection(plan, transport);
-  for (const file of plan.files) if (file.action !== 'preserve')
-    requireThat((await observeFile(transport, file.destination)).sha256 === file.sha256, 'transfer_verification_failed');
+  const checking = plan.files.filter(file => file.action !== 'preserve');
+  const total = checking.reduce((n, file) => n + file.bytes, 0); let completed = 0;
+  record.snapshot.phase = 'verifying'; record.snapshot.verification = { completed, total }; report();
+  for (const file of checking) {
+    requireThat((await observeFile(transport, file.destination, signal, bytes => {
+      record.snapshot.verification = { completed: completed + bytes, total }; report();
+    })).sha256 === file.sha256, 'transfer_verification_failed');
+    completed += file.bytes;
+  }
+  record.snapshot.verification = undefined; report();
   const current = await services.inspect(plan.target);
   cancelled(signal);
   requireThat(current.state === 'ready' && current.identity === plan.target.identity && current.transport === plan.target.transport, 'device_changed');

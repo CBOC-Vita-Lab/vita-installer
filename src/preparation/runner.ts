@@ -1,9 +1,10 @@
 import { spawn } from 'node:child_process';
+import { StringDecoder } from 'node:string_decoder';
 import { hashFile } from '../shared/files';
 import { cancelled, InstallerError, requireThat } from '../shared/errors';
 export interface VerifiedTool { path: string; sha256: string }
 export async function runWorker(tool: VerifiedTool, args: string[],
-  options: { cwd: string; signal?: AbortSignal; timeoutMs?: number; maxOutputBytes?: number }): Promise<{ stdout: string; stderr: string }> {
+  options: { cwd: string; signal?: AbortSignal; timeoutMs?: number; maxOutputBytes?: number; onStderrLine?: (line: string) => void }): Promise<{ stdout: string; stderr: string }> {
   cancelled(options.signal);
   requireThat(await hashFile(tool.path, options.signal) === tool.sha256, 'tool_hash_mismatch');
   cancelled(options.signal);
@@ -14,6 +15,7 @@ export async function runWorker(tool: VerifiedTool, args: string[],
     const child = spawn(tool.path, args, { cwd: options.cwd, env, shell: false,
       windowsHide: true, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] });
     const stdout: Buffer[] = [], stderr: Buffer[] = []; let bytes = 0, failure: string | undefined;
+    const decoder = new StringDecoder('utf8'); let pending = '';
     let forceKill: NodeJS.Timeout | undefined;
     const kill = (signal: NodeJS.Signals) => {
       try { if (process.platform !== 'win32' && child.pid) process.kill(-child.pid, signal); else child.kill(signal); }
@@ -30,7 +32,17 @@ export async function runWorker(tool: VerifiedTool, args: string[],
       if (bytes > (options.maxOutputBytes ?? 2 * 1024 ** 2)) stop('worker_output_limit');
       else target.push(chunk);
     };
-    child.stdout.on('data', chunk => collect(stdout, chunk)); child.stderr.on('data', chunk => collect(stderr, chunk));
+    child.stdout.on('data', chunk => collect(stdout, chunk));
+    child.stderr.on('data', chunk => {
+      collect(stderr, chunk);
+      if (failure || !options.onStderrLine) return;
+      pending += decoder.write(chunk);
+      let newline: number;
+      while ((newline = pending.indexOf('\n')) >= 0 && !failure) {
+        const line = pending.slice(0, newline).replace(/\r$/, ''); pending = pending.slice(newline + 1);
+        try { options.onStderrLine(line); } catch { stop('worker_progress_failed'); }
+      }
+    });
     child.on('error', () => { failure ??= 'worker_start_failed'; });
     options.signal?.addEventListener('abort', abort, { once: true });
     if (options.signal?.aborted) abort();

@@ -5,9 +5,12 @@ import { safeRelative } from '../shared/files';
 import { cancelled, requireThat } from '../shared/errors';
 import { FileIntegrityError, verifyFile } from '../shared/integrity';
 export interface ExpectedFile { path: string; bytes: number; sha256: string }
-export async function verifyInventory(root: string, files: ExpectedFile[], signal?: AbortSignal, hashes = true) {
+export async function verifyInventory(root: string, files: ExpectedFile[], signal?: AbortSignal, hashes = true,
+  onProgress?: (completed: number, total: number) => void) {
   requireThat(!(await lstat(root)).isSymbolicLink(), 'unsafe_source');
   const canonical = await realpath(root);
+  const total = files.reduce((n, file) => n + file.bytes, 0); let completed = 0;
+  onProgress?.(0, total);
   for (const file of files) {
     cancelled(signal); requireThat(safeRelative(file.path), 'unsafe_path');
     const path = join(root, file.path);
@@ -17,5 +20,6 @@ export async function verifyInventory(root: string, files: ExpectedFile[], signa
       throw new FileIntegrityError(path, code === 'ENOENT' || code === 'ENOTDIR' ? 'source_missing' : 'source_unreadable');
     }
     await verifyFile(path, { bytes: file.bytes, sha256: hashes ? file.sha256 : undefined }, signal);
+    completed += file.bytes; onProgress?.(completed, total);
   }
 }

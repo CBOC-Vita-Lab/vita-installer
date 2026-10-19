@@ -207,7 +207,12 @@ export class InstallerController {
         await this.checkRelease(signal); await this.scan(signal);
         const issue = this.state.inputs.find(input => !['ready', 'unverified'].includes(input.status));
         if (issue) { this.inputIssue(issue); return; }
-        this.prepared = await prepareInputs(this.release(), this.selections, p => { this.state.preparationPhase = p.phase; this.emit(); }, signal,
+        let lastProgress = 0;
+        this.prepared = await prepareInputs(this.release(), this.selections, p => {
+          const changed = this.state.preparation?.phase !== p.phase || this.state.preparation?.item !== p.item || this.state.preparation?.unit !== p.unit;
+          this.state.preparation = p;
+          if (changed || Date.now() - lastProgress > 100 || p.completed === p.total) { lastProgress = Date.now(); this.emit(); }
+        }, signal,
           await this.options.tools(this.release().manifest.recipeId, signal));
         this.remember(this.prepared.workspace); this.state.prepared = true; this.state.repairStep = undefined;
       } else if (request.command === 'plan') {
@@ -295,7 +300,7 @@ export class InstallerController {
         }
       }
     }
-    finally { this.state.busy = undefined; this.abort = undefined; this.emit(); }
+    finally { this.state.busy = undefined; this.state.preparation = undefined; this.abort = undefined; this.emit(); }
   }
   private updateDeviceViews() {
     this.state.devices = [...this.devices.values()].map(({ root: _root, identity: _identity, ...device }) => device);

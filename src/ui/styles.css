@@ -136,5 +136,8 @@ code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size
 .github-source label { min-width: 0; }
 .busy-detail { flex: 1; min-width: 0; display: grid; gap: 4px; }
 .busy-detail progress { margin: 4px 0; }
+.work-progress { min-width: 0; width: 100%; }
+.progress-meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; line-height: 1.5; }
+.progress-meta > span { overflow-wrap: anywhere; min-width: 0; }
 .repair-notice { color: var(--lime); display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
 .repair-notice svg { width: 18px; height: 18px; }
