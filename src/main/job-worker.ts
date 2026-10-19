@@ -6,6 +6,7 @@ import { safeError } from './security';
 import { nodDownload, obtainTool } from '../preparation/tools';
 import { requireThat } from '../shared/errors';
 import type { UiRequest } from '../shared/ui';
+import { downloadGithubRelease } from '../releases/download';
 const port = parentPort!;
 async function start() {
   const { userData, resources, workers } = workerData as { userData: string; resources: string; workers: string };
@@ -18,7 +19,10 @@ async function start() {
     const path = resolve(root, entry.path); requireThat(path.startsWith(root + sep) && /^[a-f0-9]{64}$/.test(entry.sha256), 'invalid_tool_catalog');
     return { path, sha256: entry.sha256 as string };
   }
-  const controller = new InstallerController({ userData, trust: { fingerprints: new Set(trust.fingerprints), keys: new Map() }, volumeWorker: tool('volumeWorker'),
+  const store = { fingerprints: new Set(trust.fingerprints), keys: new Map() };
+  const controller = new InstallerController({ userData, trust: store, volumeWorker: tool('volumeWorker'),
+    downloadRelease: (url, expectedManifestSha256, signal, onProgress) => downloadGithubRelease(url, {
+      cache: join(userData, 'releases'), trust: store, expectedManifestSha256, signal, onProgress }),
     tools: async (recipe, signal) => recipe === 'strikers' ? { nod: await obtainTool(nodDownload(), join(userData, 'tools'), signal) }
       : recipe === 'infected' || recipe === 'galaxy' ? { dataWorker: tool('worker') } : {} }, state => port.postMessage({ type: 'snapshot', state }));
   await controller.initialize();

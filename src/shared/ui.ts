@@ -11,7 +11,8 @@ export interface UiSnapshot {
   optionalInputs: { id: string; label: string; kind: string }[];
   devices: DeviceView[]; selectedDevice?: string; discoveryStatus?: string;
   artwork: ArtworkView[]; prepared: boolean; plan?: PlanView; job?: JobSnapshot;
-  busy?: 'importing' | 'scanning' | 'preparing' | 'planning' | 'installing' | 'artwork';
+  busy?: 'importing' | 'scanning' | 'preparing' | 'planning' | 'installing' | 'artwork' | 'downloading' | 'repairing';
+  download?: { bytes: number; total?: number }; notice?: 'release_repaired';
   error?: string; errorFile?: string; repairStep?: Step; discoveryBusy: boolean; preparationPhase?: string;
   recoverableJobs: { id: string; title: string; phase: string }[];
   publicRelease?: { status: 'available' | 'unavailable'; tag?: string };
@@ -19,6 +20,7 @@ export interface UiSnapshot {
 export const emptySnapshot = (): UiSnapshot => ({ releases: [], inputs: [], optionalInputs: [], devices: [], artwork: [], prepared: false, discoveryBusy: false, recoverableJobs: [] });
 export type UiRequest =
   | { command: 'import'; kind: 'file' | 'folder' }
+  | { command: 'importUrl'; url: string }
   | { command: 'selectRelease'; id: string }
   | { command: 'discover'; manual?: { host: string; port: number } }
   | { command: 'selectDevice'; id: string; confirmUx0?: boolean }

@@ -24,7 +24,8 @@ import { readSmallFile } from '../jobs/observe';
 import { digest, hashFile } from '../shared/files';
 import { requireThat } from '../shared/errors';
 import { safeError } from './security';
-import { checkPublicRelease } from '../releases/github';
+import { checkPublicRelease, releasePage } from '../releases/github';
+import type { DownloadProgress } from '../releases/download';
 import { detectRetroflow } from '../artwork/detect';
 import { FileIntegrityError, verifyFile } from '../shared/integrity';
 
@@ -34,6 +35,7 @@ interface Options {
   discover?: (signal: AbortSignal, manual?: { host: string; port: number }) => AsyncIterable<DeviceCandidate>;
   inspect?: typeof inspectDevice; open?: (device: DeviceCandidate, options?: TransportOptions) => Promise<Transport>;
   checkRelease?: typeof checkPublicRelease;
+  downloadRelease?: (url: string, expectedManifestSha256: string | undefined, signal: AbortSignal, onProgress: (progress: DownloadProgress) => void) => Promise<ImportedRelease>;
 }
 export class InstallerController {
   private state = emptySnapshot(); private releases = new Map<string, ImportedRelease>(); private devices = new Map<string, DeviceCandidate>();
@@ -67,8 +69,32 @@ export class InstallerController {
   }
   private async checkRelease(signal: AbortSignal) {
     const release = this.release();
-    await verifyFile(join(release.sourceRoot, 'cboc-release.json'), { sha256: release.manifestSha256 }, signal);
-    if (release.vpkPath && release.manifest.package) await verifyFile(release.vpkPath, { sha256: release.manifest.package.sha256 }, signal);
+    try {
+      await verifyFile(join(release.sourceRoot, 'cboc-release.json'), { sha256: release.manifestSha256 }, signal);
+      if (release.vpkPath && release.manifest.package) await verifyFile(release.vpkPath, { sha256: release.manifest.package.sha256 }, signal);
+      return false;
+    } catch (error) {
+      if (!(error instanceof FileIntegrityError) || !['source_missing', 'source_changed'].includes(error.code) || !this.options.downloadRelease) throw error;
+      const repaired = await this.download(release.downloadUrl ?? releasePage(release.manifest.recipeId), signal, release.manifestSha256);
+      repaired.inputRoots = release.inputRoots ?? [release.sourceRoot];
+      repaired.inputWorkspaces = [...new Set([...(release.inputWorkspaces ?? []), ...(release.ownedWorkspace ? [release.ownedWorkspace] : [])])];
+      this.releases.set(this.state.selectedRelease!, repaired); this.remember(repaired.ownedWorkspace);
+      this.invalidate(); this.state.repairStep = undefined; return true;
+    }
+  }
+  private async download(url: string, signal: AbortSignal, expected?: string) {
+    requireThat(this.options.downloadRelease, 'release_download_unavailable');
+    const busy = this.state.busy; this.state.busy = expected ? 'repairing' : 'downloading'; this.state.download = { bytes: 0 }; this.emit();
+    let last = 0;
+    try {
+      const release = await this.options.downloadRelease(url, expected, signal, progress => {
+        this.state.download = progress;
+        if (Date.now() - last > 100 || progress.bytes === progress.total) { last = Date.now(); this.emit(); }
+      });
+      if (expected) { requireThat(release.manifestSha256 === expected, 'repair_version_unavailable'); this.state.notice = 'release_repaired'; }
+      return release;
+    } catch (error) { if (expected) { this.invalidate(true); this.state.repairStep = 'release'; } throw error; }
+    finally { this.state.busy = busy; this.state.download = undefined; this.emit(); }
   }
   private fileIssue(error: FileIntegrityError) {
     this.state.error = error.code; this.state.errorFile = basename(error.path);
@@ -127,16 +153,19 @@ export class InstallerController {
     }
     if (request.command === 'openRepo') return;
     if (this.discoveryTask) { this.discoveryAbort?.abort(); await this.discoveryTask; }
-    this.state.error = undefined; this.state.errorFile = undefined; this.abort = new AbortController(); const signal = this.abort.signal;
+    this.state.error = undefined; this.state.errorFile = undefined; this.state.notice = undefined; this.abort = new AbortController(); const signal = this.abort.signal;
     try {
-      if (request.command === 'import') {
-        if (!paths.length) return;
+      if (request.command === 'import' || request.command === 'importUrl') {
+        if (request.command === 'import' && !paths.length) return;
         this.state.busy = 'importing'; this.emit();
-        const imported = await importRelease(paths[0], this.options.trust, signal);
+        const imported = request.command === 'importUrl' ? [await this.download(request.url, signal)]
+          : await importRelease(paths[0], this.options.trust, signal, this.options.downloadRelease
+            ? (manifest, sha) => this.download(releasePage(manifest.recipeId), signal, sha) : undefined);
         this.state.repairStep = undefined;
         this.releases.clear(); this.state.releases = []; this.state.selectedRelease = undefined; this.invalidate(true);
         for (const release of imported) {
           this.remember(release.ownedWorkspace); const id = randomBytes(16).toString('hex'); this.releases.set(id, release);
+          for (const workspace of release.inputWorkspaces ?? []) this.remember(workspace);
           let image: string | undefined;
           if (release.manifest.releaseState === 'ready' && release.manifest.recipeId !== 'galaxy') {
             const artwork = await prepareArtwork(release, {}, signal); this.remember(artwork.workspace);
@@ -182,9 +211,9 @@ export class InstallerController {
           await this.options.tools(this.release().manifest.recipeId, signal));
         this.remember(this.prepared.workspace); this.state.prepared = true; this.state.repairStep = undefined;
       } else if (request.command === 'plan') {
-        const reviewed = this.plan;
+        let reviewed = this.plan;
         this.invalidate(); requireThat(this.prepared, 'preparation_required'); this.state.busy = 'planning'; this.emit();
-        await this.checkRelease(signal);
+        if (await this.checkRelease(signal)) reviewed = undefined;
         for (const file of this.prepared.files) await verifyFile(file.source, file, signal);
         for (const [slot, choice] of Object.entries(this.choices)) if (choice.source)
           await verifyFile(choice.source, { sha256: this.sourceHashes[slot as ArtworkSlot] }, signal);
@@ -218,7 +247,9 @@ export class InstallerController {
           requireThat(this.options.trust.fingerprints.has(plan.manifestSha256), 'untrusted_release');
         }
         this.state.busy = 'installing'; this.emit(); this.paused = false;
-        if (request.command === 'execute') await this.checkRelease(signal);
+        if (request.command === 'execute' && await this.checkRelease(signal)) {
+          this.state.repairStep = 'artwork'; requireThat(false, 'release_repaired_review');
+        }
         const device = await (this.options.inspect ?? inspectDevice)(plan.target, signal); requireThat(device.state === 'ready' && device.identity === plan.target.identity, 'device_changed');
         this.devices.set(device.id, device); this.state.selectedDevice = device.id; this.updateDeviceViews();
         const transport = await this.open(device, { scope: writeScope(plan) });
@@ -303,9 +334,9 @@ export class InstallerController {
     const release = this.releases.get(id); requireThat(release, 'unknown_release'); requireThat(release.manifest.releaseState === 'ready' && release.manifest.recipeId !== 'galaxy', 'release_held');
     this.state.selectedRelease = id; this.invalidate(true); this.state.inputs = []; this.state.artwork = []; this.defaults = undefined;
     this.state.publicRelease = undefined; this.state.repairStep = undefined;
-    this.selections = { roots: [release.sourceRoot], chosen: {} }; this.choices = {}; this.sourceHashes = {}; this.previewHashes = {};
+    this.selections = { roots: [...(release.inputRoots ?? [release.sourceRoot])], chosen: {} }; this.choices = {}; this.sourceHashes = {}; this.previewHashes = {};
     await this.checkRelease(signal);
-    this.defaults = await prepareArtwork(release, {}, signal); this.remember(this.defaults.workspace);
+    this.defaults = await prepareArtwork(this.release(), {}, signal); this.remember(this.defaults.workspace);
     this.state.artwork = [];
     for (const slot of ['bubble', 'livearea', 'retroflow'] as const) this.state.artwork.push({ slot, mode: 'default', fit: 'cover', x: .5, y: .5,
       preview: await this.preview(await readFile(this.defaults.images[slot]!.path)) });

@@ -26,6 +26,19 @@ function harness(initial: UiSnapshot = ready(), conflicts = false) {
   render(<App bridge={bridge} />); return { bridge, calls, set };
 }
 afterEach(cleanup);
+it('imports a GitHub link without opening a file picker and shows cancellable download progress', async () => {
+  const h = harness(emptySnapshot());
+  const url = 'https://github.com/CBOC-Vita-Lab/vitadhoc';
+  fireEvent.change(screen.getByRole('textbox', { name: 'GitHub URL' }), { target: { value: url } });
+  fireEvent.click(screen.getByRole('button', { name: 'Download release' }));
+  await waitFor(() => expect(h.calls).toContainEqual({ command: 'importUrl', url }));
+  expect(h.calls.some(c => c.command === 'import')).toBe(false);
+  await act(() => h.set({ busy: 'downloading', download: { bytes: 100, total: 200 } }));
+  expect(screen.getByRole('progressbar', { name: 'Download progress' })).toHaveAttribute('value', '100');
+  expect(screen.getByRole('button', { name: 'Download release' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(h.calls).toContainEqual({ command: 'cancel' });
+});
 async function toArtwork() {
   fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));

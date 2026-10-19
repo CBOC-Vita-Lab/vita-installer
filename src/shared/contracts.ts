@@ -2,7 +2,8 @@ import type { ReleaseManifest, PackageInventory, PackageMember } from '../releas
 export type { ReleaseManifest, PackageInventory, PackageMember };
 export interface ImportedRelease {
   manifest: ReleaseManifest; manifestSha256: string; sourceRoot: string;
-  vpkPath: string | null; inventory: PackageInventory | null; ownedWorkspace?: string;
+  vpkPath: string | null; inventory: PackageInventory | null; ownedWorkspace?: string; downloadUrl?: string;
+  inputRoots?: string[]; inputWorkspaces?: string[];
 }
 export interface InputCheck {
   id: string; label: string; status: 'ready' | 'missing' | 'invalid' | 'unverified';

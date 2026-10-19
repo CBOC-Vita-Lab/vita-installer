@@ -25,8 +25,9 @@ result gives its exact source and destination.
 
 ## Files and artwork
 
-Choose a release ZIP, extracted release folder, or parent folder containing
-several releases. Select your own game files. Only selected folders and the
+Paste a supported CBOC game repository or release URL, or choose a release ZIP,
+extracted folder, or parent folder containing several releases. Private releases
+need a local ZIP/folder. Select your own game files. Only selected folders and the
 selected Vita's prerequisite location are checked, not your whole computer.
 
 An existing title is labelled **Already installed**. Choosing it does not
@@ -34,9 +35,14 @@ approve a reinstall. Updates require the separate checkbox on the final review;
 changing the game or destination clears that approval.
 
 Files are checked automatically before preparation and again before copying.
-If something is missing or changed, installation stops and shows what to
-replace. Locate the complete file/folder or redownload the release ZIP, then
-continue. Valid files need no extra confirmation. Strikers' extracted folder
+Missing or damaged release files and the downloadable extraction tool repair
+automatically when available. Repairs use verified copies in the app's cache,
+not changes to your original folder, and never silently upgrade the release.
+If repair is unavailable, choose the complete release ZIP/folder. Game files,
+BIOS, shader files and custom artwork must come from you; missing or changed
+inputs stop installation and show what to replace. Valid files need no extra
+confirmation. A repair after final review requires a fresh review before copying.
+Strikers' extracted folder
 is checked against all 2,359 expected files, including their sizes and hashes.
 
 Review the bubble icon, bubble background and RetroFlow cover. Keep defaults

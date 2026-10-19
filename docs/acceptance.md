@@ -5,6 +5,9 @@ This is an internal preview, not an accepted public installer release.
 | Area | Evidence/status |
 | --- | --- |
 | Import, preparation, artwork, transport, recovery, UI | Automated synthetic tests; current private VPK import checks |
+| GitHub URL import and repair | Automated URL, exact-version, checksum, redirect, interruption, cancellation and local-input preservation tests. No approved public game release is available for a full live URL-to-install test |
+| Live download check | Public extraction helper downloaded and SHA-256 verified; deliberately damaged disposable cache restored to the same hash. Private game URL rejected without credentials or leftover files. No helper execution or Vita writes |
+| Download UI | Actual renderer with a synthetic bridge checked at 1200x813, 800x600 and 390x844. URL entry, progress, cancellation and loaded logo verified; no horizontal overflow. Progress occupies its own row rather than covering controls |
 | macOS Apple Silicon | Packaged app launched with empty PATH; real bundle import/artwork UI and packaged-worker tests passed |
 | Branding UI | Current logo and duplicate warning checked in a browser-only fixture at 1200x813, 800x600 and 390x844; no horizontal overflow or unloaded logo. Fresh native GUI inspection unavailable because desktop control timed out |
 | macOS Intel / Windows x64 | Native runner validation pending |
@@ -36,6 +39,10 @@ Update consent now binds to the reviewed game, device and existing file hashes.
 The branding review also caught overlapping device selections displaying a stale
 installed-title warning. Device selection is now serialized, with a regression
 test covering two devices and a delayed response.
+The download review caught repair dropping the user's original scan folder and
+older local releases losing their version locator. Repairs now retain selected
+local roots, including extracted ZIP workspaces, and use published manifest
+digests for bounded exact-version lookup. Downloaded payload extras remain excluded.
 
 Deferred: ordinary desktop shutdown does not dispose of abandoned temporary
 workspaces. They may retain substantial local data. Recovery data must remain

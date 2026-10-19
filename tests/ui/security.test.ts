@@ -2,6 +2,9 @@ import { expect, it } from 'vitest';
 import { CSP, isAllowedExternal, parseRequest, rendererPreferences, safeError, trustedSender } from '../../src/main/security';
 import { InstallerError } from '../../src/shared/errors';
 it('allows only typed requests, not renderer paths or executable options', () => {
+  expect(parseRequest({ command: 'importUrl', url: 'https://github.com/CBOC-Vita-Lab/vitadhoc' })).toHaveProperty('command', 'importUrl');
+  for (const url of ['https://user:token@github.com/CBOC-Vita-Lab/vitadhoc', 'http://127.0.0.1/', 'https://github.com/CBOC-Vita-Lab/vitadhoc?token=secret'])
+    expect(() => parseRequest({ command: 'importUrl', url })).toThrow();
   expect(parseRequest({ command: 'artwork', slot: 'bubble', action: 'adjust', fit: 'cover', x: 0.5, y: 0.5 })).toHaveProperty('slot', 'bubble');
   for (const value of [{ command: 'execute', id: '../../bad' }, { command: 'import', kind: 'file', path: '/private/key' },
     { command: 'artwork', slot: 'bubble', action: 'choose', source: '/secret' }, { command: 'artwork', slot: 'bubble', action: 'adjust', x: 2 },

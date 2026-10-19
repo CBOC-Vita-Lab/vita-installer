@@ -1,5 +1,15 @@
 # Changes
 
+## 0.1.3 private preview
+
+- Import approved public CBOC releases directly from a GitHub URL.
+- Restore missing or damaged release files and the extraction tool automatically,
+  with checksum checks, progress and cancellation.
+- Keep repairs on the exact reviewed version, preserve original local inputs,
+  and require a fresh review if a release changes after install planning.
+- Never download replacement commercial games, BIOS or custom artwork.
+- Private releases still need a local ZIP/folder; no GitHub credentials are included.
+
 ## 0.1.2 private preview
 
 - Add the CBOC logo, desktop app icon and compact wordmark.

@@ -1,5 +1,12 @@
 # Recovery
 
+Before installation, missing or damaged release files are restored automatically
+when the exact verified version is available publicly. The extraction tool's
+cache can repair itself too. Downloads are cancellable; retry starts a fresh
+verified transfer. Your original files are not overwritten. Unavailable repairs
+offer local file selection instead. Game files and custom artwork are never
+downloaded as replacements.
+
 Reconnect the same Vita or card, then choose **Resume**. Verified files are
 kept; an interrupted file starts again. A different device or missing job
 marker stops recovery rather than guessing where to write.

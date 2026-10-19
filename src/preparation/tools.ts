@@ -1,11 +1,9 @@
 import type { VerifiedTool } from './runner';
-import { constants, createWriteStream } from 'node:fs';
-import { chmod, copyFile, lstat, mkdir, mkdtemp, realpath, rm } from 'node:fs/promises';
+import { chmod, lstat, mkdir, mkdtemp, realpath, rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Readable, Transform } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
 import { cancelled, InstallerError, requireThat } from '../shared/errors';
 import { hashFile, safeRelative } from '../shared/files';
+import { downloadVerifiedFile } from '../shared/download';
 export interface ToolDownload { name: string; url: string; sha256: string }
 export async function obtainTool(tool: ToolDownload, cache: string, signal?: AbortSignal,
   fetcher: typeof fetch = fetch): Promise<VerifiedTool> {
@@ -15,25 +13,22 @@ export async function obtainTool(tool: ToolDownload, cache: string, signal?: Abo
   await mkdir(cache, { recursive: true }); requireThat(!(await lstat(cache)).isSymbolicLink(), 'unsafe_workspace');
   const root = await realpath(cache), path = join(root, tool.name);
   const present = await lstat(path).catch(error => { if (error.code === 'ENOENT') return null; throw error; });
-  if (present) { requireThat(await hashFile(path, signal) === tool.sha256, 'tool_hash_mismatch'); return { path, sha256: tool.sha256 }; }
+  if (present) {
+    requireThat(present.isFile() && !present.isSymbolicLink(), 'unsafe_tool_cache');
+    if (await hashFile(path, signal) === tool.sha256) return { path, sha256: tool.sha256 };
+  }
   const workspace = await mkdtemp(join(root, '.download-')), partial = join(workspace, 'tool');
-  const timeout = AbortSignal.timeout(90_000), combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
   try {
-    const response = await fetcher(tool.url, { signal: combined });
-    requireThat(response.ok && response.body, 'tool_download_failed');
-    let bytes = 0;
-    const meter = new Transform({ transform(chunk, _encoding, done) {
-      bytes += chunk.length; done(bytes > 20 * 1024 ** 2 ? new InstallerError('tool_download_limit') : null, chunk);
-    }});
-    await pipeline(Readable.fromWeb(response.body as import('node:stream/web').ReadableStream), meter,
-      createWriteStream(partial, { flags: 'wx', mode: 0o600 }), { signal: combined });
-    requireThat(await hashFile(partial, signal) === tool.sha256, 'tool_hash_mismatch'); cancelled(signal);
-    try { await copyFile(partial, path, constants.COPYFILE_EXCL); }
-    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
+    await downloadVerifiedFile({ ...tool, maxBytes: 20 * 1024 ** 2 }, partial, signal, fetcher);
+    const current = await lstat(path).catch(error => { if (error.code === 'ENOENT') return null; throw error; });
+    requireThat(!current || current.isFile() && !current.isSymbolicLink(), 'unsafe_tool_cache');
+    cancelled(signal); await rename(partial, path);
     requireThat(await hashFile(path, signal) === tool.sha256, 'tool_hash_mismatch');
     if (process.platform !== 'win32') await chmod(path, 0o700);
     return { path, sha256: tool.sha256 };
   } catch (error) {
+    if (error instanceof InstallerError && error.code === 'download_hash_mismatch') throw new InstallerError('tool_hash_mismatch');
+    if (error instanceof InstallerError && error.code === 'download_failed') throw new InstallerError('tool_download_failed');
     cancelled(signal); if (error instanceof InstallerError) throw error;
     throw new InstallerError('tool_download_failed');
   } finally { await rm(workspace, { recursive: true, force: true }); }

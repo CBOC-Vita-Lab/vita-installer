@@ -1,7 +1,8 @@
 # Release bundles
 
-Each game repository points to the same CBOC Vita Installer. Import a reviewed
-release ZIP or folder containing `cboc-release.json` and its VPK. A parent
+Each game repository points to the same CBOC Vita Installer. Paste its public
+repository/release URL, or import a reviewed ZIP/folder containing
+`cboc-release.json` and its VPK. A parent
 folder can hold multiple releases. Source archives are not install releases.
 
 The installer trusts exact manifest SHA-256 fingerprints or an Ed25519
@@ -37,8 +38,33 @@ The pinned original ZIPs are never replaced. The new ZIP adds
 `cboc-release.json`, `START-INSTALLER.md` and regenerated checksums; the VPK,
 source and license payloads stay unchanged. Import readback is required.
 
-GitHub checks are optional, unauthenticated and limited to the four fixed
-public release endpoints. Offline/private/mismatched metadata never invalidates
-a trusted local bundle. The app does not download or execute release assets
-based on GitHub metadata. Private manifests must be removed from a future
-public installer unless their release gates are explicitly cleared.
+## GitHub downloads and repair
+
+Downloads are unauthenticated and limited to the four fixed CBOC repositories;
+Galaxy remains blocked. Repository, release-page, tag and asset URLs are
+supported. A repository URL selects the latest stable release. A tag URL pins
+that release. Private releases still require a locally selected bundle.
+
+After release gates are cleared, publish one outer bundle as `cboc-release.zip`
+and attach its exact `cboc-release.json` separately. The existing pinned bundle
+filenames are also accepted, but do not publish both names on the same release.
+GitHub asset metadata must include its SHA-256 digest and uploaded state.
+Source-code archives are not install bundles.
+
+The manifest attachment lets the app find an older exact version among the
+latest 30 published releases without downloading unrelated ZIPs. Legacy releases
+without that attachment can repair from matching latest metadata only; an
+older local ZIP remains the fallback. URL imports retain their exact asset URL.
+Every repair still authenticates the downloaded manifest and compares its exact
+hash, VPK hash, runtime and title. A metadata digest alone cannot authorize code.
+
+Downloads enforce HTTPS, approved GitHub/CDN hosts, time/size limits and checksum
+verification. Only the authenticated manifest and VPK enter input discovery;
+extra downloaded files never become user game/BIOS/artwork inputs. Partial or
+failed downloads are removed. Original local folders are never repaired in place.
+The pinned extraction helper can also repair its own cache; bundled helpers
+require reinstalling the app if damaged.
+
+Offline or private metadata does not invalidate an intact trusted local bundle.
+No GitHub credentials are shipped or requested. Private manifests must be removed
+from a future public installer unless their release gates are explicitly cleared.

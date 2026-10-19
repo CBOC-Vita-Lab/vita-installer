@@ -14,7 +14,7 @@ Galaxy remains unavailable. Platform and device acceptance is tracked in
 
 1. Open the [installer](https://github.com/CBOC-Vita-Lab/vita-installer/releases).
 2. Connect your Vita, or attach its already configured memory card.
-3. Select the matching release ZIP or folder. Pick a game if several are found.
+3. Paste the game's GitHub URL, or select its release ZIP/folder. Pick a game if several are found.
 4. Choose your game file and any missing required files.
 5. Keep the default artwork or choose your own, then click **Install**.
 
@@ -23,6 +23,9 @@ needed. It shows the exact remaining VitaShell step when automatic installation
 is unavailable. Existing different files are not silently replaced.
 Installed titles are labelled before setup. Installing over one requires a
 separate, unchecked update approval; choosing a ZIP never approves an update.
+Missing or damaged release files repair automatically when the same verified
+version is available. Your game files stay yours to provide. Private releases
+still use a local ZIP or folder; the app has no GitHub login.
 
 [Connection options](docs/install.md) / [Artwork](docs/artwork.md) /
 [Recovery](docs/recovery.md)

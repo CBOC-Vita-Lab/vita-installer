@@ -1,5 +1,5 @@
 import { requireThat } from '../shared/errors';
-export const NETWORK_POLICY = ['local-vita-discovery', 'fixed-public-github-release-metadata', 'sha256-pinned-nod-release-download'] as const;
+export const NETWORK_POLICY = ['local-vita-discovery', 'fixed-public-github-release-metadata', 'authenticated-cboc-release-download', 'sha256-pinned-nod-release-download'] as const;
 export function allowedPackagePath(path: string): boolean {
   path = path.replaceAll('\\', '/');
   if (/(^|\/)\.[^/]+/.test(path)) return false;

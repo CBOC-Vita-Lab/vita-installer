@@ -10,6 +10,7 @@ import { verifyVpk } from './manifest';
 import { digest, safeRelative } from '../shared/files';
 import { cancelled, requireThat } from '../shared/errors';
 import type { ImportedRelease } from '../shared/contracts';
+import type { ReleaseManifest } from './manifest';
 
 const IMPORT_LIMITS = { maxFiles: 10000, maxFileBytes: 512 * 1024 ** 2, maxTotalBytes: 2 * 1024 ** 3 };
 interface Budget { entries: number; bytes: number }
@@ -49,7 +50,8 @@ export async function checkedChild(root: string, relative: string): Promise<stri
   requireThat(canonical.startsWith(root + sep), 'unsafe_path'); return canonical;
 }
 
-export async function importRelease(selection: string, store: TrustStore, signal?: AbortSignal): Promise<ImportedRelease[]> {
+export type RecoverRelease = (manifest: ReleaseManifest, manifestSha256: string, signal?: AbortSignal) => Promise<ImportedRelease>;
+export async function importRelease(selection: string, store: TrustStore, signal?: AbortSignal, recover?: RecoverRelease): Promise<ImportedRelease[]> {
   cancelled(signal);
   const stat = await lstat(selection); requireThat(!stat.isSymbolicLink(), 'unsafe_source');
   const source = await realpath(selection), results: ImportedRelease[] = [], owned: string[] = [];
@@ -73,9 +75,17 @@ export async function importRelease(selection: string, store: TrustStore, signal
       const path = await checkedChild(root, 'cboc-release.json');
       requireThat((await lstat(path)).size <= 1024 * 1024, 'invalid_manifest_size');
       const raw = await readFile(path), manifest = authenticateManifest(raw, store);
-      const vpkPath = manifest.package ? await checkedChild(root, manifest.package.path) : null;
-      const inventory = vpkPath ? await verifyVpk(vpkPath, manifest, signal) : null;
-      results.push({ manifest, manifestSha256: digest(raw), sourceRoot: root, vpkPath, inventory, ownedWorkspace: workspace });
+      try {
+        const vpkPath = manifest.package ? await checkedChild(root, manifest.package.path) : null;
+        const inventory = vpkPath ? await verifyVpk(vpkPath, manifest, signal) : null;
+        results.push({ manifest, manifestSha256: digest(raw), sourceRoot: root, vpkPath, inventory, ownedWorkspace: workspace });
+      } catch (error) {
+        if (!recover || !['ENOENT', 'ENOTDIR', 'package_hash_mismatch'].includes((error as { code?: string }).code ?? '')) throw error;
+        const repaired = await recover(manifest, digest(raw), signal);
+        if (repaired.ownedWorkspace) owned.push(repaired.ownedWorkspace);
+        requireThat(repaired.manifestSha256 === digest(raw), 'repair_version_unavailable');
+        results.push({ ...repaired, inputRoots: [root], inputWorkspaces: workspace ? [workspace] : [] });
+      }
       return;
     }
     for (const entry of entries) {
@@ -87,7 +97,7 @@ export async function importRelease(selection: string, store: TrustStore, signal
     if (stat.isDirectory()) await search(source, 0, -1);
     else { requireThat(stat.isFile(), 'unsafe_source'); await archive(source, 0); }
     requireThat(results.length, 'no_supported_release');
-    const used = new Set(results.map(r => r.ownedWorkspace));
+    const used = new Set(results.flatMap(r => [r.ownedWorkspace, ...(r.inputWorkspaces ?? [])]));
     for (const dir of owned) if (!used.has(dir)) await rm(dir, { recursive: true, force: true });
     return results;
   } catch (error) {

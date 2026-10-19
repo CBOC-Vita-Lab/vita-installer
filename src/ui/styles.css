@@ -15,6 +15,7 @@ h2 { font-size: 28px; font-weight: 650; line-height: 1.25; outline: 0; }
 h3 { font-size: 16px; line-height: 1.4; font-weight: 550; }
 .muted, small, .status-text { color: var(--muted); }
 .app-shell { height: 100%; display: grid; grid-template-rows: auto auto 1fr auto; overflow: hidden; }
+.app-shell.with-progress { grid-template-rows: auto auto minmax(0, 1fr) auto auto; }
 .app-header { background: var(--surface); min-height: 64px; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid #252c30; }
 .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .brand img { width: 48px; height: 48px; flex: 0 0 48px; object-fit: contain; }
@@ -92,7 +93,7 @@ input[type="checkbox"] { accent-color: var(--cyan); width: 17px; height: 17px; m
 .error-banner > span { min-width: 0; flex: 1; }
 .error-banner .filename { white-space: normal; overflow-wrap: anywhere; margin-top: 6px; }
 .input-label > .error-text { display: block; }
-.busy-status { position: sticky; bottom: 0; background: var(--surface); border: 1px solid var(--border); padding: 12px 16px; margin-top: 24px; display: flex; align-items: center; gap: 12px; }
+.busy-status { background: var(--surface); border-top: 1px solid var(--border); padding: 12px 24px; display: flex; align-items: center; gap: 12px; }
 .busy-status button { margin-left: auto; }
 .busy-status > svg, .pending > svg { animation: spin 1.4s linear infinite; color: var(--cyan); }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -131,3 +132,9 @@ code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size
 @media (max-width: 700px) { .app-header { padding: 12px 16px; } h1 { font-size: 16px; } .connection-button { padding: 8px; font-size: 12px; } .steps { padding: 20px 12px; } .steps li { font-size: 11px; } .workspace { padding: 12px 20px 24px; } h2 { font-size: 24px; } .section-heading { margin-bottom: 24px; } .artwork-grid { grid-template-columns: 1fr; } .art-preview { height: 200px; } .art-toolbar .segmented { flex-basis: auto; } .input-row { flex-wrap: wrap; } .input-label { flex-basis: 100%; } .app-footer { padding: 12px 16px; } dl > div { grid-template-columns: 120px minmax(0, 1fr); } form { grid-template-columns: 1fr 80px; } .single .release-choice img { width: 100px; height: 100px; } }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 .release-metadata { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.github-source { display: grid; grid-template-columns: minmax(0, 1fr) 40px; max-width: 680px; margin: 0 0 24px; gap: 12px; }
+.github-source label { min-width: 0; }
+.busy-detail { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.busy-detail progress { margin: 4px 0; }
+.repair-notice { color: var(--lime); display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+.repair-notice svg { width: 18px; height: 18px; }

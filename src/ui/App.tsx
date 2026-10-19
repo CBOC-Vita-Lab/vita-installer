@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Wifi, Usb, FolderOpen, FileArchive, ExternalLink, RefreshCw, X, Check } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Wifi, Usb, FolderOpen, FileArchive, ExternalLink, RefreshCw, X, Check, Download } from 'lucide-react';
 import { emptySnapshot, type InstallerBridge, type Step, type UiRequest, type UiSnapshot } from '../shared/ui';
 import { Artwork } from './Artwork';
 import { Connection } from './Connection';
@@ -11,6 +11,7 @@ const steps: { id: Step; label: string }[] = [{ id: 'release', label: 'Release' 
 export function App({ bridge = window.vitaInstaller }: { bridge?: InstallerBridge }) {
   const [state, setState] = useState<UiSnapshot>(emptySnapshot), [step, setStep] = useState<Step>('release'), [connecting, setConnecting] = useState(false);
   const [pending, setPending] = useState(false), [localError, setLocalError] = useState<string>();
+  const [githubUrl, setGithubUrl] = useState('');
   const { space: ackSpace, update, cover: replaceCover } = state.plan?.consents ?? { space: false, update: false, cover: false };
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { if (!bridge) return; let alive = true; void bridge.getSnapshot().then(s => { if (alive) setState(s); }); const off = bridge.subscribe(setState); return () => { alive = false; off(); }; }, [bridge]);
@@ -40,18 +41,24 @@ export function App({ bridge = window.vitaInstaller }: { bridge?: InstallerBridg
   const nextDisabled = disabled || !connected || !selected || selected.held || state.repairStep === 'release' || (step === 'game' && !gameReady) || (step === 'required' && !allReady)
     || (step === 'install' && (!state.plan || state.plan.blockers.length > 0));
   if (!bridge) return <main className="unavailable"><h1>CBOC Vita Installer</h1><p>Open the desktop app to install a release.</p></main>;
-  return <div className="app-shell">
+  return <div className={`app-shell ${state.busy && !state.job ? 'with-progress' : ''}`}>
     <header className="app-header"><div className="brand"><img src={new URL('../../resources/branding/cboc-mark.png', import.meta.url).href} alt="CBOC logo" width="48" height="48" /><div><strong>CBOC</strong><h1 aria-label="CBOC Vita Installer">Vita Installer</h1></div></div><button className={`connection-button ${connected ? 'connected' : ''}`} disabled={!!state.busy && state.busy !== 'installing'} onClick={() => { setConnecting(true); if (!state.discoveryBusy) void run({ command: 'discover' }); }} aria-label={connected ? 'Vita connected' : 'Connect Vita'}>
       {device && device.transport !== 'ftp' ? <Usb /> : <Wifi />}<span>{connected ? device.transport === 'card' ? 'Card connected' : 'Vita connected' : 'Connect Vita'}</span></button></header>
     <nav className="steps" aria-label="Installation steps"><ol>{steps.map((item, i) => <li key={item.id} className={i < current ? 'done' : i === current ? 'current' : ''} aria-current={step === item.id ? 'step' : undefined}>
       <span className="step-dot">{i < current && <Check />}</span><span>{item.label}</span></li>)}</ol></nav>
     <main className="workspace">
       {(state.error || localError) && <div role="alert" className="error-banner"><span>{errorMessage(state.error ?? localError, selected?.recipe)}{state.errorFile && <strong className="filename">{state.errorFile}</strong>}</span><IconButton label="Dismiss error" onClick={() => { setLocalError(undefined); void run({ command: 'clearError' }); }}><X /></IconButton></div>}
+      {state.notice === 'release_repaired' && <p role="status" className="repair-notice"><Check />Release files repaired.</p>}
       {state.job ? <Installation job={state.job} busy={disabled} run={run} /> : <>
         <div className="section-heading"><div><h2 ref={heading} tabIndex={-1}>{step === 'release' ? selected ? 'Confirm release' : 'Choose release' : steps[current].label}</h2>{selected && step !== 'release' && <p>{selected.name}</p>}</div>
           {selected && <IconButton label="Open game releases" disabled={disabled} onClick={() => { void run({ command: 'openRepo', repo: selected.recipe as 'strikers' }); }}><ExternalLink /></IconButton>}
         </div>
         {step === 'release' && <>
+          <form className="github-source" onSubmit={event => { event.preventDefault(); void run({ command: 'importUrl', url: githubUrl.trim() }); }}>
+            <label htmlFor="github-url">GitHub URL<input id="github-url" type="url" autoComplete="off" spellCheck={false} maxLength={1000} value={githubUrl}
+              placeholder="https://github.com/CBOC-Vita-Lab/..." disabled={disabled} onChange={event => setGithubUrl(event.target.value)} /></label>
+            <button type="submit" className="icon-button primary" aria-label="Download release" title="Download release" disabled={disabled || !githubUrl.trim()}><Download /></button>
+          </form>
           {!state.releases.length ? <div className="release-drop"><FileArchive className="release-symbol" /><div className="release-actions"><button className="primary" disabled={disabled} onClick={() => { void run({ command: 'import', kind: 'file' }); }}><FileArchive /> Choose release ZIP</button>
             <IconButton label="Choose release folder" disabled={disabled} onClick={() => { void run({ command: 'import', kind: 'folder' }); }}><FolderOpen /></IconButton></div></div>
             : <div className={`release-list ${state.releases.length === 1 ? 'single' : ''}`}>{state.releases.map(release => <button key={release.id} className={`release-choice ${state.selectedRelease === release.id ? 'selected' : ''}`} disabled={disabled || release.held} onClick={() => { void run({ command: 'selectRelease', id: release.id }); }}>
@@ -75,8 +82,11 @@ export function App({ bridge = window.vitaInstaller }: { bridge?: InstallerBridg
           {device?.capabilities.install !== true && <p className="muted">Finish by opening the copied VPK in VitaShell.</p>}
         </section>}
       </>}
-      {state.busy && !state.job && <div role="status" className="busy-status"><RefreshCw />{state.busy === 'artwork' ? 'Updating preview' : state.busy === 'preparing' ? 'Preparing files' : state.busy === 'planning' ? 'Checking destination' : state.busy === 'importing' ? 'Checking release' : 'Checking files'}<button onClick={() => { void run({ command: 'cancel' }); }}>Cancel</button></div>}
     </main>
+      {state.busy && !state.job && <div role="status" className="busy-status"><RefreshCw /><div className="busy-detail">
+        <span>{state.busy === 'repairing' ? 'Repairing release' : state.busy === 'downloading' ? 'Downloading release' : state.busy === 'artwork' ? 'Updating preview' : state.busy === 'preparing' ? 'Preparing files' : state.busy === 'planning' ? 'Checking destination' : state.busy === 'importing' ? 'Checking release' : 'Checking files'}</span>
+        {state.download && <><progress aria-label="Download progress" value={state.download.total ? state.download.bytes : undefined} max={state.download.total ?? 1} /><small>{bytes(state.download.bytes)}{state.download.total ? ` / ${bytes(state.download.total)}` : ''}</small></>}
+        </div><button onClick={() => { void run({ command: 'cancel' }); }}>Cancel</button></div>}
     {!state.job && <footer className="app-footer"><button disabled={disabled || current === 0} onClick={() => setStep(steps[current - 1].id)}><ArrowLeft /> Back</button>
       <button className="primary" disabled={nextDisabled} onClick={() => { void next(); }}>{step === 'required' ? 'Prepare files' : step === 'artwork' ? 'Review install' : step === 'install' ? 'Install' : 'Continue'}<ArrowRight /></button></footer>}
     {connecting && <Connection state={state} run={run} close={() => setConnecting(false)} />}

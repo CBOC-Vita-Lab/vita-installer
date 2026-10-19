@@ -2,10 +2,12 @@ import { z } from 'zod';
 import { isIPv4 } from 'node:net';
 import { InstallerError } from '../shared/errors';
 import type { UiRequest } from '../shared/ui';
+import { parseGithubReleaseUrl } from '../releases/download';
 const id = z.string().regex(/^[a-f0-9]{32}$/), inputId = z.string().regex(/^[a-z][a-z0-9-]{0,39}$/);
 const kind = z.enum(['file', 'folder']);
 const requestSchema = z.discriminatedUnion('command', [
   z.object({ command: z.literal('import'), kind }).strict(),
+  z.object({ command: z.literal('importUrl'), url: z.string().max(1000).refine(value => { try { parseGithubReleaseUrl(value); return true; } catch { return false; } }) }).strict(),
   z.object({ command: z.literal('selectRelease'), id }).strict(),
   z.object({ command: z.literal('discover'), manual: z.object({ host: z.string().refine(isIPv4), port: z.number().int().min(1).max(65535) }).strict().optional() }).strict(),
   z.object({ command: z.literal('selectDevice'), id: z.string().min(1).max(200).regex(/^[^\x00-\x1f\x7f]+$/), confirmUx0: z.boolean().optional() }).strict(),
