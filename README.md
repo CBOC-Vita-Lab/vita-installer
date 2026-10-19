@@ -54,7 +54,7 @@ package is not called installed until installation has been verified.
 
 | Game/app | Guide | Current private bundle |
 | --- | --- | --- |
-| Mario Strikers Charged | [Install](docs/games/strikers.md) | `Strikers-a8d4ad6-desktop-private.zip` |
+| Mario Strikers Charged | [Install](docs/games/strikers.md) | `Strikers-movie-fix-20261019-install.zip` (installer 0.1.6+) |
 | Infected | [Install](docs/games/infected.md) | `Infected-current-desktop-private.zip` |
 | VitAdhoc | [Install](docs/games/vitadhoc.md) | `VitAdhoc-build21-desktop-private.zip` |
 | Galaxy | [Status](docs/games/galaxy.md) | Held; no final VPK |

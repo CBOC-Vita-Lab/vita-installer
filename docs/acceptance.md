@@ -19,7 +19,7 @@ This is an internal preview, not an accepted public installer release.
 | App-only updates | Automated completed-receipt, compatibility, consecutive-update inventory, missing/corrupt data, wrong target/runtime, missing remote marker and pre-write mutation checks. The UI skips original-game preparation; manual update approval remains required |
 | Signing/notarization | No public signing identity selected; unsigned internal previews only |
 | Third-party redistribution | Component/license inventory included; complete libvips/native-library source and notice review still pending |
-| Strikers | Selected runtime preserved; current package/source/rights/hardware release gates still held |
+| Strikers | Approved movie runtime matches verified main-app update; full VPK/desktop installation and public rights gates remain held |
 | Infected | Private-only artwork; public release held |
 | VitAdhoc | GPL compatibility clarification and current package acceptance pending. A fresh device read found the newer build21 covers runtime; the existing private bundle still contains the earlier build21 runtime and must not be called the latest installed build |
 | Galaxy | Exact thp48d runtime and nine installed movie references verified. A separately pinned portable q55 recipe passes complete host preparation: 2,375 files in 199.99 seconds on one Mac. Historical encoder reproduction and distributable-package/playback acceptance remain open; profile held |

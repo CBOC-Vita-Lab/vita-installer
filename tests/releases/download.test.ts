@@ -7,15 +7,16 @@ import { digest, manifest, runtime, sfo, zip } from '../fixtures/releases';
 const roots: string[] = [];
 afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
 const repo = 'https://github.com/CBOC-Vita-Lab/strikers-charged-vita';
-async function fixture(options: { manifestChanges?: object; untrusted?: boolean; galaxy?: boolean } = {}) {
+async function fixture(options: { manifestChanges?: object; untrusted?: boolean; galaxy?: boolean; assetName?: string } = {}) {
   const repository = options.galaxy ? 'https://github.com/CBOC-Vita-Lab/galaxy-vita' : repo;
   const cache = await mkdtemp(join(tmpdir(), 'github-release-test-')); roots.push(cache);
   const vpk = await zip({ 'eboot.bin': runtime, 'sce_sys/param.sfo': sfo(options.galaxy ? 'SMGV00001' : undefined) });
   const raw = JSON.stringify({ ...manifest(digest(vpk)), ...(options.galaxy ? { recipeId: 'galaxy', titleId: 'SMGV00001', destinations: { data: 'ux0:data/smg/game' } } : {}), ...options.manifestChanges });
   const bundle = await zip({ 'release/cboc-release.json': raw, 'release/Strikers.vpk': vpk, 'release/game.iso': 'not an approved input', 'release/notes.txt': 'not imported' });
-  const asset = `${repository}/releases/download/v1.0/cboc-release.zip`;
+  const assetName = options.assetName ?? 'cboc-release.zip';
+  const asset = `${repository}/releases/download/v1.0/${assetName}`;
   const metadata = { tag_name: 'v1.0', draft: false, prerelease: false, html_url: `${repository}/releases/tag/v1.0`,
-    assets: [{ name: 'cboc-release.zip', browser_download_url: asset, size: bundle.length, state: 'uploaded', digest: `sha256:${digest(bundle)}` }] };
+    assets: [{ name: assetName, browser_download_url: asset, size: bundle.length, state: 'uploaded', digest: `sha256:${digest(bundle)}` }] };
   const calls: string[] = [];
   const fetcher: typeof fetch = async (url, init) => {
     calls.push(String(url)); expect(init).toMatchObject({ credentials: 'omit', redirect: 'manual' });
@@ -52,6 +53,14 @@ it('pins repairs to the exact authenticated manifest instead of silently updatin
   await expect(downloadGithubRelease(repo, { ...f, expectedManifestSha256: 'e'.repeat(64) })).rejects.toMatchObject({ code: 'repair_version_unavailable' });
   expect(await readdir(f.cache)).toEqual([]);
   expect((await downloadGithubRelease(repo, { ...f, expectedManifestSha256: digest(f.raw) })).manifestSha256).toBe(digest(f.raw));
+});
+it('accepts the selected movie bundle and preserves the older named release for exact repairs', async () => {
+  for (const assetName of ['Strikers-movie-fix-20261019-install.zip', 'Strikers-a8d4ad6-desktop-private.zip']) {
+    const f = await fixture({ assetName });
+    const result = await downloadGithubRelease(f.asset, { ...f, expectedManifestSha256: digest(f.raw) });
+    expect(result.manifestSha256).toBe(digest(f.raw));
+    expect(result.downloadUrl).toBe(f.asset);
+  }
 });
 it('finds an older exact repair by its published manifest digest without downloading newer bundles', async () => {
   const f = await fixture(), older = { ...f.metadata, assets: [...f.metadata.assets, {

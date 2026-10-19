@@ -64,7 +64,8 @@ export async function downloadGithubRelease(value: string, options: GithubDownlo
   }
   const data = exact ?? await metadata(`${api}/${target.tag ? `tags/${target.tag}` : 'latest'}`, metadataSchema, fetcher, options.signal);
   requireThat(data.html_url === `${repo}/releases/tag/${data.tag_name}` && (target.tag ? data.tag_name === target.tag : exact || !data.prerelease), 'github_release_unavailable');
-  const allowed = ['cboc-release.zip', bundles[recipe].output];
+  const bundle = bundles[recipe];
+  const allowed = ['cboc-release.zip', bundle.output, ...('previousOutputs' in bundle ? bundle.previousOutputs : [])];
   if (target.asset) requireThat(allowed.includes(target.asset), 'unsupported_release_asset');
   const assets = data.assets.filter(a => allowed.includes(a.name) && (!target.asset || target.asset === a.name));
   requireThat(assets.length > 0, 'release_download_unavailable'); requireThat(assets.length === 1, 'ambiguous_release_download');
