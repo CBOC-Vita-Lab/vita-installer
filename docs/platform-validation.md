@@ -14,13 +14,17 @@ and execution without Python on `PATH`. Loopback FTP and temporary-directory
 tests exercise transfers and backups. They are not physical-card or Vita
 installation acceptance.
 
+The native source regression suites now pass on Intel macOS and Windows x64
+(336 app tests per platform, plus source Python tests). These results do not
+establish complete packaged-app or physical-device acceptance.
+
 Package checks enumerate resources, verify helper hashes/architectures,
 reject owner paths/credentials and inspect compressed Python members. The
 bundle includes a component inventory, license texts and known notice gaps.
 
 ## Not yet accepted
 
-- Intel Mac and Windows native builds/runs.
+- Complete Intel Mac and Windows native packages and installed-app runs.
 - First install and reconnect/update acceptance on a separately approved Vita.
 - Physical removable-media detection and card-swap tests on both operating systems.
 - End-to-end preparation comparisons for every enabled game on each platform.
@@ -33,7 +37,10 @@ No paid CI job, signing enrollment or certificate purchase has been started.
 ## Repeat on a native runner
 
 The manually triggered **Native regression checks** workflow runs the app and
-source-worker suites on Intel macOS and Windows x64. It uses read-only repository
+source-worker suites on Intel macOS and Windows x64. It also builds the native
+preparation/volume executables, tests them with no Python on PATH, and runs
+the real card/USB and coordinator fixtures against those packaged workers.
+It uses read-only repository
 access, pinned official actions, sequential standard runners and a 20-minute
 timeout per platform. It does not publish releases, access a Vita, upload game
 inputs or clear packaging acceptance. Run only within the included allowance
@@ -63,6 +70,7 @@ Retain `out/package-verification.json`, `out/packaged-smoke.json` and test logs
 with the exact app archive hash. Build on the actual target; renaming an arm64
 artifact is not an Intel or Windows build.
 
-The Windows paths and behavior remain unverified. The Mac validation receipt
-cannot be reused to mark Windows accepted. No public game release is cleared
+Native source/worker regression evidence does not replace the missing complete
+Windows and Intel Mac app acceptance. The Apple Silicon receipt cannot be
+reused to mark another platform accepted. No public game release is cleared
 by an installer test.

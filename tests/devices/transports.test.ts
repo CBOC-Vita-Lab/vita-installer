@@ -28,7 +28,8 @@ async function volume(kind: 'usb' | 'card' = 'card') {
   const device: DeviceCandidate = { id: 'volume:one', identity: 'volume:one', root, label: 'VITA', transport: kind, storageRole: 'ux0',
     adapter: 'volume', state: 'ready', evidence: [], capabilities: { transfer: true, install: false, ur0: false } };
   const python = await realpath(resolve('.venv-workers', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python'));
-  const volumeWorker = { path: python, sha256: await hashFile(python), args: [resolve('workers/volume.py')] };
+  const path = process.env.VITA_TEST_VOLUME_WORKER ?? python;
+  const volumeWorker = { path, sha256: await hashFile(path), args: process.env.VITA_TEST_VOLUME_WORKER ? [] : [resolve('workers/volume.py')] };
   return { root, parent, device, options: { scope, volumes: async () => current, volumeWorker }, setVolumes: (v: VolumeEvidence[]) => current = v };
 }
 async function opened(device: DeviceCandidate, options: Parameters<typeof openTransport>[1]) {

@@ -82,11 +82,22 @@ jobs:
           npm run typecheck
           npm run build
           node scripts/verify-worker.mjs
+      - name: Build native Python workers
+        run: node scripts/build-python-workers.mjs
+      - name: Exercise packaged workers without system Python
+        run: |
+          export VITA_TEST_WORKER="$(node -e "console.log(require('node:path').resolve('out/native-python-workers',process.platform+'-'+process.arch,'vita-prepare'+(process.platform==='win32'?'.exe':'')))")"
+          export VITA_TEST_VOLUME_WORKER="$(node -e "console.log(require('node:path').resolve('out/native-python-workers',process.platform+'-'+process.arch,'vita-volume/vita-volume'+(process.platform==='win32'?'.exe':'')))")"
+          "${{ matrix.python }}" -m unittest discover -s tests/preparation -p 'test_*.py' -v
+          "${{ matrix.python }}" -m unittest discover -s tests/devices -p 'test_*.py' -v
+          npm test -- tests/devices/transports.test.ts tests/jobs/integration.test.ts --reporter=default --reporter=json --outputFile=out/packaged-worker-tests.json
       - name: Retain test report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: native-tests-${{ matrix.platform }}
-          path: out/native-tests.json
+          path: |
+            out/native-tests.json
+            out/packaged-worker-tests.json
           if-no-files-found: ignore
           retention-days: 3

@@ -18,7 +18,8 @@ def inspect_infected(path):
     worker = os.environ.get("VITA_TEST_WORKER")
     if not worker:
         return inspect_source(path)
-    result = subprocess.run([worker, "infected-inspect", str(path)], capture_output=True, text=True, timeout=20)
+    result = subprocess.run([worker, "infected-inspect", str(path)], capture_output=True, text=True, timeout=20,
+                            env={"PATH": "", "SystemRoot": os.environ.get("SystemRoot", "")})
     if result.returncode:
         raise ValueError("invalid_disc")
     return json.loads(result.stdout)
@@ -91,7 +92,8 @@ class IsoInspectionTests(unittest.TestCase):
             (source / "files" / "MovieData" / "fixture.bin").write_bytes(b"test movie placeholder")
             worker = os.environ.get("VITA_TEST_WORKER")
             if worker:
-                result = subprocess.run([worker, "galaxy-cook", str(source), str(output)], capture_output=True, text=True, timeout=60)
+                result = subprocess.run([worker, "galaxy-cook", str(source), str(output)], capture_output=True, text=True, timeout=60,
+                                        env={"PATH": "", "SystemRoot": os.environ.get("SystemRoot", "")})
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("galaxy_conversion_failed", result.stderr)
             else:
