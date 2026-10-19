@@ -15,11 +15,12 @@ tests exercise transfers and backups. They are not physical-card or Vita
 installation acceptance.
 
 The native source regression suites now pass on Intel macOS and Windows x64
-(345 app tests on Intel Mac and 344 on Windows, plus source Python tests). Native bundled
+(353 app tests on Intel Mac and 352 on Windows, plus source Python tests). Native bundled
 preparation and volume tools also build and pass their empty-PATH checks.
 All 28 real-IO transfer/coordinator checks pass against the bundled tools on
 both platforms. Windows-only POSIX/symlink cases remain skipped.
-Evidence: [native worker checks](https://github.com/CBOC-Vita-Lab/vita-installer/actions/runs/39227449832).
+Evidence: [native worker checks](https://github.com/CBOC-Vita-Lab/vita-installer/actions/runs/39227449832)
+and [native package checks](https://github.com/CBOC-Vita-Lab/vita-installer/actions/runs/39232376952).
 These results do not establish complete packaged-app or physical-device
 acceptance; full native owned-input comparisons remain open.
 
@@ -45,11 +46,23 @@ missing notices or dependency upgrades require review. This collection does not
 close the remaining transitive-notice and corresponding-source audit.
 The finished Apple Silicon app also rejected six deliberately damaged copies.
 Intel/Windows tests verify the collection against their real installed native
-dependencies; complete packaged-app acceptance on those platforms remains open.
+dependencies; complete installed-app acceptance on those platforms remains open.
+
+A complete Windows x64 candidate now builds. Its packaged backend starts with
+an empty PATH, all seven notice-integrity cases pass, and the helpers inside the
+finished app pass preparation, volume and 28 real-IO checks. The Windows setup
+program has not been installed or tested interactively on a user machine.
+
+The Intel Mac candidate builds, but final verification stops on a privacy-scan
+finding in the upstream native image library. That finding still needs review;
+the check has not been bypassed. One earlier Intel source run hit a 10-second
+loopback-transfer timeout. Twenty local repeats and the unchanged native retry
+passed, but its cause has not been established. No timeout or assertion was
+weakened to obtain a pass.
 
 ## Not yet accepted
 
-- Complete Intel Mac and Windows native packages and installed-app runs.
+- Intel Mac final-package verification and native installed-app runs on both platforms.
 - First install and reconnect/update acceptance on a separately approved Vita.
 - Physical removable-media detection and card-swap tests on both operating systems.
 - End-to-end preparation comparisons for every enabled game on each platform.
@@ -97,7 +110,8 @@ and real file operations through the helpers inside the finished app.
 It retains internal artifacts for one day, never publishes a release and never
 changes approved movie hashes. Its two sequential jobs each have a 20-minute
 timeout, allowing up to 40 runner-minutes per dispatch; the zero-spend budget
-must remain enabled. Native package results are still pending.
+must remain enabled. Windows checks pass; Intel final verification remains held
+as described above.
 
 To build the same internal candidate locally:
 
