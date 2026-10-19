@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, join, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { inspectInputs, prepareInputs } from '../../src/preparation/inputs';
 import * as runner from '../../src/preparation/runner';
@@ -82,7 +82,7 @@ it('cooks the entire game into a separate workspace with movies and audio, never
   let moviePasses = 0;
   vi.spyOn(runner, 'runWorker').mockImplementation(async (tool, args) => {
     if (tool.path === 'movie-worker') {
-      expect(args[0].endsWith('/files/MovieData/opening.thp')).toBe(true); expect(args.slice(2)).toEqual(['55']);
+      expect(args[0].endsWith(sep + join('files', 'MovieData', 'opening.thp'))).toBe(true); expect(args.slice(2)).toEqual(['55']);
       expect(await readFile(args[0], 'utf8')).toBe('cooked movie');
       await writeFile(args[1], 'optimized movie'); moviePasses++; return { stdout: '', stderr: '' };
     }
@@ -96,7 +96,7 @@ it('cooks the entire game into a separate workspace with movies and audio, never
     'ux0:data/smg/game/files/ObjectData/_bk00/model.arc',
     'ux0:data/smg/game/sys/StoryEvent.bcsv', 'ux0:data/smg/game/sys/fst.bin'
   ]);
-  expect(result.files.every(f => f.source.startsWith(result.workspace + '/'))).toBe(true);
+  expect(result.files.every(f => f.source.startsWith(result.workspace + sep))).toBe(true);
   expect(result.inputFingerprints['game:0']).toMatch(/^[a-f0-9]{64}$/);
   expect(moviePasses).toBe(1);
   expect(await readFile(join(root, 'settings.ini'), 'utf8')).toBe('private');

@@ -78,8 +78,12 @@ it('imports a GitHub link without opening a file picker and shows cancellable do
   expect(h.calls).toContainEqual({ command: 'cancel' });
 });
 async function toArtwork() {
+  await screen.findByRole('heading', { name: 'Confirm release' });
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled());
   fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));
+  await screen.findByRole('heading', { name: 'Game files' });
   fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));
+  await screen.findByRole('heading', { name: 'Required files' });
   fireEvent.click(await screen.findByRole('button', { name: 'Prepare files' }));
   await screen.findByRole('heading', { name: 'Artwork' });
 }

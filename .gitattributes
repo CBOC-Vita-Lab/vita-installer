@@ -1,0 +1,2 @@
+# Preserve the reviewed bytes of profiles, integrity catalogs and notices.
+resources/** -text

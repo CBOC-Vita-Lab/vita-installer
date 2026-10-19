@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { checkStrikersInfo, inspectInputs, prepareInputs, verifyPreparation } from '../../src/preparation/inputs';
 import * as runner from '../../src/preparation/runner';
@@ -111,7 +111,7 @@ it('prepares a selected ZIP in its own workspace, preserving the archive and adj
   const original = await zip({ 'Game.gbc': 'game', 'Game.gbc.sav': 'private save' }); await writeFile(path, original);
   const result = await track(prepareInputs(release('vitadhoc'), { roots: [], chosen: { roms: [path] } }, () => {}));
   expect(result.files).toHaveLength(1); expect(result.files[0].destination).toBe('ux0:data/GBAdhoc/roms/Game.gbc');
-  expect(result.files[0].source.startsWith(result.workspace + '/')).toBe(true);
+  expect(result.files[0].source.startsWith(result.workspace + sep)).toBe(true);
   expect(await readFile(path)).toEqual(original);
   expect(result.inputFingerprints['archive:roms:0']).toBe(digest(original));
 });

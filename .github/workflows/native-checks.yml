@@ -51,6 +51,23 @@ jobs:
           "${{ matrix.python }}" -m pip install -r workers/requirements.txt -r tests/requirements.txt
           npm ci
           mkdir -p out
+      - name: Compare native filesystem identities
+        env:
+          WORKER_PYTHON: ${{ matrix.python }}
+        run: |
+          node --input-type=module <<'JS'
+          import { mkdtemp, lstat, rm } from 'node:fs/promises';
+          import { tmpdir } from 'node:os';
+          import { join, resolve } from 'node:path';
+          import { spawnSync } from 'node:child_process';
+          const root = await mkdtemp(join(tmpdir(), 'volume-identity-'));
+          try {
+            const info = await lstat(root, { bigint: true });
+            const result = spawnSync(resolve(process.env.WORKER_PYTHON), ['-c', 'import os,sys,json; s=os.lstat(sys.argv[1]); print(json.dumps({"device":str(s.st_dev),"inode":str(s.st_ino)}))', root], { encoding: 'utf8' });
+            if (result.status !== 0) throw new Error('Python identity check failed');
+            console.log(JSON.stringify({ node: { device: String(info.dev), inode: String(info.ino) }, python: JSON.parse(result.stdout) }));
+          } finally { await rm(root, { recursive: true }); }
+          JS
       - name: App regression tests
         run: npm test -- --reporter=default --reporter=json --outputFile=out/native-tests.json
       - name: Python preparation tests
@@ -67,7 +84,7 @@ jobs:
           node scripts/verify-worker.mjs
       - name: Retain test report
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: native-tests-${{ matrix.platform }}
           path: out/native-tests.json
