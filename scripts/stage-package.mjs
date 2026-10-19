@@ -37,7 +37,13 @@ for (const [path, item] of Object.entries(lock.packages)) {
   const names = (await readdir(path)).filter(name => /^(?:licen[cs]e|copying|copyrightnotice|notice)(?:\.|$)/i.test(name));
   const destination = join(notices, 'npm', pkg.name.replaceAll('/', '__')); await mkdir(destination, { recursive: true });
   for (const name of names) await cp(join(path, name), join(destination, name));
-  if (!names.length) { await cp(join(path, 'README.md'), join(destination, 'README.md')); entries.push(`${pkg.name}: package supplies a license declaration/README, not a complete license text. Public redistribution review remains open.`); }
+  if (pkg.name === '@nodable/entities') {
+    const supplemental = 'resources/notices/nodable-entities';
+    if (pkg.version !== '3.1.0' || sha(await readFile(join(supplemental, 'LICENSE'))) !== '750cb3fb6362804957ef52caaf9b5c824015be44d494637330d7cd8834d31d40')
+      throw new Error('Nodable entities notice needs review.');
+    await cp(join(supplemental, 'LICENSE'), join(destination, 'LICENSE'));
+    await cp(join(supplemental, 'ORIGIN.md'), join(destination, 'ORIGIN.md'));
+  } else if (!names.length) { await cp(join(path, 'README.md'), join(destination, 'README.md')); entries.push(`${pkg.name}: package supplies a license declaration/README, not a complete license text. Public redistribution review remains open.`); }
   if (pkg.name.startsWith('@img/sharp-libvips')) { await cp(join(path, 'versions.json'), join(destination, 'versions.json')); entries.push(`${pkg.name}: libvips and linked-library notices/versions retained. Complete corresponding source and notice review required before public distribution.`); }
   components.push({ type: 'library', name: pkg.name, version: pkg.version, purl: `pkg:npm/${pkg.name.replace('@', '%40')}@${pkg.version}`, licenses: [{ expression: typeof pkg.license === 'string' ? pkg.license : 'NOASSERTION' }] });
 }

@@ -10,7 +10,8 @@ const receipt = () => ({ platform: 'darwin-arm64', host: 'darwin-arm64', signing
     'installer-notices/SBOM.cdx.json', 'installer-notices/THIRD_PARTY_NOTICES.md', 'installer-notices/Python-LICENSE.txt',
     'installer-notices/pycdlib-LICENSE.txt', 'installer-notices/PyInstaller-COPYING.txt', 'installer-notices/Galaxy-LICENSE.txt',
     'installer-notices/libjpeg-turbo-LICENSE.md', 'installer-notices/libjpeg-turbo-README.ijg',
-    'installer-notices/Electron-LICENSE.txt', 'installer-notices/Chromium-LICENSES.html'],
+    'installer-notices/Electron-LICENSE.txt', 'installer-notices/Chromium-LICENSES.html',
+    'installer-notices/npm/@nodable__entities/LICENSE'],
   helperArchitectures: ['arm64', 'arm64', 'arm64'], networkPolicy: NETWORK_POLICY });
 it('requires native helpers, runtime and notices for the exact native platform', () => {
   expect(() => validatePackagePolicy(receipt())).not.toThrow();

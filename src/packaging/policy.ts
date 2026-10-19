@@ -21,7 +21,8 @@ export function validatePackagePolicy(receipt: PackagePolicy) {
     'installer-resources/profiles/trust.json', `${worker}/catalog.json`, `${worker}/vita-prepare${exe}`, `${worker}/vita-volume/vita-volume${exe}`, `${worker}/vita-movies${exe}`,
     `${worker}/vita-volume/_internal/${windows ? 'python314.dll' : 'Python'}`,
     ...['SBOM.cdx.json', 'THIRD_PARTY_NOTICES.md', 'Python-LICENSE.txt', 'pycdlib-LICENSE.txt', 'PyInstaller-COPYING.txt', 'Galaxy-LICENSE.txt',
-      'libjpeg-turbo-LICENSE.md', 'libjpeg-turbo-README.ijg', 'Electron-LICENSE.txt', 'Chromium-LICENSES.html'].map(x => `installer-notices/${x}`)];
+      'libjpeg-turbo-LICENSE.md', 'libjpeg-turbo-README.ijg', 'Electron-LICENSE.txt', 'Chromium-LICENSES.html',
+      'npm/@nodable__entities/LICENSE'].map(x => `installer-notices/${x}`)];
   requireThat(required.every(path => receipt.files.includes(path)), 'missing_package_resource');
   for (const path of receipt.files) {
     requireThat(!/(^|\/)(?:\.git|\.env|\.superpowers|auth|secrets|inputs|private)(\/|$)|\.(?:iso|rvz|vpk|suprx|spec|key|pem)$/i.test(path), 'private_package_payload');
