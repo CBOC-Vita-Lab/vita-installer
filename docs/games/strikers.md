@@ -1,14 +1,14 @@
 # Mario Strikers Charged
 
-This package includes the approved intro, stadium-preview and movie-audio update.
-Use CBOC Vita Installer **0.1.6 or newer** so it recognizes this release.
+This package keeps the intro, stadium-preview and movie-audio fixes, with runtime logging disabled.
+Use CBOC Vita Installer **0.1.8 or newer** so it recognizes this release.
 
 Requires a homebrew-enabled Vita, VitaShell, your own **Wii USA Rev 1
 (`R4QE01`)** ISO/RVZ, and `libshacccg.suprx` obtained legitimately. A complete
 validated `sys`/`files` extraction also works.
 
 1. Open [CBOC Vita Installer](https://github.com/CBOC-Vita-Lab/vita-installer/releases) and connect your Vita.
-2. Choose `Strikers-movie-fix-20261019-install.zip` from the [matching release](https://github.com/CBOC-Vita-Lab/strikers-charged-vita/releases).
+2. Choose `Strikers-quiet-20261019-install.zip` from the [matching release](https://github.com/CBOC-Vita-Lab/strikers-charged-vita/releases).
 3. Select your game file. Add the shader compiler only if prompted.
 4. Choose default or custom artwork, then click **Install**.
 
