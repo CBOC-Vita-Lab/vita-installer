@@ -12,7 +12,8 @@ Game releases and installer releases are separate.
 
 On Mac, open the ZIP and replace **CBOC Vita Installer.app** in the same
 location. On Windows, run the new setup file after closing the old app.
-Windows and Intel Mac builds are not available in the current preview.
+Intel Mac and Windows builds remain validation candidates, not accepted player
+updates. Use only the architecture and status listed in [Downloads](downloads.md).
 Never remove the installer's app-data folder during an update. Its history,
 receipts and recovery files are separate from the program and are reused.
 Your Vita games, saves and selected local files are not changed by an app update.

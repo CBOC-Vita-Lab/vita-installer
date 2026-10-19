@@ -12,9 +12,9 @@ Galaxy remains unavailable. Platform and device acceptance is tracked in
 
 ## Install a game
 
-1. Open the [installer](https://github.com/CBOC-Vita-Lab/vita-installer/releases).
+1. Download the [Apple Silicon Mac 0.1.9 preview](https://github.com/CBOC-Vita-Lab/vita-installer/releases/tag/untagged-09e00aebad3d79563276), unzip it and open the app.
 2. Connect your Vita, or attach its already configured memory card.
-3. Paste the game's GitHub URL, or select its release ZIP/folder. Pick a game if several are found.
+3. Select the game's install ZIP/folder. For public releases, a GitHub URL also works. Pick a game if several are found.
 4. Choose your game file and any missing required files.
 5. Keep the default artwork or choose your own, then click **Install**.
 
@@ -38,6 +38,10 @@ checked. Full setup remains available when data needs to change.
 
 [Connection options](docs/install.md) / [Artwork](docs/artwork.md) /
 [Recovery](docs/recovery.md)
+
+Intel Mac and Windows x64 packages are retained separately for validation.
+They have passed automated package checks, not native interactive installation
+or full Vita acceptance. See [Downloads](docs/downloads.md) before choosing a file.
 
 ## While it runs
 
@@ -69,9 +73,13 @@ does not replace itself or restart automatically. [Update details](docs/updates.
 | Game/app | Guide | Current private bundle |
 | --- | --- | --- |
 | Mario Strikers Charged | [Install](docs/games/strikers.md) | `Strikers-quiet-20261019-install.zip` (installer 0.1.8+) |
-| Infected | [Install](docs/games/infected.md) | `Infected-current-desktop-private.zip` |
-| VitAdhoc | [Install](docs/games/vitadhoc.md) | `VitAdhoc-build21-desktop-private.zip` |
-| Galaxy | [Status](docs/games/galaxy.md) | Held; no final VPK |
+| Infected | [Status](docs/games/infected.md) | Owner-only local bundle; GitHub has source, not an install ZIP |
+| VitAdhoc | [Status](docs/games/vitadhoc.md) | Earlier local build 21 only; newer covers build held |
+| Galaxy | [Status](docs/games/galaxy.md) | Current quiet source available; desktop installation held |
+
+Each game's repository has a separate manual install guide with exact Vita
+paths, backups and technical build details. Source-only ZIPs are not install
+bundles. [Downloads](docs/downloads.md) links to the correct repositories.
 
 ## Development
 

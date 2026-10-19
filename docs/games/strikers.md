@@ -2,10 +2,18 @@
 
 This package keeps the intro, stadium-preview and movie-audio fixes, with runtime logging disabled.
 Use CBOC Vita Installer **0.1.8 or newer** so it recognizes this release.
+Use the **Apple Silicon Mac 0.1.9 preview** for the current desktop route.
+Intel Mac and Windows packages are still validation candidates. Until their
+interactive checks pass, use the [manual installation guide](https://github.com/CBOC-Vita-Lab/strikers-charged-vita/blob/main/INSTALL.md).
 
 Requires a homebrew-enabled Vita, VitaShell, your own **Wii USA Rev 1
 (`R4QE01`)** ISO/RVZ, and `libshacccg.suprx` obtained legitimately. A complete
 validated `sys`/`files` extraction also works.
+
+`libshacccg.suprx` is a one-time Vita module, not a desktop program. The installer
+reuses a supported copy already installed in `ur0:data/` when the connection can
+read it. Otherwise, it asks for the file and shows any manual copy step.
+It is not included in this download.
 
 1. Open [CBOC Vita Installer](https://github.com/CBOC-Vita-Lab/vita-installer/releases) and connect your Vita.
 2. Choose `Strikers-quiet-20261019-install.zip` from the [matching release](https://github.com/CBOC-Vita-Lab/strikers-charged-vita/releases).
@@ -25,8 +33,13 @@ player settings are kept. An existing installation requires explicit update
 confirmation and a backup.
 
 Keep the computer and Vita awake through preparation, copying and checks.
+Leave room on the computer for an extracted copy of your disc, in addition to
+the ISO/RVZ. Use the Vita space requirement shown by the installer, which includes
+temporary staging and backups.
 The progress display covers the current step, not a guaranteed total time.
-If disconnected, reconnect the same Vita and choose **Resume**.
+If disconnected, reconnect the same Vita and choose **Resume**. If saves or
+settings changed, use the fresh review offered by 0.1.9 rather than repeatedly
+resuming an outdated review. Do not delete the job or restore older saves.
 
 For compatible updates, choose **Update app** to skip disc preparation and keep
 verified game data. It requires the completed install receipt on the same

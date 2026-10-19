@@ -14,6 +14,11 @@ the distributable package's installation acceptance remain open.
 - The held local VPK preserves all 11 non-runtime members from the reviewed
   generic-art package. Its full hash is recorded in Galaxy's `RELEASE.json`;
   it is not yet an accepted installer release.
+- Rebuilding all 1,834 game objects, 52 runtime objects and three launcher
+  objects from that published source reproduces the selected executable
+  byte-for-byte. The original build label and timestamp must be pinned;
+  Galaxy's `BUILD-VERIFICATION.json` records them. Matching prebuilt dependencies
+  were used, so their portable source/build handoff remains separate work.
 - USA Rev 0 (RMGE01) extraction is checked against 2,374 payload records and
   two metadata records. Two reviewed boot/FST variants accommodate offsets
   rewritten by extraction tools; the game payloads match.
