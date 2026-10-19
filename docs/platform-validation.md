@@ -15,8 +15,13 @@ tests exercise transfers and backups. They are not physical-card or Vita
 installation acceptance.
 
 The native source regression suites now pass on Intel macOS and Windows x64
-(336 app tests per platform, plus source Python tests). These results do not
-establish complete packaged-app or physical-device acceptance.
+(336 app tests per platform, plus source Python tests). Native bundled
+preparation and volume tools also build and pass their empty-PATH checks.
+All 28 real-IO transfer/coordinator checks pass against the bundled tools on
+both platforms. The Windows source-only POSIX race case remains skipped.
+Evidence: [native worker checks](https://github.com/CBOC-Vita-Lab/vita-installer/actions/runs/39219547871).
+These results do not establish complete packaged-app or physical-device
+acceptance; the movie helper and full owned-input comparisons remain open.
 
 Package checks enumerate resources, verify helper hashes/architectures,
 reject owner paths/credentials and inspect compressed Python members. The
