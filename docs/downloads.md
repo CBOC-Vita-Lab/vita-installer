@@ -10,13 +10,14 @@ Get the app only from [vita-installer releases](https://github.com/CBOC-Vita-Lab
 
 | Download | Use |
 | --- | --- |
-| [`CBOC-Vita-Installer-0.1.10-darwin-arm64.zip`](https://github.com/CBOC-Vita-Lab/vita-installer/releases/download/v0.1.10/CBOC-Vita-Installer-0.1.10-darwin-arm64.zip) | Current unsigned Apple Silicon Mac app |
+| [`CBOC-Vita-Installer-0.1.11-darwin-arm64.zip`](https://github.com/CBOC-Vita-Lab/vita-installer/releases/download/v0.1.11/CBOC-Vita-Installer-0.1.11-darwin-arm64.zip) | Apple Silicon Mac preview; ad-hoc signed, not notarized |
 | Files labelled `validation` | Internal package checks only; not accepted player updates |
 | Source code ZIP | Developers only; not an application |
 
 Keep any current transfer running until it finishes. Then quit the old app,
 unzip the replacement and retain the app-data folder. Do not disable operating
-system security protections. See [Updates](updates.md) and
+system security protections. For a developer-verification warning, follow
+[First Mac launch](mac-open.md). See [Updates](updates.md) and
 [Platform validation](platform-validation.md) for status and advanced checks.
 
 ## Games and apps

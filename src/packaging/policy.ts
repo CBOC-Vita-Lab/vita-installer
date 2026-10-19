@@ -8,13 +8,15 @@ export function allowedPackagePath(path: string): boolean {
 }
 export interface PackagePolicy {
   platform: string; host: string; signing: string; signingSubject: string | null; files: string[];
+  signatureVerified?: boolean;
   helperArchitectures: string[]; networkPolicy: readonly string[];
 }
 export function validatePackagePolicy(receipt: PackagePolicy) {
   requireThat(['darwin-arm64', 'darwin-x64', 'win32-x64'].includes(receipt.platform) && receipt.host === receipt.platform, 'native_platform_required');
   const arch = receipt.platform.split('-')[1], windows = receipt.platform.startsWith('win32-'), exe = windows ? '.exe' : '';
   requireThat(receipt.helperArchitectures.length === 3 && receipt.helperArchitectures.every(x => x === arch), 'wrong_helper_architecture');
-  requireThat(receipt.signing === 'unsigned-internal' && receipt.signingSubject === null, 'unreviewed_signing_identity');
+  requireThat(receipt.signingSubject === null && (windows ? receipt.signing === 'unsigned-internal'
+    : receipt.signing === 'ad-hoc' && receipt.signatureVerified === true), 'unreviewed_signing_identity');
   requireThat(JSON.stringify(receipt.networkPolicy) === JSON.stringify(NETWORK_POLICY), 'unreviewed_network_policy');
   const worker = `installer-workers/${receipt.platform}`;
   const required = ['app/dist/main/index.cjs', 'app/dist/main/job-worker.mjs', 'app/dist/main/preload.cjs', 'app/dist/renderer/index.html', 'app/LICENSE',

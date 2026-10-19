@@ -13,7 +13,7 @@ it('ships four hash-pinned data-only profiles without any owner path or download
   const trust = await catalog();
   for (const recipe of Object.keys(PROFILES)) {
     const raw = await readFile(`resources/profiles/${recipe}.json`), profile = manifestSchema.parse(JSON.parse(raw.toString()));
-    expect(trust.fingerprints).toContain(digest(raw)); expect(profile.recipeId).toBe(recipe); expect(profile.visibility).toBe('private');
+    expect(trust.fingerprints).toContain(digest(raw)); expect(profile.recipeId).toBe(recipe); expect(profile.visibility).toBe(recipe === 'strikers' ? 'public' : 'private');
     expect(raw.toString()).not.toMatch(/\/Users\/|\/home\/|github_pat_|ghp_|token=|password/i);
     if (recipe === 'galaxy') { expect(profile.releaseState).toBe('held'); expect(profile.package).toBeNull(); }
     else expect(profile.package?.runtimeSha256).toMatch(/^[a-f0-9]{64}$/);

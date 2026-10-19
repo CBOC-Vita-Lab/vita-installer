@@ -1,9 +1,19 @@
 # Preview acceptance
 
-Apple Silicon 0.1.10 adds the trusted Strikers LiveArea settings package. The
-app was repackaged and release files/checksums inspected, with no new tests or
-Vita changes at the publisher's request. Earlier results below are historical,
-not a fresh 0.1.10 test run. Acceptance and licensing checks remain open.
+Apple Silicon 0.1.11 repairs the incomplete Mac bundle signature in 0.1.10.
+The 0.1.11 host suite passes: 373 tests, six environment-dependent skips, and
+typecheck. The new signing tests reject the old executable-only signature and
+tampered resources, and preserve checksum-pinned worker bytes during signing.
+The finished ZIP passes archive integrity and strict, deep bundle verification
+after extraction. The extracted app imports the real Strikers install ZIP and
+renders three artwork previews through its backend with an empty PATH; its
+missing-device gate prevents installation. No Vita writes or gameplay tests ran.
+
+Gatekeeper still rejects automatic trust because this is ad-hoc signed, not
+Developer ID signed or notarized. Per-app first-launch approval is documented.
+The isolated native GUI process launched, but desktop inspection timed out;
+interactive first-launch acceptance is not claimed. Other results below are
+historical unless noted. Full installation and licensing checks remain open.
 
 | Area | Evidence/status |
 | --- | --- |
@@ -23,7 +33,7 @@ not a fresh 0.1.10 test run. Acceptance and licensing checks remain open.
 | App-only updates | Automated completed-receipt, compatibility, consecutive-update inventory, missing/corrupt data, wrong target/runtime, missing remote marker and pre-write mutation checks. The UI skips original-game preparation; manual update approval remains required |
 | Desktop installer updates | Stable-version comparison, platform-specific browser downloads, private/offline/error states, bounded metadata, strict links and busy-operation gates covered by automated tests. No in-place replacement; public discovery and cross-version platform acceptance remain pending |
 | Desktop update UI | Version 0.1.7 packaged Mac app launched; actual private-release status and manual check inspected. Synthetic available/busy/offline states checked at 1200x813, 800x600 and 390x844 with no horizontal overflow or console errors. No Vita writes |
-| Signing/notarization | No public signing identity selected; the current Apple Silicon download is unsigned |
+| Signing/notarization | 0.1.11 has a valid whole-bundle ad-hoc signature and sealed resources, verified after ZIP extraction. No personal signing subject. No Developer ID identity is available; notarization and automatic Gatekeeper acceptance remain open |
 | Third-party redistribution | Native notice collection now includes metadata and available notices from 357 checksum-verified Rust archives. All three platform packages verify 1,108 notice files. Exact native build dependencies, four missing standalone Rust notices and the remaining source/relinking review are still open |
 | Strikers | Settings runtime, source and install ZIP have matching hashes; installer 0.1.10 includes the exact manifest fingerprint. The runtime matches the earlier normal-title device update and LiveArea settings checks. Full VPK/desktop installation, full-match playthrough and public rights review remain open |
 | Infected | Private-only artwork; public release held |

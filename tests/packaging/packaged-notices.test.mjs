@@ -18,7 +18,8 @@ test('finished package rejects native notice and metadata damage', async t => {
   success(verify(app));
   const temporary = await mkdtemp(join(root, 'out/native-notice-check-')), copy = join(temporary, 'app');
   try {
-    await cp(app, copy, { recursive: true, mode: constants.COPYFILE_FICLONE });
+    await cp(app, copy, { recursive: true, verbatimSymlinks: true, mode: constants.COPYFILE_FICLONE });
+    success(verify(copy));
     const resources = join(copy, process.platform === 'darwin' ? 'Contents/Resources' : 'resources');
     const notices = join(resources, 'installer-resources/notices/libvips');
     const manifestFile = join(notices, 'manifest.json'), manifestBytes = await readFile(manifestFile);

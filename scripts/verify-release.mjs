@@ -4,6 +4,7 @@ import { resolve, join, relative, sep } from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { createReadStream } from 'node:fs';
+import { verifyMacSignature } from './verify-macos-signature.cjs';
 await build({ entryPoints: ['src/packaging/policy.ts'], bundle: true, platform: 'node', format: 'esm', outfile: 'dist/tools/package-policy.mjs' });
 const { validatePackagePolicy, NETWORK_POLICY } = await import('../dist/tools/package-policy.mjs');
 await build({ entryPoints: ['src/packaging/native-notices.ts'], bundle: true, platform: 'node', format: 'esm', outfile: 'dist/tools/native-notices.mjs' });
@@ -57,16 +58,9 @@ for (const item of [catalog.worker, catalog.volumeWorker, catalog.movieWorker]) 
   helperArchitectures.push(await architecture(path));
 }
 if (await architecture(executable) !== process.arch) throw new Error('App architecture mismatch');
-let signature = 'Not authenticated for public distribution';
-if (process.platform === 'darwin') {
-  try { signature = execFileSync('/usr/bin/codesign', ['-d', '--verbose=4', executable], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); }
-  catch (error) { signature = String(error.stderr ?? 'unsigned'); }
-  // codesign describes identity on stderr, including on success.
-  const result = (await import('node:child_process')).spawnSync('/usr/bin/codesign', ['-d', '--verbose=4', executable], { encoding: 'utf8' });
-  signature = result.stderr;
-  if (/^Authority=|^TeamIdentifier=(?!not set)/m.test(signature)) throw new Error('Unreviewed signing identity');
-}
-const policy = { platform, host: platform, signing: 'unsigned-internal', signingSubject: null, files: inventory.map(x => x.path), helperArchitectures, networkPolicy: NETWORK_POLICY };
+const signature = process.platform === 'darwin' ? verifyMacSignature(app)
+  : { signing: 'unsigned-internal', signingSubject: null, signatureVerified: false };
+const policy = { platform, host: platform, ...signature, files: inventory.map(x => x.path), helperArchitectures, networkPolicy: NETWORK_POLICY };
 validatePackagePolicy(policy);
 const receipt = { schemaVersion: 1, ...policy, files: inventory, executableSha256: await fileHash(executable),
   notarized: false, publicReleaseAccepted: false, deviceInstalled: false, thirdPartyRedistributionReview: 'pending',
@@ -74,7 +68,8 @@ const receipt = { schemaVersion: 1, ...policy, files: inventory, executableSha25
   reviewedUpstreamBuildPaths,
   nativeImageNotices: { declaredComponents: nativeNotices.components.length,
     noticeFiles: nativeNotices.components.reduce((count, component) => count + component.notices.length, 0), completeRedistributionReview: false },
-  checks: ['required-resources', 'native-architecture', 'helper-hashes', 'no-personal-signing-subject', 'payload-inventory', 'owner-path-and-token-scan', 'native-image-notice-hashes-and-versions'],
+  checks: ['required-resources', 'native-architecture', 'helper-hashes', 'no-personal-signing-subject', 'payload-inventory', 'owner-path-and-token-scan', 'native-image-notice-hashes-and-versions',
+    ...(process.platform === 'darwin' ? ['whole-app-deep-strict-signature'] : [])],
   skipped: ['GUI-and-device-acceptance', 'full-owned-input-comparisons', 'public-redistribution-license-audit'] };
 await writeFile('out/package-verification.json', JSON.stringify(receipt, null, 2) + '\n');
 console.log(`Verified internal ${platform} package: ${inventory.length} resource files. Public/hardware acceptance remains held.`);

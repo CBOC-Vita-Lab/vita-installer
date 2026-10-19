@@ -33,15 +33,17 @@ Game app-only updates are separate and can skip unchanged prepared game data.
 
 ## Shipping a new version
 
-Version 0.1.10 adds the trusted Strikers settings release and retains the 0.1.9
-speed/recovery changes. The Apple Silicon app was repackaged without another
-test run, as requested by the publisher. This does not close outstanding
-signing, rights or device checks. The checklist below remains the normal
-process for future versions.
+Version 0.1.11 fixes Mac bundle signing and retains the trusted Strikers settings
+release and speed/recovery changes. It uses an ad-hoc signature without a
+personal signing identity. Apple notarization, rights and full device acceptance
+remain open. See [First Mac launch](mac-open.md).
 
 1. Bump `version` in `package.json` and the lockfile. Keep the app name,
    `org.cboc.vita-installer` bundle ID and app-data location unchanged.
 2. Run the full tests, typecheck, native packaging and package verification.
+   On Mac, Forge signs the bundle and fails closed if signing or strict nested
+   verification fails. Run `node scripts/verify-release.mjs` on the extracted
+   final ZIP as well; checking an executable's signature description is not enough.
    Follow [platform validation](platform-validation.md); each platform needs
    its own accepted build. Test replacing an earlier desktop version with
    existing history/recovery data before public release.
@@ -76,7 +78,7 @@ been locally verified by the installer.
 
 ## Automatic replacement
 
-Not enabled in the unsigned preview. Electron's supported Mac auto-updater
+Not enabled in the unnotarized preview. Electron's supported Mac auto-updater
 requires a signed app; the hosted GitHub update service also requires public
 releases. Select a reviewed signing identity before enabling that path, and
 keep restart/app replacement blocked until all Vita operations are finished.

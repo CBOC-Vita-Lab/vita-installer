@@ -95,8 +95,10 @@ weakened to obtain a pass.
 - End-to-end preparation comparisons for every enabled game on each platform.
 - Public signing/notarization and complete third-party redistribution review.
 
-The current Mac artifact is an unsigned/ad-hoc internal preview. It is not
+The current Mac artifact is an ad-hoc-signed preview. Its complete bundle must
+pass strict signature verification, including after ZIP extraction. It is not
 notarized. Do not disable Gatekeeper or other OS protections to distribute it.
+See [First Mac launch](mac-open.md) for per-app approval.
 No paid CI job, signing enrollment or certificate purchase has been started.
 
 ## Repeat on a native runner

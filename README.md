@@ -6,7 +6,7 @@ A desktop installer for reviewed CBOC Vita bundles. Choose your release, add
 your own game files, pick the artwork, then install.
 
 **Public preview.** The Apple Silicon Mac app is available below.
-Binary redistribution, signing and full installation testing are still under
+Binary redistribution, Apple notarization and full installation testing are still under
 review; publication is not a claim of third-party approval. This preview does
 not include commercial games, a proprietary BIOS or the shader compiler.
 Galaxy remains unavailable. Platform and device acceptance is tracked in
@@ -14,7 +14,7 @@ Galaxy remains unavailable. Platform and device acceptance is tracked in
 
 ## Install Strikers
 
-1. Download [CBOC Vita Installer 0.1.10 for Apple Silicon Mac](https://github.com/CBOC-Vita-Lab/vita-installer/releases/download/v0.1.10/CBOC-Vita-Installer-0.1.10-darwin-arm64.zip), unzip it and open the app.
+1. Download [CBOC Vita Installer 0.1.11 for Apple Silicon Mac](https://github.com/CBOC-Vita-Lab/vita-installer/releases/download/v0.1.11/CBOC-Vita-Installer-0.1.11-darwin-arm64.zip), unzip it and move the app to Applications.
 2. Connect your Vita, or attach its already configured memory card.
 3. Paste `https://github.com/CBOC-Vita-Lab/strikers-charged-vita`, or select its [install ZIP](https://github.com/CBOC-Vita-Lab/strikers-charged-vita/releases/latest) or complete folder.
 4. Choose your game file and any missing required files.
@@ -23,6 +23,12 @@ Galaxy remains unavailable. Platform and device acceptance is tracked in
 Use the named game install ZIP under **Releases > Assets**, not an installer
 source-code archive. Keep the release ZIP intact; the app opens it for you.
 The complete Strikers repository folder also works.
+
+**First Mac launch:** open the app. If macOS cannot verify its developer, use
+**System Settings > Privacy & Security > Open Anyway**, then confirm Open.
+This preview has a valid ad-hoc signature but is not Apple-notarized.
+Version 0.1.11 fixes the broken signature in 0.1.10; replace the old app rather
+than disabling security or removing quarantine attributes. [Mac help](docs/mac-open.md).
 
 The app prepares the folders; no separate Python or Dolphin installation is
 needed. It shows the exact remaining VitaShell step when automatic installation
@@ -69,7 +75,7 @@ has finished, quit the app and replace it with the download. Keep the app's
 data folder: your installation history and recovery records stay there.
 Updating the desktop app does not update or reinstall games on your Vita.
 
-Private previews still use browser downloads. The current unsigned preview
+Private previews still use browser downloads. The current unnotarized preview
 does not replace itself or restart automatically. [Update details](docs/updates.md).
 
 ## Releases

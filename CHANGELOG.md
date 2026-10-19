@@ -1,5 +1,14 @@
 # Changes
 
+## 0.1.11 Mac packaging fix
+
+- Repair the incomplete Mac app signature behind the "damaged" launch warning.
+- Sign the complete bundle and verify its sealed resources before creating a ZIP.
+- Reject invalid or modified app bundles during release verification.
+- Preserve the exact native workers, Strikers profile, transfer and recovery behavior.
+- Use anonymous ad-hoc signing, not an Apple Developer ID. The preview is still
+  unnotarized and may require **Privacy & Security > Open Anyway** on first launch.
+
 ## 0.1.10 public preview
 
 - Recognize the Strikers LiveArea settings update from its GitHub URL, ZIP or folder.

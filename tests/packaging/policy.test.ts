@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 import { validatePackagePolicy, NETWORK_POLICY, allowedPackagePath } from '../../src/packaging/policy';
 import { createRequire } from 'node:module';
 const forge = createRequire(import.meta.url)('../../forge.config.cjs');
-const receipt = () => ({ platform: 'darwin-arm64', host: 'darwin-arm64', signing: 'unsigned-internal', signingSubject: null,
+const receipt = () => ({ platform: 'darwin-arm64', host: 'darwin-arm64', signing: 'ad-hoc', signingSubject: null, signatureVerified: true,
   files: ['app/dist/main/index.cjs', 'app/dist/main/job-worker.mjs', 'app/dist/main/preload.cjs', 'app/dist/renderer/index.html', 'app/LICENSE',
     'installer-resources/profiles/trust.json', 'installer-resources/notices/libvips/manifest.json', 'installer-resources/notices/libvips/README.md',
     'installer-workers/darwin-arm64/catalog.json', 'installer-workers/darwin-arm64/vita-prepare',
@@ -24,6 +24,8 @@ it('requires native helpers, runtime and notices for the exact native platform',
 it('rejects unexpected fetch policy, personal signatures and private payloads', () => {
   expect(() => validatePackagePolicy({ ...receipt(), networkPolicy: [...NETWORK_POLICY, 'https://unreviewed.test/tool'] })).toThrow();
   expect(() => validatePackagePolicy({ ...receipt(), signingSubject: 'Developer ID Application: Private Person' })).toThrow();
+  expect(() => validatePackagePolicy({ ...receipt(), signatureVerified: false })).toThrow();
+  expect(() => validatePackagePolicy({ ...receipt(), signing: 'unsigned-internal' })).toThrow();
   for (const path of ['app/auth/gh/hosts.yml', 'app/.env', 'app/private/game.iso', 'app/game.vpk', 'app/secrets/token.txt', 'app/.git/config', 'installer-workers/build/source.spec']) {
     expect(() => validatePackagePolicy({ ...receipt(), files: [...receipt().files, path] })).toThrow();
   }

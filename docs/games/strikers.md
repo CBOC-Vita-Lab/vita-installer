@@ -7,7 +7,8 @@ release links below.
 Combined-package licensing review and full installation testing are pending;
 publication does not mean third-party approval.
 Use CBOC Vita Installer **0.1.10 or newer** so it recognizes this release.
-Use the **Apple Silicon Mac 0.1.10 preview** for the current desktop route.
+Use the **Apple Silicon Mac 0.1.11 preview** for the current desktop route.
+It fixes the earlier Mac signature problem. See [First Mac launch](../mac-open.md).
 Intel Mac and Windows packages are still validation candidates. Until their
 interactive checks pass, use the [manual installation guide](https://github.com/CBOC-Vita-Lab/strikers-charged-vita/blob/main/INSTALL.md).
 
