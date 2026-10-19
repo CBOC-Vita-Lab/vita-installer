@@ -22,10 +22,30 @@ additional notices are retained in `freetype/`; the FTL option applies here.
 
 Includes software developed by the University of California, Berkeley.
 
+## Rust Dependencies
+
+`rsvg/Cargo.lock` is the unchanged lockfile from librsvg 2.63.2. The `rsvg/rust/`
+directories retain package metadata and available notice documents for all 357
+registry packages in that file. Each archive matches its locked SHA-256. The
+manifest records the source archive for every added file.
+
+This is a conservative collection, not a claim that every crate is linked into
+the app: the lockfile includes development and other-platform dependencies.
+The native build changes feature selections and updates its workspace lock;
+the exact dependency closure of the distributed binaries still needs checking.
+
+Omitted notices for anes, defmt-parser, difflib, mutants and both winapi import
+library crates were recovered from source snapshots matching their published
+files. Selectors retains its original source notice and the official MPL 2.0
+text. The block, malloc_buf, objc-foundation and objc_id crates declare MIT but
+omit standalone license documents from their published archives. No matching
+notice text has been recovered for them. Their metadata is retained; that gap
+remains open.
+
 ## Review Status
 
 This is not a complete redistribution audit or a replacement for the individual
-licenses. File-level and Rust dependency notices, Unicode data, a historical
-mutable patch, complete corresponding source and relinking materials still need
-review. Python's bundled native libraries are reviewed separately. The installer
-remains an internal preview until those release checks are complete.
+licenses. The remaining Rust gaps, file-level and Unicode notices, a historical
+mutable patch, complete corresponding source and relinking materials still
+need review. Python's bundled native libraries are reviewed separately. The
+installer remains an internal preview until those release checks are complete.

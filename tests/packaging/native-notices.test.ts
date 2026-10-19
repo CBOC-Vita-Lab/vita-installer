@@ -28,6 +28,26 @@ it('verifies the exact installed versions and unchanged notice bytes', async () 
   expect(result.components).toHaveLength(1);
   expect(result.completeRedistributionReview).toBe(false);
 });
+it('retains checksum-bound transitive source provenance without relaxing notice verification', async () => {
+  const f = await fixture();
+  const source = { url: 'https://static.crates.io/crates/sample/sample-1.0.0.crate', sha256: 'c'.repeat(64) };
+  Object.assign(f.manifest.components[0].notices[0], { source }); await f.save();
+  const expected = f.digest();
+  const result = await verifyNativeNotices(f.root, '@img/sharp-libvips-darwin-arm64', '1.3.4', { sample: '1.0' }, expected);
+  expect(result.components[0].notices[0].source).toEqual(source);
+  await writeFile(join(f.root, 'sample/LICENSE'), 'Changed transitive notice');
+  await expect(verifyNativeNotices(f.root, '@img/sharp-libvips-darwin-arm64', '1.3.4', { sample: '1.0' }, expected)).rejects.toThrow('notice bytes');
+});
+it('rejects malformed or self-rewritten transitive source provenance', async () => {
+  const f = await fixture(), expected = f.digest();
+  Object.assign(f.manifest.components[0].notices[0], { source: { url: 'https://example.com/changed.crate', sha256: 'c'.repeat(64) } });
+  await f.save();
+  await expect(verifyNativeNotices(f.root, '@img/sharp-libvips-darwin-arm64', '1.3.4', { sample: '1.0' }, expected)).rejects.toThrow('manifest');
+  for (const source of [{ url: 'http://example.com/source', sha256: 'c'.repeat(64) }, { url: 'https://example.com/source', sha256: 'invalid' }]) {
+    Object.assign(f.manifest.components[0].notices[0], { source }); await f.save();
+    await expect(verifyNativeNotices(f.root, '@img/sharp-libvips-darwin-arm64', '1.3.4', { sample: '1.0' })).rejects.toThrow();
+  }
+});
 it('rejects missing, changed and newly upgraded component notices', async () => {
   const f = await fixture();
   await expect(verifyNativeNotices(f.root, '@img/sharp-libvips-darwin-arm64', '1.3.5', { sample: '1.0' })).rejects.toThrow();
@@ -52,6 +72,14 @@ it('rejects duplicate components, notice paths and unsafe destinations', async (
     f.manifest.components[0].notices[0].path = path; await f.save();
     await expect(verifyNativeNotices(f.root, '@img/sharp-libvips-darwin-arm64', '1.3.4', { sample: '1.0' })).rejects.toThrow();
   }
+});
+it('accepts contained notice paths with Cargo build metadata', async () => {
+  const f = await fixture(), path = 'sample/rust/example-0.1.0+build/LICENSE';
+  await mkdir(join(f.root, 'sample/rust/example-0.1.0+build'), { recursive: true });
+  await writeFile(join(f.root, path), 'Copyright synthetic fixture\n');
+  f.manifest.components[0].notices[0].path = path; await f.save();
+  const result = await verifyNativeNotices(f.root, '@img/sharp-libvips-darwin-arm64', '1.3.4', { sample: '1.0' }, f.digest());
+  expect(result.components[0].notices[0].path).toBe(path);
 });
 it('does not treat the notice collection as complete redistribution clearance', async () => {
   const f = await fixture();

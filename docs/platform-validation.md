@@ -40,14 +40,21 @@ open. Candidate helpers are not added to the accepted release pins.
 Package checks enumerate resources, verify helper hashes/architectures,
 reject owner paths/credentials and inspect compressed Python members. The
 bundle includes a component inventory, license texts and known notice gaps.
-Native image-library packaging now checks all 28 declared component versions
-and the hashes of 81 selected upstream notice files, both before staging and
-inside the finished app. Mac and Windows package metadata are checked separately;
-missing notices or dependency upgrades require review. This collection does not
-close the remaining transitive-notice and corresponding-source audit.
-Finished packages on all three platforms reject six deliberately damaged copies.
-Intel/Windows tests verify the collection against their real installed native
-dependencies; interactive installed-app acceptance remains open.
+Native image-library packaging checks all 28 declared component versions and
+the selected upstream notice hashes before staging and inside the finished app.
+The latest Apple Silicon package verifies 1,108 files, including unchanged
+metadata/notices from all 357 registry archives in librsvg's release lockfile.
+Recovered notices carry their own source hashes. Original attribution and
+public-domain notices are retained too. This conservative collection is not
+proof of the exact binary dependency set; four missing standalone Rust notices
+and the corresponding-source/relinking review remain open.
+
+Mac and Windows package metadata are checked separately; missing notices or
+dependency upgrades require review. The completed Intel/Windows runs below
+verified the earlier 81-file collection against their actual dependencies.
+Their packages must be refreshed for this expanded collection. Finished
+packages reject deliberately damaged notice copies; interactive installed-app
+acceptance remains open.
 
 A complete Intel Mac ZIP and Windows x64 setup program now build and pass final
 verification. Each packaged backend starts with an empty PATH, all seven

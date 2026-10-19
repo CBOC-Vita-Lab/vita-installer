@@ -4,6 +4,9 @@ import { join, sep } from 'node:path';
 import { z } from 'zod';
 
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
+const sourceSchema = z.object({ url: z.string().url().startsWith('https://'), sha256: digest,
+  sourceType: z.string().optional(), tag: z.string().optional(), tagObject: z.string().optional(),
+  commit: z.string().optional(), tree: z.string().optional() }).strict();
 const manifestSchema = z.object({
   schemaVersion: z.literal(1), packageVersion: z.string().min(1), buildRecipeCommit: z.string().regex(/^[a-f0-9]{40}$/),
   readmeSha256: digest,
@@ -11,11 +14,9 @@ const manifestSchema = z.object({
   completeRedistributionReview: z.literal(false), unresolved: z.array(z.string().min(1)).min(1),
   components: z.array(z.object({
     name: z.string().regex(/^[a-z0-9-]+$/), version: z.string().min(1),
-    source: z.object({ url: z.string().url().startsWith('https://'), sha256: digest,
-      sourceType: z.string().optional(), tag: z.string().optional(), tagObject: z.string().optional(),
-      commit: z.string().optional(), tree: z.string().optional() }).strict(),
+    source: sourceSchema,
     notices: z.array(z.object({ path: z.string(), sourceMember: z.string().min(1),
-      resolvedMember: z.string().optional(), sha256: digest }).strict()).min(1),
+      resolvedMember: z.string().optional(), sha256: digest, source: sourceSchema.optional() }).strict()).min(1),
   }).strict()).min(1),
 }).strict();
 
@@ -41,7 +42,7 @@ export async function verifyNativeNotices(root: string, packageName: string, pac
   }
   await verifyFile('README.md', manifest.readmeSha256);
   for (const component of manifest.components) for (const notice of component.notices) {
-    if (!/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(notice.path) || !notice.path.startsWith(component.name + '/')
+    if (!/^[A-Za-z0-9][A-Za-z0-9._/+-]*$/.test(notice.path) || !notice.path.startsWith(component.name + '/')
         || notice.path.split('/').some(part => !part || part === '.' || part === '..') || seen.has(notice.path.toLowerCase()))
       throw new Error('Unsafe or duplicate native notice path.');
     seen.add(notice.path.toLowerCase());
