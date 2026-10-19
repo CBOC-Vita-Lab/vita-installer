@@ -7,13 +7,14 @@ import { digest, manifest, runtime, sfo, zip } from '../fixtures/releases';
 const roots: string[] = [];
 afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
 const repo = 'https://github.com/CBOC-Vita-Lab/strikers-charged-vita';
-async function fixture(options: { manifestChanges?: object; untrusted?: boolean } = {}) {
+async function fixture(options: { manifestChanges?: object; untrusted?: boolean; galaxy?: boolean } = {}) {
+  const repository = options.galaxy ? 'https://github.com/CBOC-Vita-Lab/galaxy-vita' : repo;
   const cache = await mkdtemp(join(tmpdir(), 'github-release-test-')); roots.push(cache);
-  const vpk = await zip({ 'eboot.bin': runtime, 'sce_sys/param.sfo': sfo() });
-  const raw = JSON.stringify({ ...manifest(digest(vpk)), ...options.manifestChanges });
+  const vpk = await zip({ 'eboot.bin': runtime, 'sce_sys/param.sfo': sfo(options.galaxy ? 'SMGV00001' : undefined) });
+  const raw = JSON.stringify({ ...manifest(digest(vpk)), ...(options.galaxy ? { recipeId: 'galaxy', titleId: 'SMGV00001', destinations: { data: 'ux0:data/smg/game' } } : {}), ...options.manifestChanges });
   const bundle = await zip({ 'release/cboc-release.json': raw, 'release/Strikers.vpk': vpk, 'release/game.iso': 'not an approved input', 'release/notes.txt': 'not imported' });
-  const asset = `${repo}/releases/download/v1.0/cboc-release.zip`;
-  const metadata = { tag_name: 'v1.0', draft: false, prerelease: false, html_url: `${repo}/releases/tag/v1.0`,
+  const asset = `${repository}/releases/download/v1.0/cboc-release.zip`;
+  const metadata = { tag_name: 'v1.0', draft: false, prerelease: false, html_url: `${repository}/releases/tag/v1.0`,
     assets: [{ name: 'cboc-release.zip', browser_download_url: asset, size: bundle.length, state: 'uploaded', digest: `sha256:${digest(bundle)}` }] };
   const calls: string[] = [];
   const fetcher: typeof fetch = async (url, init) => {
@@ -132,10 +133,14 @@ it('rejects oversized metadata/assets and latest prereleases before fetching a p
   await expect(downloadGithubRelease(repo, { ...f, fetcher: async () => new Response(' '.repeat(1024 * 1024 + 1)) })).rejects.toMatchObject({ code: 'github_release_unavailable' });
   expect(await readdir(f.cache)).toEqual([]);
 });
-it('blocks Galaxy and a different release tag instead of choosing a substitute', async () => {
+it('downloads only an authenticated ready Galaxy release and still refuses a held one', async () => {
+  const f = await fixture({ galaxy: true });
+  expect((await downloadGithubRelease('https://github.com/CBOC-Vita-Lab/galaxy-vita', f)).manifest.titleId).toBe('SMGV00001');
+  const held = await fixture({ galaxy: true, manifestChanges: { releaseState: 'held' } });
+  await expect(downloadGithubRelease('https://github.com/CBOC-Vita-Lab/galaxy-vita', held)).rejects.toMatchObject({ code: 'release_held' });
+});
+it('blocks a different release tag instead of choosing a substitute', async () => {
   const f = await fixture();
-  await expect(downloadGithubRelease('https://github.com/CBOC-Vita-Lab/galaxy-vita', f)).rejects.toMatchObject({ code: 'release_held' });
-  expect(f.calls).toEqual([]);
   await expect(downloadGithubRelease(`${repo}/releases/tag/v2.0`, f)).rejects.toMatchObject({ code: 'github_release_unavailable' });
   expect(f.calls).toEqual(['https://api.github.com/repos/CBOC-Vita-Lab/strikers-charged-vita/releases/tags/v2.0']);
 });

@@ -167,12 +167,12 @@ export class InstallerController {
           this.remember(release.ownedWorkspace); const id = randomBytes(16).toString('hex'); this.releases.set(id, release);
           for (const workspace of release.inputWorkspaces ?? []) this.remember(workspace);
           let image: string | undefined;
-          if (release.manifest.releaseState === 'ready' && release.manifest.recipeId !== 'galaxy') {
+          if (release.manifest.releaseState === 'ready') {
             const artwork = await prepareArtwork(release, {}, signal); this.remember(artwork.workspace);
             image = await this.preview(await readFile(artwork.images.bubble!.path));
           }
           this.state.releases.push({ id, name: release.manifest.displayName, version: release.manifest.version,
-            held: release.manifest.releaseState !== 'ready' || release.manifest.recipeId === 'galaxy', recipe: release.manifest.recipeId, image });
+            held: release.manifest.releaseState !== 'ready', recipe: release.manifest.recipeId, image });
         }
         await this.checkInstalled(signal);
         if (imported.length === 1 && !this.state.releases[0].held) await this.selectRelease(this.state.releases[0].id, signal);
@@ -331,7 +331,7 @@ export class InstallerController {
     finally { this.state.discoveryBusy = false; this.discoveryAbort = undefined; this.emit(); }
   }
   private async selectRelease(id: string, signal: AbortSignal) {
-    const release = this.releases.get(id); requireThat(release, 'unknown_release'); requireThat(release.manifest.releaseState === 'ready' && release.manifest.recipeId !== 'galaxy', 'release_held');
+    const release = this.releases.get(id); requireThat(release, 'unknown_release'); requireThat(release.manifest.releaseState === 'ready', 'release_held');
     this.state.selectedRelease = id; this.invalidate(true); this.state.inputs = []; this.state.artwork = []; this.defaults = undefined;
     this.state.publicRelease = undefined; this.state.repairStep = undefined;
     this.selections = { roots: [...(release.inputRoots ?? [release.sourceRoot])], chosen: {} }; this.choices = {}; this.sourceHashes = {}; this.previewHashes = {};

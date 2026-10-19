@@ -1,0 +1,153 @@
+import { afterEach, expect, it, vi } from 'vitest';
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { inspectInputs, prepareInputs } from '../../src/preparation/inputs';
+import * as runner from '../../src/preparation/runner';
+import { manifestSchema } from '../../src/releases/manifest';
+import { manifest } from '../fixtures/releases';
+import type { ImportedRelease } from '../../src/shared/contracts';
+import { errorMessage } from '../../src/ui/messages';
+
+const fixtures = vi.hoisted(() => ({
+  input: { 'sys/main.dol': 'galaxy executable', 'sys/boot.bin': 'RMGE01 header', 'sys/fst.bin': 'file table',
+    'files/MovieData/opening.thp': 'movie source', 'files/AudioRes/music.ast': 'audio source' },
+  output: { 'sys/fst.bin': 'file table', 'sys/StoryEvent.bcsv': 'cooked table',
+    'files/MovieData/opening.thp': 'optimized movie', 'files/AudioRes/music.ast': 'cooked audio',
+    'files/ObjectData/_bk00/model.arc': 'cooked model and texture' }
+}));
+vi.mock('../../resources/integrity/galaxy-rmge01-r0.json', async () => {
+  const { createHash } = await import('node:crypto');
+  const files = Object.entries(fixtures.input).map(([path, data]) => ({ path, bytes: Buffer.byteLength(data), sha256: createHash('sha256').update(data).digest('hex') }));
+  return { default: { schemaVersion: 1, gameId: 'RMGE01', revision: 0,
+    metadata: files.filter(f => ['sys/boot.bin', 'sys/fst.bin'].includes(f.path)).map(({ sha256, ...f }) => ({ ...f, sha256s: [sha256] })),
+    files: files.filter(f => !['sys/boot.bin', 'sys/fst.bin'].includes(f.path)) } };
+});
+vi.mock('../../resources/integrity/galaxy-cooked-rmge01-r0.json', async () => {
+  const { createHash } = await import('node:crypto');
+  return { default: { schemaVersion: 1, gameId: 'RMGE01', revision: 0, runtimeSha256: '9'.repeat(64),
+    files: Object.entries(fixtures.output).filter(([path]) => path !== 'sys/fst.bin')
+      .map(([path, data]) => ({ path, bytes: Buffer.byteLength(data), sha256: createHash('sha256').update(data).digest('hex') })) } };
+});
+const roots: string[] = [];
+afterEach(async () => { vi.restoreAllMocks(); for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
+async function directory() { const path = await realpath(await mkdtemp(join(tmpdir(), 'galaxy-test-'))); roots.push(path); return path; }
+async function tree(root: string, files: Record<string, string>) {
+  for (const [name, data] of Object.entries(files)) { const path = join(root, name); await mkdir(dirname(path), { recursive: true }); await writeFile(path, data); }
+}
+function release(): ImportedRelease {
+  const m = manifestSchema.parse({ ...manifest(), recipeId: 'galaxy', titleId: 'SMGV00001', destinations: { data: 'ux0:data/smg/game' },
+    requiredInputs: [{ id: 'game', label: 'Galaxy USA Rev 0', kind: 'galaxy-disc' }] });
+  m.package!.runtimeSha256 = '9'.repeat(64);
+  return { manifest: m, manifestSha256: 'a'.repeat(64), sourceRoot: '', vpkPath: null, inventory: null };
+}
+const tools = { nod: { path: 'nod', sha256: 'b'.repeat(64) }, dataWorker: { path: 'worker', sha256: 'c'.repeat(64) },
+  movieWorker: { path: 'movie-worker', sha256: 'd'.repeat(64) } };
+it('allows a ready Galaxy release to ask for its game instead of remaining permanently held', async () => {
+  expect(await inspectInputs(release(), { roots: [], chosen: {} }, tools)).toMatchObject([{ id: 'game', status: 'missing' }]);
+  const held = release(); held.manifest.releaseState = 'held';
+  await expect(prepareInputs(held, { roots: [], chosen: {} }, () => {}, undefined, tools)).rejects.toMatchObject({ code: 'release_held' });
+});
+it('validates the outer Galaxy region and revision before accepting a disc', async () => {
+  const root = await directory(), iso = join(root, 'game.iso'); await writeFile(iso, 'disc');
+  const worker = vi.spyOn(runner, 'runWorker');
+  for (const [info, expected] of [
+    ['Game ID: RMGE01\nDisc 1, Revision 0\nPartition 0\nDisc 1, Revision 1', 'unverified'],
+    ['Game ID: RMGP01\nDisc 1, Revision 0', 'invalid'],
+    ['Game ID: RMGE01\nDisc 1, Revision 1\nPartition 0\nDisc 1, Revision 0', 'invalid']
+  ]) {
+    worker.mockImplementation(async (_tool, args) => { expect(args).toEqual(['info', iso]); return { stdout: info, stderr: '' }; });
+    expect(await inspectInputs(release(), { roots: [root], chosen: {} }, tools)).toMatchObject([{ id: 'game', status: expected }]);
+  }
+});
+it('rejects missing movies during preflight and same-length corruption before cooking', async () => {
+  const root = await directory(); await tree(root, fixtures.input);
+  expect(await inspectInputs(release(), { roots: [], chosen: { game: [root] } }, tools)).toMatchObject([{ id: 'game', status: 'ready' }]);
+  await rm(join(root, 'files/MovieData/opening.thp'));
+  expect(await inspectInputs(release(), { roots: [], chosen: { game: [root] } }, tools)).toMatchObject([{ id: 'game', status: 'missing', problemFile: 'opening.thp' }]);
+  await tree(root, fixtures.input); await writeFile(join(root, 'files/MovieData/opening.thp'), 'wrong source');
+  const worker = vi.spyOn(runner, 'runWorker');
+  await expect(prepareInputs(release(), { roots: [], chosen: { game: [root] } }, () => {}, undefined, tools)).rejects.toMatchObject({ code: 'source_changed' });
+  expect(worker).not.toHaveBeenCalled();
+});
+it('cooks the entire game into a separate workspace with movies and audio, never saves or settings', async () => {
+  const root = await directory(); await tree(join(root, 'DATA'), fixtures.input); await writeFile(join(root, 'settings.ini'), 'private');
+  let moviePasses = 0;
+  vi.spyOn(runner, 'runWorker').mockImplementation(async (tool, args) => {
+    if (tool.path === 'movie-worker') {
+      expect(args[0].endsWith('/files/MovieData/opening.thp')).toBe(true); expect(args.slice(2)).toEqual(['55']);
+      expect(await readFile(args[0], 'utf8')).toBe('cooked movie');
+      await writeFile(args[1], 'optimized movie'); moviePasses++; return { stdout: '', stderr: '' };
+    }
+    expect(tool).toEqual(tools.dataWorker); expect(args[0]).toBe('galaxy-cook'); expect(args[1]).toBe(join(root, 'DATA'));
+    await tree(args[2], { ...fixtures.output, 'files/MovieData/opening.thp': 'cooked movie' });
+    return { stdout: '{"prepared":true,"movies":true,"layoutVerified":true}', stderr: '' };
+  });
+  const result = await prepareInputs(release(), { roots: [], chosen: { game: [root] } }, () => {}, undefined, tools); roots.push(result.workspace);
+  expect(result.files.map(f => f.destination).sort()).toEqual([
+    'ux0:data/smg/game/files/AudioRes/music.ast', 'ux0:data/smg/game/files/MovieData/opening.thp',
+    'ux0:data/smg/game/files/ObjectData/_bk00/model.arc',
+    'ux0:data/smg/game/sys/StoryEvent.bcsv', 'ux0:data/smg/game/sys/fst.bin'
+  ]);
+  expect(result.files.every(f => f.source.startsWith(result.workspace + '/'))).toBe(true);
+  expect(result.inputFingerprints['game:0']).toMatch(/^[a-f0-9]{64}$/);
+  expect(moviePasses).toBe(1);
+  expect(await readFile(join(root, 'settings.ini'), 'utf8')).toBe('private');
+});
+it('does not fall back to unoptimized movies when the optimizer is missing', async () => {
+  const root = await directory(); await tree(root, fixtures.input);
+  const worker = vi.spyOn(runner, 'runWorker');
+  await expect(prepareInputs(release(), { roots: [], chosen: { game: [root] } }, () => {}, undefined,
+    { ...tools, movieWorker: undefined })).rejects.toMatchObject({ code: 'preparation_tool_missing' });
+  expect(worker).not.toHaveBeenCalled();
+});
+it('never uses a preparation recipe belonging to a different game build', async () => {
+  const root = await directory(); await tree(root, fixtures.input);
+  const worker = vi.spyOn(runner, 'runWorker'), otherBuild = release();
+  otherBuild.manifest.package!.runtimeSha256 = '8'.repeat(64);
+  await expect(prepareInputs(otherBuild, { roots: [], chosen: { game: [root] } }, () => {}, undefined, tools))
+    .rejects.toMatchObject({ code: 'unsupported_preparation_build' });
+  expect(worker).not.toHaveBeenCalled();
+});
+it.each(['missing', 'optional', 'wrong-kind', 'duplicate'])('blocks a %s Galaxy game role before any preparation', async kind => {
+  const invalid = release(), game = invalid.manifest.requiredInputs[0];
+  if (kind === 'missing') invalid.manifest.requiredInputs = [];
+  if (kind === 'optional') { invalid.manifest.requiredInputs = []; invalid.manifest.optionalInputs = [game]; }
+  if (kind === 'wrong-kind') game.kind = 'roms';
+  if (kind === 'duplicate') invalid.manifest.requiredInputs.push({ ...game, id: 'second-game' });
+  const worker = vi.spyOn(runner, 'runWorker');
+  await expect(prepareInputs(invalid, { roots: [], chosen: {} }, () => {}, undefined, {}))
+    .rejects.toMatchObject({ code: 'invalid_preparation_recipe' });
+  expect(worker).not.toHaveBeenCalled();
+});
+it('reports an optimization mismatch without asking for another copy of valid game data', async () => {
+  const root = await directory(); await tree(root, fixtures.input);
+  let staged = '';
+  vi.spyOn(runner, 'runWorker').mockImplementation(async (tool, args) => {
+    if (tool.path === 'movie-worker') { await writeFile(args[1], 'unoptimized mov'); return { stdout: '', stderr: '' }; }
+    staged = args[2]; await tree(staged, fixtures.output);
+    return { stdout: '{"prepared":true,"movies":true,"layoutVerified":true}', stderr: '' };
+  });
+  await expect(prepareInputs(release(), { roots: [], chosen: { game: [root] } }, () => {}, undefined, tools))
+    .rejects.toMatchObject({ code: 'optimization_verification_failed' });
+  await expect(readFile(join(staged, 'sys/fst.bin'))).rejects.toMatchObject({ code: 'ENOENT' });
+  expect(errorMessage('optimization_verification_failed')).toBe('Optimized files did not pass verification. Nothing was installed. Update the installer before retrying.');
+});
+it.each(['missing-movie', 'corrupt-audio', 'corrupt-texture', 'source-changed', 'bad-receipt', 'unexpected-output'])('blocks %s and removes incomplete Galaxy preparation', async failure => {
+  const root = await directory(); await tree(root, fixtures.input); let staged = '';
+  vi.spyOn(runner, 'runWorker').mockImplementation(async (_tool, args) => {
+    if (_tool.path === 'movie-worker') {
+      if (failure === 'missing-movie') throw new Error('missing movie');
+      await writeFile(args[1], 'optimized movie'); return { stdout: '', stderr: '' };
+    }
+    staged = args[2]; await tree(staged, fixtures.output);
+    if (failure === 'missing-movie') await rm(join(staged, 'files/MovieData/opening.thp'));
+    if (failure === 'corrupt-audio') await writeFile(join(staged, 'files/AudioRes/music.ast'), 'broken audio');
+    if (failure === 'corrupt-texture') await writeFile(join(staged, 'files/ObjectData/_bk00/model.arc'), 'broken model and texture');
+    if (failure === 'source-changed') await writeFile(join(root, 'files/AudioRes/music.ast'), 'changed data');
+    if (failure === 'unexpected-output') await writeFile(join(staged, 'settings.ini'), 'must not install');
+    return { stdout: failure === 'bad-receipt' ? '{}' : '{"prepared":true,"movies":true,"layoutVerified":true}', stderr: '' };
+  });
+  await expect(prepareInputs(release(), { roots: [], chosen: { game: [root] } }, () => {}, undefined, tools)).rejects.toThrow();
+  expect(staged).not.toBe(''); await expect(readFile(join(staged, 'sys/fst.bin'))).rejects.toMatchObject({ code: 'ENOENT' });
+});

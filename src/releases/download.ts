@@ -50,7 +50,6 @@ async function metadata<T>(url: string, schema: z.ZodType<T>, fetcher: typeof fe
 export async function downloadGithubRelease(value: string, options: GithubDownloadOptions): Promise<ImportedRelease> {
   cancelled(options.signal);
   const target = parseGithubReleaseUrl(value), { recipe } = target, fetcher = options.fetcher ?? fetch;
-  requireThat(recipe !== 'galaxy', 'release_held');
   const repo = `https://github.com/CBOC-Vita-Lab/${PROFILES[recipe].repo}`;
   const api = `https://api.github.com/repos/CBOC-Vita-Lab/${PROFILES[recipe].repo}/releases`;
   let exact: z.infer<typeof metadataSchema> | undefined;

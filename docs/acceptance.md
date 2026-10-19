@@ -19,7 +19,7 @@ This is an internal preview, not an accepted public installer release.
 | Strikers | Selected runtime preserved; current package/source/rights/hardware release gates still held |
 | Infected | Private-only artwork; public release held |
 | VitAdhoc | GPL compatibility clarification and current package acceptance pending |
-| Galaxy | No selected final VPK; always held |
+| Galaxy | Exact installed thp48d runtime and all nine optimized movie references read back and verified. Full source/output checks and fail-closed optimization tests pass. Host movie reproduction and real installation acceptance remain pending; profile held |
 
 The full VitAdhoc destination review was stopped during its large protected
 media inventory; that hardware step remains unaccepted. The safe live test did

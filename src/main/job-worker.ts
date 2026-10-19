@@ -14,7 +14,7 @@ async function start() {
   requireThat(Array.isArray(trust.fingerprints) && trust.fingerprints.every(f => /^[a-f0-9]{64}$/.test(f)), 'invalid_trust_store');
   const root = join(workers, `${process.platform}-${process.arch}`);
   const catalog = await readFile(join(root, 'catalog.json'), 'utf8').then(JSON.parse).catch(() => undefined);
-  function tool(key: 'worker' | 'volumeWorker') {
+  function tool(key: 'worker' | 'volumeWorker' | 'movieWorker') {
     const entry = catalog?.[key]; if (!entry) return undefined;
     const path = resolve(root, entry.path); requireThat(path.startsWith(root + sep) && /^[a-f0-9]{64}$/.test(entry.sha256), 'invalid_tool_catalog');
     return { path, sha256: entry.sha256 as string };
@@ -23,8 +23,9 @@ async function start() {
   const controller = new InstallerController({ userData, trust: store, volumeWorker: tool('volumeWorker'),
     downloadRelease: (url, expectedManifestSha256, signal, onProgress) => downloadGithubRelease(url, {
       cache: join(userData, 'releases'), trust: store, expectedManifestSha256, signal, onProgress }),
-    tools: async (recipe, signal) => recipe === 'strikers' ? { nod: await obtainTool(nodDownload(), join(userData, 'tools'), signal) }
-      : recipe === 'infected' || recipe === 'galaxy' ? { dataWorker: tool('worker') } : {} }, state => port.postMessage({ type: 'snapshot', state }));
+    tools: async (recipe, signal) => recipe === 'strikers' || recipe === 'galaxy'
+      ? { nod: await obtainTool(nodDownload(), join(userData, 'tools'), signal), ...(recipe === 'galaxy' ? { dataWorker: tool('worker'), movieWorker: tool('movieWorker') } : {}) }
+      : recipe === 'infected' ? { dataWorker: tool('worker') } : {} }, state => port.postMessage({ type: 'snapshot', state }));
   await controller.initialize();
   port.on('message', async (message: { id: number; request?: UiRequest; paths?: string[]; dispose?: boolean }) => {
     try {

@@ -12,20 +12,20 @@ import { downloadGithubRelease } from '../../src/releases/download';
 import * as runner from '../../src/preparation/runner';
 const roots: string[] = [], controllers: InstallerController[] = [];
 afterEach(async () => { vi.restoreAllMocks(); for (const c of controllers.splice(0)) await c.dispose(); for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
-async function fixture(downloads = false, recipe: 'vitadhoc' | 'infected' = 'vitadhoc') {
+async function fixture(downloads = false, recipe: 'vitadhoc' | 'infected' | 'galaxy' = 'vitadhoc') {
   const root = await mkdtemp(join(tmpdir(), 'controller-test-')); roots.push(root);
   const icon = await sharp({ create: { width: 128, height: 128, channels: 4, background: '#67e8df' } }).png().toBuffer();
   const bg = await sharp({ create: { width: 840, height: 500, channels: 4, background: '#b0ee52' } }).png().toBuffer();
-  const title = recipe === 'vitadhoc' ? 'GBAD00001' : 'INFC00001';
+  const title = recipe === 'vitadhoc' ? 'GBAD00001' : recipe === 'galaxy' ? 'SMGV00001' : 'INFC00001';
   const vpk = await zip({ 'eboot.bin': runtime, 'sce_sys/param.sfo': sfo(title), 'sce_sys/icon0.png': icon, 'sce_sys/livearea/contents/bg.png': bg,
     'sce_sys/livearea/contents/template.xml': '<livearea><livearea-background><image>bg.png</image></livearea-background></livearea>' });
   const m = { ...manifest(digest(vpk)), titleId: title, recipeId: recipe, displayName: recipe,
-    requiredInputs: recipe === 'infected' ? [{ id: 'game', label: 'Game file', kind: 'infected-disc' }] : [],
+    requiredInputs: recipe !== 'vitadhoc' ? [{ id: 'game', label: 'Game file', kind: `${recipe}-disc` }] : [],
     optionalInputs: recipe === 'vitadhoc' ? [{ id: 'roms', label: 'Your games', kind: 'roms' }] : [],
-    destinations: { data: recipe === 'vitadhoc' ? 'ux0:data/GBAdhoc/roms' : 'ux0:data/infected' }, protectedPaths: [], prerequisites: [] };
+    destinations: { data: recipe === 'vitadhoc' ? 'ux0:data/GBAdhoc/roms' : recipe === 'galaxy' ? 'ux0:data/smg/game' : 'ux0:data/infected' }, protectedPaths: [], prerequisites: [] };
   const raw = Buffer.from(JSON.stringify(m)); await writeFile(join(root, 'cboc-release.json'), raw); await writeFile(join(root, 'Strikers.vpk'), vpk);
   const bundle = await zip({ 'cboc-release.json': raw, 'Strikers.vpk': vpk });
-  const repo = `https://github.com/CBOC-Vita-Lab/${recipe === 'vitadhoc' ? 'vitadhoc' : 'infected-vita'}`;
+  const repo = `https://github.com/CBOC-Vita-Lab/${recipe === 'vitadhoc' ? 'vitadhoc' : `${recipe}-vita`}`;
   const url = `${repo}/releases/download/build21/cboc-release.zip`;
   let downloadCount = 0;
   const trust = { fingerprints: new Set([digest(raw)]), keys: new Map() };
@@ -44,6 +44,14 @@ async function fixture(downloads = false, recipe: 'vitadhoc' | 'infected' = 'vit
     tools: async () => recipe === 'infected' ? { dataWorker: { path: 'test-reader', sha256: digest('worker') } } : {} }, () => {});
   controllers.push(c); return { root, c, vpk, transport, downloads: () => downloadCount };
 }
+it('lets a verified Galaxy package reach the required-file and artwork steps without installing over an existing game', async () => {
+  const f = await fixture(false, 'galaxy'); f.transport.files.set('ux0:app/SMGV00001/eboot.bin', runtime);
+  await f.c.command({ command: 'discover' }); await f.c.command({ command: 'import', kind: 'folder' }, [f.root]);
+  expect(f.c.snapshot().error).toBeUndefined();
+  expect(f.c.snapshot().releases).toMatchObject([{ recipe: 'galaxy', held: false, installed: true }]);
+  expect(f.c.snapshot().inputs).toMatchObject([{ id: 'game', status: 'missing' }]);
+  expect(f.c.snapshot().artwork).toHaveLength(3); expect(f.c.snapshot().plan).toBeUndefined(); expect(f.transport.writes).toEqual([]);
+});
 it('imports a GitHub URL through authenticated download and keeps duplicate approval off', async () => {
   const f = await fixture(true); f.transport.files.set('ux0:app/GBAD00001/eboot.bin', runtime);
   await f.c.command({ command: 'discover' });

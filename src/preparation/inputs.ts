@@ -12,6 +12,7 @@ import { inventoryTree } from './inventory';
 import { FileIntegrityError } from '../shared/integrity';
 import { verifyInventory } from './integrity';
 import strikersInventory from '../../resources/integrity/strikers-r4qe01-r1.json';
+import { checkGalaxyRecipe, checkGalaxyExtraction, checkGalaxyInfo, prepareGalaxy } from './galaxy';
 
 export const STRIKERS_DOL = '8f811628ee6646c60620a9c599ef08ed929d2eccc98a779c211847f1500f81fd';
 export const INFECTED_BOOT = '952d4bb2c08209f4cbc0020d95c4cc601e9944cad5c7ade4c1d060fe8daab1bc';
@@ -19,7 +20,7 @@ export const SHADER_COMPILER = '188adb8c34c3983d63244c32d981fd7b518a8dcfd200f588
 export const GBA_BIOS = 'fd2547724b505f487e6dcb29ec2ecff3af35a841a77ab2e85fd87350abd36570';
 const ROM = /\.(gba|gb|gbc)$/i;
 export interface InputSelections { roots: string[]; chosen: Record<string, string[]> }
-export interface PreparationTools { nod?: VerifiedTool; dataWorker?: VerifiedTool }
+export interface PreparationTools { nod?: VerifiedTool; dataWorker?: VerifiedTool; movieWorker?: VerifiedTool }
 export interface PreparationProgress { phase: 'checking' | 'extracting' | 'hashing'; files: number }
 type Input = ReleaseManifest['requiredInputs'][number];
 export class InputCheckError extends InstallerError {
@@ -75,7 +76,7 @@ async function discover(roots: string[], signal?: AbortSignal) {
 
 async function inspectOne(input: Input, source: string, tools: PreparationTools, signal?: AbortSignal): Promise<'ready' | 'unverified'> {
   const stat = await lstat(source); requireThat(!stat.isSymbolicLink(), 'unsafe_source');
-  if (stat.isFile() && /\.zip$/i.test(source) && ['strikers-disc', 'infected-disc', 'roms'].includes(input.kind)) return 'unverified';
+  if (stat.isFile() && /\.zip$/i.test(source) && ['strikers-disc', 'infected-disc', 'galaxy-disc', 'roms'].includes(input.kind)) return 'unverified';
   switch (input.kind) {
     case 'strikers-disc':
       if (stat.isDirectory()) { await checkStrikersExtraction(source, signal); return 'ready'; }
@@ -90,7 +91,11 @@ async function inspectOne(input: Input, source: string, tools: PreparationTools,
     case 'shader-compiler': requireThat(await hashFile(source, signal) === SHADER_COMPILER, 'unsupported_shader_compiler'); return 'ready';
     case 'gba-bios': requireThat(stat.size === 16384 && await hashFile(source, signal) === GBA_BIOS, 'unsupported_bios'); return 'ready';
     case 'roms': requireThat(stat.isDirectory() || (stat.isFile() && ROM.test(source)), 'unsupported_rom'); return 'ready';
-    case 'galaxy-disc': throw new InstallerError('release_held');
+    case 'galaxy-disc':
+      if (stat.isDirectory()) { await checkGalaxyExtraction(source, signal); return 'ready'; }
+      requireThat(stat.isFile() && tools.nod, 'preparation_tool_missing');
+      checkGalaxyInfo((await runWorker(tools.nod, ['info', source], { cwd: await realpath(tmpdir()), signal, timeoutMs: 120000 })).stdout);
+      return 'unverified';
     case 'hd-pack': throw new InstallerError('optional_pack_not_reviewed');
     default: throw new InstallerError('unsupported_input');
   }
@@ -99,7 +104,7 @@ async function inspectOne(input: Input, source: string, tools: PreparationTools,
 export async function inspectInputs(release: ImportedRelease, selections: InputSelections,
   tools: PreparationTools = {}, signal?: AbortSignal): Promise<InputCheck[]> {
   cancelled(signal);
-  if (release.manifest.releaseState === 'held' || release.manifest.recipeId === 'galaxy')
+  if (release.manifest.releaseState === 'held')
     return [{ id: 'release', label: release.manifest.displayName, required: true, status: 'invalid', message: 'This release is not ready to install.' }];
   const found = await discover(selections.roots, signal), checks: InputCheck[] = [];
   for (const input of [...release.manifest.requiredInputs, ...release.manifest.optionalInputs]) {
@@ -107,7 +112,7 @@ export async function inspectInputs(release: ImportedRelease, selections: InputS
     if (!required && !explicit?.length) continue;
     let candidates = explicit;
     if (!candidates?.length) {
-      candidates = input.kind === 'strikers-disc' ? [...found.extractions, ...found.files.filter(p => /\.(iso|rvz)$/i.test(p))]
+      candidates = input.kind === 'strikers-disc' || input.kind === 'galaxy-disc' ? [...found.extractions, ...found.files.filter(p => /\.(iso|rvz)$/i.test(p))]
         : input.kind === 'infected-disc' ? found.files.filter(p => /\.iso$/i.test(p))
         : input.kind === 'shader-compiler' ? found.files.filter(p => basename(p).toLowerCase() === 'libshacccg.suprx') : [];
     }
@@ -137,7 +142,11 @@ export async function prepareInputs(release: ImportedRelease, selections: InputS
   onProgress: (progress: PreparationProgress) => void, signal?: AbortSignal,
   tools: PreparationTools = {}): Promise<PreparationResult> {
   cancelled(signal);
-  requireThat(release.manifest.releaseState === 'ready' && release.manifest.recipeId !== 'galaxy', 'release_held');
+  requireThat(release.manifest.releaseState === 'ready', 'release_held');
+  if (release.manifest.recipeId === 'galaxy') {
+    checkGalaxyRecipe(release.manifest);
+    requireThat(tools.dataWorker && tools.movieWorker, 'preparation_tool_missing');
+  }
   onProgress({ phase: 'checking', files: 0 });
   const workspace = await mkdtemp(join(await realpath(tmpdir()), 'vita-prepare-'));
   const result: PreparationResult = { releaseId: release.manifest.releaseId, inputFingerprints: {}, recipeFingerprint: recipeFingerprint(release),
@@ -157,7 +166,7 @@ export async function prepareInputs(release: ImportedRelease, selections: InputS
         if (role.kind === 'roms') paths[index] = extracted;
         else {
           const found = await discover([extracted], signal);
-          const candidates = role.kind === 'strikers-disc' ? [...found.extractions, ...found.files.filter(p => /\.(iso|rvz)$/i.test(p))]
+          const candidates = role.kind === 'strikers-disc' || role.kind === 'galaxy-disc' ? [...found.extractions, ...found.files.filter(p => /\.(iso|rvz)$/i.test(p))]
             : role.kind === 'infected-disc' ? found.files.filter(p => /\.iso$/i.test(p)) : [];
           requireThat(candidates.length === 1, candidates.length ? 'ambiguous_input_archive' : 'no_supported_input');
           paths[index] = candidates[0];
@@ -186,6 +195,16 @@ export async function prepareInputs(release: ImportedRelease, selections: InputS
           }
           await checkStrikersExtraction(extracted, signal, true);
           for (const file of strikersInventory.files) result.files.push({ source: join(extracted, file.path), destination: `${data}/${file.path}`, bytes: file.bytes, sha256: file.sha256 });
+        } else if (input.kind === 'galaxy-disc') {
+          requireThat(tools.dataWorker && tools.movieWorker, 'preparation_tool_missing');
+          let extracted = source;
+          onProgress({ phase: 'extracting', files: 0 });
+          if (stat.isFile()) {
+            requireThat(tools.nod, 'preparation_tool_missing');
+            extracted = join(workspace, 'galaxy-disc');
+            await runWorker(tools.nod, ['extract', '--quiet', '--validate', '--partition', 'data', source, extracted], { cwd: workspace, signal });
+          }
+          result.files.push(...await prepareGalaxy(extracted, join(workspace, 'galaxy-cooked'), data, release.manifest.limits, tools.dataWorker, tools.movieWorker, signal));
         } else if (input.kind === 'roms' && stat.isDirectory()) {
           result.files.push(...await inventoryTree(source, data, release.manifest.limits, signal,
             p => p.split('/').length <= 3 && !p.split('/').some(n => n.startsWith('.')) && ROM.test(p)));

@@ -52,8 +52,9 @@ it('copies optional ROMs with exact extensions and relative folders, excluding a
   expect(await verifyPreparation(result, release('vitadhoc'))).toBe(true);
   await writeFile(join(root, 'Game.gba'), 'modified ROM'); expect(await verifyPreparation(result, release('vitadhoc'))).toBe(false);
 });
-it('holds Galaxy regardless of an unverified ready flag or supplied files', async () => {
-  await expect(prepareInputs(release('galaxy'), { roots: [], chosen: { game: ['anything'] } }, () => {})).rejects.toMatchObject({ code: 'release_held' });
+it('holds a Galaxy release whose publisher has not enabled installation', async () => {
+  const r = release('galaxy'); r.manifest.releaseState = 'held';
+  await expect(prepareInputs(r, { roots: [], chosen: { game: ['anything'] } }, () => {})).rejects.toMatchObject({ code: 'release_held' });
 });
 it('stops before scanning or preparing when cancelled', async () => {
   const abort = new AbortController(); abort.abort();

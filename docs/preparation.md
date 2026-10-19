@@ -11,7 +11,7 @@ ZIP remains unchanged; ambiguous archives require choosing a single input.
 | Strikers | Own USA Rev 1 ISO/RVZ, or an existing full extraction | Outer disc R4QE01, Disc 1, Revision 1; exact main.dol hash after validated extraction |
 | Infected | Own USA 1.02 ISO | Exact PSP_GAME/SYSDIR/BOOT.BIN hash using PyCdlib |
 | VitAdhoc | No game file needed for app installation | Optional .gba, .gb and .gbc files retain their names; adjacent saves/settings are excluded |
-| Galaxy | Held | Full converter is included, but no assumed disc revision or substitute VPK is enabled |
+| Galaxy | Own USA Rev 0 ISO/RVZ or complete extraction; release held | RMGE01, exact source inventory, thp48d runtime and complete optimized-output inventory |
 
 Strikers uses the same extraction algorithm as the game's PREPARE-GAME.py:
 nodtool 2.0.0-alpha.12, data partition only, with hash validation. Only sys/
@@ -47,11 +47,39 @@ process uses argument arrays, a bounded runtime/output budget and a minimal
 environment without account/API credentials. Cancellation waits for the child
 to exit; partial output is not an installation candidate.
 
-Galaxy preserves the full recovered cooker, including movies and audio. The
-wrapper requests the Vita layout and verifies it after conversion. Failed
-conversions remove only their newly created output folder. The app still
-returns `release_held` until the supported source identity and final runtime
-are established.
+## Build-specific preparation
+
+Prepare files on the computer, before transfer. Use the recipe belonging to
+the selected runtime, not a generic "compress everything" pass. Preserve the
+build's texture formats, dimensions, audio, timing and directory layout.
+Custom bubble, LiveArea and RetroFlow artwork uses the separate validated
+artwork conversion path; it does not replace in-game textures.
+
+Galaxy's recipe runs the full recovered cooker: archives, models, textures,
+layouts, collision data, audio, executable data tables and bucket folders.
+Byte-stream formats stay unchanged where the runtime expects that. All nine
+movies then require the separate quality-55 THP optimizer. Basic THP endian
+conversion alone is not an acceptable install. The Vita plays prepared files;
+it does not perform this conversion during gameplay.
+
+Full source and output inventories are checked, not only filenames or a small
+sample. Missing helpers, incomplete output or an optimization mismatch block
+installation and remove the incomplete preparation workspace. There is no
+fallback to original heavy movies. A different Galaxy runtime also requires
+a reviewed matching recipe.
+
+The current evidence and remaining work are recorded in
+[Galaxy validation](galaxy-validation.md).
+
+Galaxy remains held: all nine local optimized references match the installed
+Vita files, but the recovered host encoder has not yet reproduced those exact
+outputs. Do not enable the profile or change the expected hashes just to make
+that check pass. The native movie helper is not yet in the packaged catalog.
+
+Strikers retains its reviewed disc extraction; Infected retains the supported
+ISO; VitAdhoc retains user-selected ROMs. Do not recompress their media or
+invent texture resizing. Any additional offline transformation requires
+evidence from that build and verification before its recipe is enabled.
 
 References: [nod](https://github.com/encounter/nod/releases/tag/v2.0.0-alpha.12),
 [PyCdlib](https://clalancette.github.io/pycdlib/),
