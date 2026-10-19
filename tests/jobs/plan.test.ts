@@ -24,7 +24,7 @@ it('blocks different existing files and installed applications by default', asyn
   const result = await plan(f); expect(result.blockers).toContain('existing_app'); expect(result.blockers).toContain('file_conflict');
   expect(f.transport.writes).toEqual([]);
 });
-it.each(['strikers', 'infected', 'vitadhoc'] as const)('requires explicit update mode for an installed %s title', async recipe => {
+it.each(['strikers', 'infected', 'vitadhoc', 'galaxy'] as const)('requires explicit update mode for an installed %s title', async recipe => {
   const f = await jobFixture(recipe); roots.push(f.root);
   f.transport.files.set(`ux0:app/${f.release.manifest.titleId}/sce_sys/param.sfo`, sfo(f.release.manifest.titleId));
   const blocked = await createInstallPlan(f.release, f.prepared, f.device, 'first_install', { transport: f.transport, artwork: f.artwork });

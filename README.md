@@ -32,6 +32,10 @@ Missing or damaged release files repair automatically when the same verified
 version is available. Your game files stay yours to provide. Private releases
 still use a local ZIP or folder; the app has no GitHub login.
 
+For a compatible release previously installed by this app, choose **Update app**
+to skip selecting and preparing the game again. The installed data is still
+checked. Full setup remains available when data needs to change.
+
 [Connection options](docs/install.md) / [Artwork](docs/artwork.md) /
 [Recovery](docs/recovery.md)
 

@@ -5,12 +5,14 @@ export interface InputView extends Omit<InputCheck, 'source'> { filename?: strin
 export interface ArtworkView { slot: ArtworkSlot; mode: 'default' | 'custom'; preview: string; fit: 'cover' | 'contain'; x: number; y: number; filename?: string }
 export interface DeviceView extends Omit<DeviceCandidate, 'root' | 'identity'> {}
 export interface PlanView { id: string; blockers: string[]; warnings: string[]; requiredBytes: number; freeBytes?: number; appExists: boolean; requiresUr0Action: boolean; customArtwork: ArtworkSlot[];
+  appOnly?: boolean; transferBytes?: number;
   consents?: { update: boolean; space: boolean; cover: boolean } }
 export interface UiSnapshot {
   releases: ReleaseView[]; selectedRelease?: string; inputs: InputView[];
   optionalInputs: { id: string; label: string; kind: string }[];
   devices: DeviceView[]; selectedDevice?: string; discoveryStatus?: string;
   artwork: ArtworkView[]; prepared: boolean; plan?: PlanView; job?: JobSnapshot;
+  appUpdateAvailable?: boolean; appUpdateSelected?: boolean;
   busy?: 'importing' | 'scanning' | 'preparing' | 'planning' | 'installing' | 'artwork' | 'downloading' | 'repairing';
   download?: { bytes: number; total?: number }; notice?: 'release_repaired';
   error?: string; errorFile?: string; repairStep?: Step; discoveryBusy: boolean; preparation?: PreparationProgress;
@@ -29,7 +31,7 @@ export type UiRequest =
   | { command: 'checkRelease' }
   | { command: 'removeInput'; id: string }
   | { command: 'artwork'; slot: ArtworkSlot; action: 'default' | 'choose' | 'adjust'; fit?: 'cover' | 'contain'; x?: number; y?: number }
-  | { command: 'prepare' }
+  | { command: 'prepare' | 'prepareUpdate' | 'fullSetup' }
   | { command: 'plan'; acknowledgeUnknownSpace: boolean; explicitUpdate: boolean; replaceRetroflow: boolean }
   | { command: 'execute'; id: string }
   | { command: 'resume'; id: string }

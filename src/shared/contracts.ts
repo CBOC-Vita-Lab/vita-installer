@@ -1,7 +1,7 @@
 import type { ReleaseManifest, PackageInventory, PackageMember } from '../releases/manifest';
 export type { ReleaseManifest, PackageInventory, PackageMember };
 export interface ImportedRelease {
-  manifest: ReleaseManifest; manifestSha256: string; sourceRoot: string;
+  manifest: ReleaseManifest; manifestSha256: string; sourceRoot: string; manifestEvidence?: string;
   vpkPath: string | null; inventory: PackageInventory | null; ownedWorkspace?: string; downloadUrl?: string;
   inputRoots?: string[]; inputWorkspaces?: string[];
 }

@@ -15,7 +15,7 @@ await cp(`workers/bin/${platform}`, `dist/installer-workers/${platform}`, { recu
 const catalog = JSON.parse(await readFile(`workers/bin/${platform}/catalog.json`, 'utf8'));
 if (catalog.platform !== platform) throw new Error('Worker architecture mismatch.');
 const sha = b => createHash('sha256').update(b).digest('hex');
-for (const entry of [catalog.worker, catalog.volumeWorker]) if (sha(await readFile(join('workers/bin', platform, entry.path))) !== entry.sha256) throw new Error('Worker catalog mismatch.');
+for (const entry of [catalog.worker, catalog.volumeWorker, catalog.movieWorker]) if (!entry || sha(await readFile(join('workers/bin', platform, entry.path))) !== entry.sha256) throw new Error('Worker catalog mismatch.');
 async function firstCopy(candidates, target) {
   for (const path of candidates) { try { await cp(path, join(notices, target)); return; } catch (error) { if (error.code !== 'ENOENT') throw error; } }
   throw new Error(`Missing license: ${target}`);
@@ -25,6 +25,8 @@ await firstCopy([join(paths.pycdlib, 'licenses/COPYING')], 'pycdlib-LICENSE.txt'
 await firstCopy([join(paths.pyinstaller, 'licenses/COPYING.txt')], 'PyInstaller-COPYING.txt');
 await cp('workers/vendor/galaxy/LICENSE', join(notices, 'Galaxy-LICENSE.txt'));
 await cp('workers/vendor/galaxy/ORIGIN.md', join(notices, 'Galaxy-ORIGIN.md'));
+await cp('workers/vendor/libjpeg-turbo/LICENSE.md', join(notices, 'libjpeg-turbo-LICENSE.md'));
+await cp('workers/vendor/libjpeg-turbo/README.ijg', join(notices, 'libjpeg-turbo-README.ijg'));
 await cp('node_modules/electron/dist/LICENSE', join(notices, 'Electron-LICENSE.txt'));
 await cp('node_modules/electron/dist/LICENSES.chromium.html', join(notices, 'Chromium-LICENSES.html'));
 await cp(join(paths.site, 'pycdlib'), join(notices, 'source/pycdlib'), { recursive: true, filter: path => !path.includes('__pycache__') && !path.endsWith('.pyc') });
@@ -40,6 +42,7 @@ for (const [path, item] of Object.entries(lock.packages)) {
   components.push({ type: 'library', name: pkg.name, version: pkg.version, purl: `pkg:npm/${pkg.name.replace('@', '%40')}@${pkg.version}`, licenses: [{ expression: typeof pkg.license === 'string' ? pkg.license : 'NOASSERTION' }] });
 }
 components.push({ type: 'framework', name: 'Electron', version: lock.packages['node_modules/electron'].version, licenses: [{ license: { id: 'MIT' } }] },
+  { type: 'library', name: 'libjpeg-turbo', version: '3.1.4.1', licenses: [{ expression: 'IJG AND BSD-3-Clause AND Zlib' }] },
   { type: 'library', name: 'pycdlib', version: '1.22.0', licenses: [{ license: { id: 'LGPL-2.1-or-later' } }] },
   { type: 'library', name: 'Python', version: '3.14.4', licenses: [{ license: { id: 'PSF-2.0' } }] },
   { type: 'library', name: 'PyInstaller bootloader', version: '6.22.3', licenses: [{ expression: 'GPL-2.0-or-later WITH Bootloader-exception' }] });

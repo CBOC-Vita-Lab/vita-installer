@@ -12,4 +12,5 @@ export interface InstallPlan {
   files: PlannedFile[]; protectedRoots: string[]; protectedFiles: ObservedFile[]; backupFiles: ObservedFile[];
   blockers: string[]; warnings: string[]; requiredBytes: number; freeBytes?: number; vpkDestination: string;
   requiresUr0Action: boolean; appExists: boolean;
+  appOnly?: boolean; retainedData?: ObservedFile[]; manifestEvidence?: string;
 }

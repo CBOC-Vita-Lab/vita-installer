@@ -6,7 +6,7 @@ import type { InstallPlan } from '../jobs/types';
 import type { Transport, TransportOptions, VolumeWorker } from '../devices/transport';
 import { randomBytes } from 'node:crypto';
 import { basename, join } from 'node:path';
-import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import sharp from 'sharp';
 import { importRelease } from '../releases/import';
 import { prepareArtwork } from '../artwork/prepare';
@@ -14,7 +14,8 @@ import { convertImage, imageSize, readImage } from '../artwork/images';
 import { inspectInputs, prepareInputs, SHADER_COMPILER, InputCheckError } from '../preparation/inputs';
 import { createInstallPlan } from '../jobs/plan';
 import { executeTransfer, writeScope } from '../jobs/transfer';
-import { FileJournal } from '../jobs/journal';
+import { FileJournal, type JobRecord } from '../jobs/journal';
+import { compatibleAppUpdate, trustedUpdateReceipt } from '../jobs/update';
 import { finishInstall } from '../jobs/install';
 import { nativeInstallationServices } from '../devices/installation';
 import { inspectDevice, nativeDiscoveryIO } from '../devices/native';
@@ -42,6 +43,7 @@ export class InstallerController {
   private selections: InputSelections = { roots: [], chosen: {} }; private choices: Partial<Record<ArtworkSlot, ArtworkChoice>> = {};
   private sourceHashes: Partial<Record<ArtworkSlot, string>> = {}; private previewHashes: Partial<Record<ArtworkSlot, string>> = {};
   private defaults?: PreparedPackage; private prepared?: PreparationResult; private plan?: InstallPlan;
+  private appUpdate?: JobRecord; private updateCandidate?: JobRecord;
   private abort?: AbortController; private discoveryAbort?: AbortController; private paused = false;
   private discoveryTask?: Promise<void>;
   private owned = new Set<string>(); private retained = new Set<string>(); private prerequisitePath?: string;
@@ -57,7 +59,7 @@ export class InstallerController {
   private remember(workspace?: string) { if (workspace) this.owned.add(workspace); }
   private invalidate(prepared = false) {
     this.plan = undefined; this.state.plan = undefined;
-    if (prepared) { this.prepared = undefined; this.state.prepared = false; }
+    if (prepared) { this.prepared = undefined; this.state.prepared = false; this.appUpdate = undefined; this.state.appUpdateSelected = false; }
   }
   private inputIssue(check: InputCheck) {
     const role = this.state.inputs.find(i => i.id === check.id);
@@ -187,7 +189,7 @@ export class InstallerController {
         requireThat(selected.state === 'ready', 'storage_role_unknown');
         this.state.busy = 'scanning'; this.emit();
         const current = await (this.options.inspect ?? inspectDevice)(selected, signal); requireThat(current.state === 'ready', 'device_not_ready');
-        this.devices.set(current.id, current); this.state.selectedDevice = current.id; this.invalidate(); this.updateDeviceViews();
+        this.devices.set(current.id, current); this.state.selectedDevice = current.id; this.invalidate(!!this.appUpdate); this.updateDeviceViews();
         await this.checkInstalled(signal);
         if (this.state.selectedRelease) { this.state.busy = 'scanning'; this.emit(); await this.scan(signal); }
       } else if (request.command === 'chooseInput' || request.command === 'scanFolder' || request.command === 'removeInput') {
@@ -202,6 +204,18 @@ export class InstallerController {
         }
       } else if (request.command === 'artwork') {
         this.state.busy = 'artwork'; this.emit(); await this.updateArtwork(request, paths[0], signal); this.invalidate();
+      } else if (request.command === 'fullSetup') {
+        this.invalidate(true); this.state.repairStep = undefined;
+      } else if (request.command === 'prepareUpdate') {
+        this.selectedDevice(); this.invalidate(true); this.state.busy = 'preparing'; this.emit();
+        await this.checkRelease(signal); await this.refreshAppUpdate();
+        requireThat(this.updateCandidate, 'incompatible_update');
+        this.appUpdate = this.updateCandidate;
+        const release = this.release();
+        this.prepared = { releaseId: release.manifest.releaseId, workspace: '', files: [],
+          recipeFingerprint: digest(`preparation-v1\n${release.manifestSha256}`),
+          inputFingerprints: { installed: this.appUpdate.plan.fingerprint }, toolFingerprints: {} };
+        this.state.prepared = true; this.state.appUpdateSelected = true; this.state.repairStep = undefined;
       } else if (request.command === 'prepare') {
         this.selectedDevice(); this.invalidate(true); this.state.busy = 'preparing'; this.emit();
         await this.checkRelease(signal); await this.scan(signal);
@@ -228,7 +242,8 @@ export class InstallerController {
         this.devices.set(device.id, device); this.updateDeviceViews(); const transport = await this.open(device);
         let consents = { update: false, space: false, cover: false };
         try {
-          const options = { transport, artwork, retroflow: await detectRetroflow(transport, this.release().manifest.titleId, signal) };
+          const options = { transport, artwork, appUpdate: this.appUpdate,
+            retroflow: await detectRetroflow(transport, this.release().manifest.titleId, signal) };
           const baseline = await createInstallPlan(this.release(), this.prepared, device, 'first_install', options, signal);
           this.plan = baseline;
           if (reviewed?.consentFingerprint === baseline.consentFingerprint) {
@@ -242,6 +257,7 @@ export class InstallerController {
         }
         finally { await transport.close(); }
         const p = this.plan; this.state.plan = { id: p.jobId, blockers: p.blockers, warnings: p.warnings, appExists: p.appExists,
+          appOnly: p.appOnly, transferBytes: p.files.filter(file => ['copy', 'manual', 'replace'].includes(file.action)).reduce((n, file) => n + file.bytes, 0),
           requiredBytes: p.requiredBytes, freeBytes: p.freeBytes, requiresUr0Action: p.requiresUr0Action, customArtwork: Object.keys(this.choices) as ArtworkSlot[], consents };
         this.state.repairStep = undefined;
       } else if (request.command === 'execute' || request.command === 'resume') {
@@ -287,6 +303,7 @@ export class InstallerController {
         }
       } else if (request.command === 'reset') {
         this.invalidate(true); this.state.job = undefined; this.state.selectedRelease = undefined; this.state.inputs = []; this.state.artwork = [];
+        this.updateCandidate = undefined; this.state.appUpdateAvailable = false;
         this.state.recoverableJobs = []; this.state.repairStep = undefined; this.choices = {}; this.selections = { roots: [], chosen: {} };
       }
     } catch (error) {
@@ -294,6 +311,9 @@ export class InstallerController {
       else if (error instanceof FileIntegrityError) this.fileIssue(error);
       else {
         this.state.error = safeError(error);
+        if (this.appUpdate && ['update_data_changed', 'incompatible_update', 'installed_app_changed', 'missing_job_marker'].includes(this.state.error)) {
+          this.invalidate(true); this.state.appUpdateAvailable = false; this.state.repairStep = 'game';
+        }
         if (request.command === 'import' && ['ENOENT', 'ENOTDIR', 'package_hash_mismatch'].includes((error as { code?: string }).code ?? '')) {
           this.invalidate(true); this.state.repairStep = 'release';
           this.state.error = (error as { code?: string }).code === 'package_hash_mismatch' ? 'release_files_changed' : 'release_files_missing';
@@ -304,6 +324,23 @@ export class InstallerController {
   }
   private updateDeviceViews() {
     this.state.devices = [...this.devices.values()].map(({ root: _root, identity: _identity, ...device }) => device);
+  }
+  private async refreshAppUpdate() {
+    this.updateCandidate = undefined; this.state.appUpdateAvailable = false;
+    const device = this.devices.get(this.state.selectedDevice!);
+    if (!device || device.state !== 'ready' || !this.state.selectedRelease
+      || !this.state.releases.find(view => view.id === this.state.selectedRelease)?.installed) return;
+    const names = (await readdir(this.journal.root).catch(() => [])).filter(name => /^[a-f0-9]{32}\.json$/.test(name)).slice(0, 100);
+    const ordered = [];
+    for (const name of names) { const stat = await lstat(join(this.journal.root, name)); if (!stat.isSymbolicLink()) ordered.push({ name, time: stat.mtimeMs }); }
+    for (const { name } of ordered.sort((a, b) => b.time - a.time)) {
+      try {
+        const record = await this.journal.load(name.slice(0, -5));
+        if (trustedUpdateReceipt(record, this.options.trust) && compatibleAppUpdate(this.release(), record, device)) {
+          this.updateCandidate = record; this.state.appUpdateAvailable = true; return;
+        }
+      } catch { /* An incomplete or damaged receipt cannot enable a fast update. */ }
+    }
   }
   private async checkInstalled(signal: AbortSignal) {
     this.state.releases = this.state.releases.map(({ installed: _installed, ...release }) => release);
@@ -328,7 +365,7 @@ export class InstallerController {
       this.devices = found;
       const ready = [...found.values()].filter(d => d.state === 'ready');
       this.state.selectedDevice = selected && found.get(selected)?.state === 'ready' ? selected : ready.length === 1 ? ready[0].id : undefined;
-      if (this.state.selectedDevice !== selected) this.invalidate();
+      if (this.state.selectedDevice !== selected) this.invalidate(!!this.appUpdate);
       this.updateDeviceViews();
       await this.checkInstalled(this.discoveryAbort.signal);
       if (this.state.selectedRelease && this.state.selectedDevice && !this.state.job) await this.scan(this.discoveryAbort.signal);
@@ -372,6 +409,7 @@ export class InstallerController {
       return { ...check, kind: role?.kind ?? '',
         filename: source ? basename(source) : selected ? basename(selected) : undefined, onVita: source !== undefined && source === this.prerequisitePath };
     });
+    await this.refreshAppUpdate();
   }
   private async updateArtwork(request: Extract<UiRequest, { command: 'artwork' }>, path: string | undefined, signal: AbortSignal) {
     this.release(); requireThat(this.defaults, 'missing_artwork'); const slot = request.slot;

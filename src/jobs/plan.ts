@@ -11,10 +11,14 @@ import { devicePath, stageRoot } from '../devices/transport';
 import { observeFile, observeTrees, readSmallFile } from './observe';
 import { planRetroflowCover, type RetroflowState } from '../artwork/retroflow';
 import { readSfo } from '../releases/sfo';
+import type { JobRecord } from './journal';
+import { verifyAppUpdate } from './update';
+import { isInstalledGalaxyMovie } from '../preparation/galaxy';
 
 export interface PlanOptions {
   transport: Transport; artwork: PreparedPackage; retroflow?: RetroflowState;
   acknowledgeUnknownSpace?: boolean; replaceRetroflow?: boolean;
+  appUpdate?: JobRecord;
 }
 export const planFingerprint = (plan: InstallPlan): string => digest(JSON.stringify({ ...plan, fingerprint: '' }));
 
@@ -35,7 +39,7 @@ export async function verifyPackage(release: ImportedRelease, pkg: PreparedPacka
 export async function createInstallPlan(release: ImportedRelease, prepared: PreparationResult,
   device: DeviceCandidate, mode: 'first_install' | 'explicit_update', options: PlanOptions,
   signal?: AbortSignal): Promise<InstallPlan> {
-  cancelled(signal); requireThat(release.manifest.releaseState === 'ready' && release.manifest.recipeId !== 'galaxy', 'release_held');
+  cancelled(signal); requireThat(release.manifest.releaseState === 'ready', 'release_held');
   requireThat(mode === 'first_install' || mode === 'explicit_update', 'invalid_install_mode');
   const valid = await verifyPreparation(prepared, release); cancelled(signal); requireThat(valid, 'preparation_changed');
   await verifyPackage(release, options.artwork, signal);
@@ -56,6 +60,14 @@ export async function createInstallPlan(release: ImportedRelease, prepared: Prep
     if ((!member && !path.startsWith('sce_sys/package/')) || (/bios/i.test(path) && member?.sha256 !== file.sha256)) blockers.push('private_app_file_conflict');
   }
   const backupFiles = mode === 'explicit_update' ? [...appFiles, ...protectedFiles] : [];
+  const retainedData = options.appUpdate ? await verifyAppUpdate(release, options.appUpdate, transport, signal) : undefined;
+  if (retainedData) {
+    requireThat(prepared.files.length === 0, 'invalid_update_plan');
+    for (const file of retainedData) {
+      if (!protectedFiles.some(existing => existing.path === file.path)) protectedFiles.push(file);
+      if (!protectedRoots.includes(file.path)) protectedRoots.push(file.path);
+    }
+  }
   const files: InstallPlan['files'] = [], warnings: string[] = []; let requiresUr0Action = false, coverDestination: string | undefined, observedCover;
   for (const file of prepared.files) {
     const path = file.destination, data = release.manifest.destinations.data;
@@ -87,6 +99,10 @@ export async function createInstallPlan(release: ImportedRelease, prepared: Prep
       const observed = existing.kind === 'file' ? await observeFile(transport, destination, signal) : null;
       if (destination === coverDestination) observedCover = observed;
       if (observed?.sha256 === source.sha256) action = 'keep';
+      else if (observed && isInstalledGalaxyMovie(release.manifest, source, observed)) {
+        action = 'preserve'; protectedRoots.push(destination); protectedFiles.push(observed);
+        if (!warnings.includes('optimized_movies_kept')) warnings.push('optimized_movies_kept');
+      }
       else if (observed && destination === coverDestination && options.replaceRetroflow === true) {
         action = 'replace'; previous = observed; backup = `${root}/backup/retroflow.png`; backupFiles.push(observed);
       } else if (observed && (/\/gba_bios\.bin$/i.test(destination) || destination === coverDestination)) {
@@ -116,11 +132,16 @@ export async function createInstallPlan(release: ImportedRelease, prepared: Prep
   protectedFiles.sort((a, b) => a.path.localeCompare(b.path)); backupFiles.sort((a, b) => a.path.localeCompare(b.path));
   const consentFingerprint = digest(JSON.stringify({ manifest: release.manifestSha256, target: device.identity,
     transport: device.transport, package: options.artwork.sha256, inputs: prepared.inputFingerprints,
-    appFiles, coverDestination, observedCover, unknownSpace: freeBytes === undefined }));
+    appFiles, coverDestination, observedCover, retainedData, unknownSpace: freeBytes === undefined }));
   const plan: InstallPlan = { jobId, fingerprint: '', consentFingerprint, releaseId: release.manifest.releaseId, titleId: title, manifestSha256: release.manifestSha256,
     recipeFingerprint: prepared.recipeFingerprint, inputFingerprints: structuredClone(prepared.inputFingerprints),
     toolFingerprints: structuredClone(prepared.toolFingerprints ?? {}), target: structuredClone(device), mode,
     package: structuredClone(options.artwork), files, protectedRoots, protectedFiles, backupFiles, blockers: [...new Set(blockers)], warnings, requiredBytes, freeBytes,
-    vpkDestination, requiresUr0Action, appExists };
+    vpkDestination, requiresUr0Action, appExists,
+    retainedData: retainedData ?? files.filter(file => file.destination.startsWith(`${release.manifest.destinations.data}/`))
+      .map(file => file.action === 'preserve' ? protectedFiles.find(observed => observed.path === file.destination)!
+        : { path: file.destination, bytes: file.bytes, sha256: file.sha256 }),
+    ...(retainedData ? { appOnly: true } : {}),
+    ...(release.manifestEvidence ? { manifestEvidence: release.manifestEvidence } : {}) };
   plan.fingerprint = planFingerprint(plan); cancelled(signal); return plan;
 }

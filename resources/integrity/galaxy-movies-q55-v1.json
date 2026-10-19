@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "recipeId": "galaxy-q55-portable-f32-v1",
+  "runtimeSha256": "3831ebd245c8e270b01d85db45dee4f8e70fda9a24041e6c8fbf564be9908a3d",
+  "quality": 55,
+  "workerSha256s": [
+    "59049f02fcc91522bd63d6314a3e55f20dee2dbdd06ce00a922da08212f2ea84"
+  ],
+  "files": [
+    {
+      "path": "files/MovieData/EndingA.thp",
+      "bytes": 160051328,
+      "sha256": "51296f2323ccf038f775556f727c53afcab7b979c6ce45bee655f4c89ed55baa"
+    },
+    {
+      "path": "files/MovieData/EndingALuigi.thp",
+      "bytes": 168377600,
+      "sha256": "ffc08e118bc6b612db108413c313f34f6151732eda145338a5b3902e15fe58b6"
+    },
+    {
+      "path": "files/MovieData/EndingB.thp",
+      "bytes": 116418336,
+      "sha256": "45f6a21d439efe98c6843f15db265d71f7a985d73d181797b7411b22fa4f5c2d"
+    },
+    {
+      "path": "files/MovieData/EpilogueA.thp",
+      "bytes": 219167488,
+      "sha256": "c919421988be91b12fae9035cbd7f5b7578888ed9948fb07bc2bb086b3d8a18b"
+    },
+    {
+      "path": "files/MovieData/EpilogueALuigi.thp",
+      "bytes": 241639680,
+      "sha256": "ab2ef4add4e121db48c4efd629236a6517db24f568636a6faa5f92aee57feb79"
+    },
+    {
+      "path": "files/MovieData/FinalBattle.thp",
+      "bytes": 89594976,
+      "sha256": "7d6adef559dab3d86303a0dcd53f278ac87c16d28d5c7034dba5bc599de30c1e"
+    },
+    {
+      "path": "files/MovieData/FinalBattleLuigi.thp",
+      "bytes": 99742880,
+      "sha256": "bd5e5357422593567408203113df1e8711b60dafe77e0c54c0be8886f67455cc"
+    },
+    {
+      "path": "files/MovieData/PrologueA.thp",
+      "bytes": 119350528,
+      "sha256": "4216a3d3a4f8c78e5909b2f9e6a7dfadeb90e62abf84dbc39d569c4b768850b5"
+    },
+    {
+      "path": "files/MovieData/PrologueB.thp",
+      "bytes": 156882656,
+      "sha256": "03db689c9fb9e60485d7b0b6eb69c599852da486df4f24bbf2186cb13daa5691"
+    }
+  ]
+}

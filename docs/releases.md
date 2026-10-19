@@ -40,8 +40,8 @@ source and license payloads stay unchanged. Import readback is required.
 
 ## GitHub downloads and repair
 
-Downloads are unauthenticated and limited to the four fixed CBOC repositories;
-Galaxy remains blocked. Repository, release-page, tag and asset URLs are
+Downloads are unauthenticated and limited to the four fixed CBOC repositories.
+Galaxy's current profile remains held. Repository, release-page, tag and asset URLs are
 supported. A repository URL selects the latest stable release. A tag URL pins
 that release. Private releases still require a locally selected bundle.
 
@@ -68,3 +68,21 @@ require reinstalling the app if damaged.
 Offline or private metadata does not invalidate an intact trusted local bundle.
 No GitHub credentials are shipped or requested. Private manifests must be removed
 from a future public installer unless their release gates are explicitly cleared.
+
+## App-only updates
+
+An optional `appUpdateFrom` array lists exact earlier manifest SHA-256 values
+whose prepared game data is compatible with this release. Add a value only after
+checking the runtime's full data contract. Do not use it for releases requiring
+new textures, movies or other prepared files. The same exact manifest can also
+be reinstalled without recooking.
+
+The receipt retains the original authenticated manifest bytes so publisher
+signatures can be reverified against the installed trust store; a journal
+checksum alone does not establish trust.
+
+The installer requires a completed local installation receipt, matching remote
+job marker, target, installed title/runtime and full game-data readback. It
+retains that inventory across subsequent updates. This does not replace explicit
+update consent or verified app/save/settings backups. Legacy installations and
+unconfirmed USB/card installs use the ordinary full-setup path.

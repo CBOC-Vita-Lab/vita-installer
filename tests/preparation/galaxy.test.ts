@@ -29,6 +29,13 @@ vi.mock('../../resources/integrity/galaxy-cooked-rmge01-r0.json', async () => {
     files: Object.entries(fixtures.output).filter(([path]) => path !== 'sys/fst.bin')
       .map(([path, data]) => ({ path, bytes: Buffer.byteLength(data), sha256: createHash('sha256').update(data).digest('hex') })) } };
 });
+vi.mock('../../resources/integrity/galaxy-movies-q55-v1.json', async () => {
+  const { createHash } = await import('node:crypto');
+  return { default: { schemaVersion: 1, recipeId: 'galaxy-q55-portable-f32-v1', runtimeSha256: '9'.repeat(64),
+    quality: 55, workerSha256s: ['d'.repeat(64)],
+    files: Object.entries(fixtures.output).filter(([path]) => path.startsWith('files/MovieData/'))
+      .map(([path, data]) => ({ path, bytes: Buffer.byteLength(data), sha256: createHash('sha256').update(data).digest('hex') })) } };
+});
 const roots: string[] = [];
 afterEach(async () => { vi.restoreAllMocks(); for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
 async function directory() { const path = await realpath(await mkdtemp(join(tmpdir(), 'galaxy-test-'))); roots.push(path); return path; }
@@ -99,6 +106,14 @@ it('does not fall back to unoptimized movies when the optimizer is missing', asy
   const worker = vi.spyOn(runner, 'runWorker');
   await expect(prepareInputs(release(), { roots: [], chosen: { game: [root] } }, () => {}, undefined,
     { ...tools, movieWorker: undefined })).rejects.toMatchObject({ code: 'preparation_tool_missing' });
+  expect(worker).not.toHaveBeenCalled();
+});
+it('rejects an unreviewed optimizer before cooking or accepting its output', async () => {
+  const root = await directory(); await tree(root, fixtures.input);
+  const worker = vi.spyOn(runner, 'runWorker');
+  await expect(prepareInputs(release(), { roots: [], chosen: { game: [root] } }, () => {}, undefined,
+    { ...tools, movieWorker: { ...tools.movieWorker, sha256: 'e'.repeat(64) } }))
+    .rejects.toMatchObject({ code: 'unsupported_movie_recipe' });
   expect(worker).not.toHaveBeenCalled();
 });
 it('reports cooker and movie work while running, then hashes output before preparation completes', async () => {

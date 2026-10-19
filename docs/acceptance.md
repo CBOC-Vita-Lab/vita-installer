@@ -15,13 +15,14 @@ This is an internal preview, not an accepted public installer release.
 | macOS Intel / Windows x64 | Native runner validation pending |
 | Actual installation | No installed game updated; full installation/gameplay acceptance remains pending |
 | Real Vita safety check | Companion detected all four installed titles; three available profiles matched their installed runtime hashes. Scoped 128 KiB transfer, controlled interruption, reconnect, hash readback and test-file cleanup passed; all four runtime hashes unchanged afterward |
-| Duplicate prevention | Existing titles labelled before preparation; automatic update approval remains off. Regression tests cover all three installable profiles; real-device execution without an approved plan blocked |
+| Duplicate prevention | Existing titles labelled before preparation; automatic update approval remains off. Regression tests cover all four profiles; real-device execution without an approved plan blocked |
+| App-only updates | Automated completed-receipt, compatibility, consecutive-update inventory, missing/corrupt data, wrong target/runtime, missing remote marker and pre-write mutation checks. The UI skips original-game preparation; manual update approval remains required |
 | Signing/notarization | No public signing identity selected; unsigned internal previews only |
 | Third-party redistribution | Component/license inventory included; complete libvips/native-library source and notice review still pending |
 | Strikers | Selected runtime preserved; current package/source/rights/hardware release gates still held |
 | Infected | Private-only artwork; public release held |
-| VitAdhoc | GPL compatibility clarification and current package acceptance pending |
-| Galaxy | Exact installed thp48d runtime and all nine optimized movie references read back and verified. Full source/output checks and fail-closed optimization tests pass. Host movie reproduction and real installation acceptance remain pending; profile held |
+| VitAdhoc | GPL compatibility clarification and current package acceptance pending. A fresh device read found the newer build21 covers runtime; the existing private bundle still contains the earlier build21 runtime and must not be called the latest installed build |
+| Galaxy | Exact thp48d runtime and nine installed movie references verified. A separately pinned portable q55 recipe passes complete host preparation: 2,375 files in 199.99 seconds on one Mac. Historical encoder reproduction and distributable-package/playback acceptance remain open; profile held |
 
 The full VitAdhoc destination review was stopped during its large protected
 media inventory; that hardware step remains unaccepted. The safe live test did
@@ -49,3 +50,5 @@ digests for bounded exact-version lookup. Downloaded payload extras remain exclu
 Deferred: ordinary desktop shutdown does not dispose of abandoned temporary
 workspaces. They may retain substantial local data. Recovery data must remain
 available until a separate cleanup and retention policy is implemented.
+The app-only receipt search examines at most 100 local jobs before sorting;
+large retained histories can miss a newer valid receipt and fall back to Full setup.

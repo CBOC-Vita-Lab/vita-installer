@@ -25,6 +25,7 @@ export const manifestSchema = z.object({
   requiredInputs: z.array(input).max(10), optionalInputs: z.array(input).max(10),
   destinations: z.object({ data: devicePath }).strict(), protectedPaths: z.array(devicePath).max(30),
   prerequisites: z.array(z.enum(['shader-compiler'])).max(1),
+  appUpdateFrom: z.array(hash).max(100).optional(),
   limits: z.object({ maxFiles: z.number().int().min(1).max(100000), maxFileBytes: z.number().int().min(1).max(64 * 1024 ** 3), maxTotalBytes: z.number().int().min(1).max(128 * 1024 ** 3) }).strict()
 }).strict().superRefine((m, ctx) => {
   const p = PROFILES[m.recipeId];

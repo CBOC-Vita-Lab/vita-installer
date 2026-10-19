@@ -28,11 +28,17 @@ export function App({ bridge = window.vitaInstaller }: { bridge?: InstallerBridg
     finally { if (!control) setPending(false); }
   };
   const selected = state.releases.find(r => r.id === state.selectedRelease), device = state.devices.find(d => d.id === state.selectedDevice);
-  const connected = device?.state === 'ready', disabled = pending || !!state.busy, current = steps.findIndex(s => s.id === step);
+  const visibleSteps = state.appUpdateSelected ? steps.filter(item => !['game', 'required'].includes(item.id)) : steps;
+  const connected = device?.state === 'ready', disabled = pending || !!state.busy, current = visibleSteps.findIndex(s => s.id === step);
   const gameReady = state.inputs.filter(i => i.required && i.kind.endsWith('-disc')).every(i => ['ready', 'unverified'].includes(i.status));
   const allReady = state.inputs.every(i => ['ready', 'unverified'].includes(i.status));
   async function next() {
-    if (step === 'release') { if (connected && selected && !selected.held) setStep('game'); }
+    if (step === 'release') {
+      if (connected && selected && !selected.held) {
+        if (state.appUpdateAvailable) { await run({ command: 'prepareUpdate' }); if ((await bridge?.getSnapshot())?.prepared) setStep('artwork'); }
+        else setStep('game');
+      }
+    }
     else if (step === 'game') setStep('required');
     else if (step === 'required') { await run({ command: 'prepare' }); if ((await bridge?.getSnapshot())?.prepared) setStep('artwork'); }
     else if (step === 'artwork') { await run({ command: 'plan', acknowledgeUnknownSpace: false, explicitUpdate: false, replaceRetroflow: false }); if ((await bridge?.getSnapshot())?.plan) setStep('install'); }
@@ -45,13 +51,13 @@ export function App({ bridge = window.vitaInstaller }: { bridge?: InstallerBridg
   return <div className={`app-shell ${state.busy && !state.job ? 'with-progress' : ''}`}>
     <header className="app-header"><div className="brand"><img src={new URL('../../resources/branding/cboc-mark.png', import.meta.url).href} alt="CBOC logo" width="48" height="48" /><div><strong>CBOC</strong><h1 aria-label="CBOC Vita Installer">Vita Installer</h1></div></div><button className={`connection-button ${connected ? 'connected' : ''}`} disabled={!!state.busy && state.busy !== 'installing'} onClick={() => { setConnecting(true); if (!state.discoveryBusy) void run({ command: 'discover' }); }} aria-label={connected ? 'Vita connected' : 'Connect Vita'}>
       {device && device.transport !== 'ftp' ? <Usb /> : <Wifi />}<span>{connected ? device.transport === 'card' ? 'Card connected' : 'Vita connected' : 'Connect Vita'}</span></button></header>
-    <nav className="steps" aria-label="Installation steps"><ol>{steps.map((item, i) => <li key={item.id} className={i < current ? 'done' : i === current ? 'current' : ''} aria-current={step === item.id ? 'step' : undefined}>
+    <nav className="steps" aria-label="Installation steps"><ol>{visibleSteps.map((item, i) => <li key={item.id} className={i < current ? 'done' : i === current ? 'current' : ''} aria-current={step === item.id ? 'step' : undefined}>
       <span className="step-dot">{i < current && <Check />}</span><span>{item.label}</span></li>)}</ol></nav>
     <main className="workspace">
       {(state.error || localError) && <div role="alert" className="error-banner"><span>{errorMessage(state.error ?? localError, selected?.recipe)}{state.errorFile && <strong className="filename">{state.errorFile}</strong>}</span><IconButton label="Dismiss error" onClick={() => { setLocalError(undefined); void run({ command: 'clearError' }); }}><X /></IconButton></div>}
       {state.notice === 'release_repaired' && <p role="status" className="repair-notice"><Check />Release files repaired.</p>}
       {state.job ? <Installation job={state.job} busy={disabled} run={run} /> : <>
-        <div className="section-heading"><div><h2 ref={heading} tabIndex={-1}>{step === 'release' ? selected ? 'Confirm release' : 'Choose release' : steps[current].label}</h2>{selected && step !== 'release' && <p>{selected.name}</p>}</div>
+        <div className="section-heading"><div><h2 ref={heading} tabIndex={-1}>{step === 'release' ? selected ? 'Confirm release' : 'Choose release' : steps.find(item => item.id === step)!.label}</h2>{selected && step !== 'release' && <p>{selected.name}</p>}</div>
           {selected && <IconButton label="Open game releases" disabled={disabled} onClick={() => { void run({ command: 'openRepo', repo: selected.recipe as 'strikers' }); }}><ExternalLink /></IconButton>}
         </div>
         {step === 'release' && <>
@@ -68,11 +74,16 @@ export function App({ bridge = window.vitaInstaller }: { bridge?: InstallerBridg
             <IconButton label="Choose another release folder" disabled={disabled} onClick={() => { void run({ command: 'import', kind: 'folder' }); }}><FolderOpen /></IconButton></div>}
           {selected && <div className="release-metadata"><IconButton label="Check public releases" disabled={disabled} onClick={() => { void run({ command: 'checkRelease' }); }}><RefreshCw /></IconButton>
             {state.publicRelease && <span className="muted">{state.publicRelease.status === 'available' ? `Latest public release: ${state.publicRelease.tag}` : 'Public release information unavailable. Your local bundle can still be used.'}</span>}</div>}
+          {state.appUpdateAvailable && <button className="text-button" disabled={disabled || !connected} onClick={() => {
+            void run({ command: 'fullSetup' }).then(() => setStep('game'));
+          }}><FolderOpen />Full setup</button>}
           {state.recoverableJobs.map(job => <button className="recovery-row" key={job.id} disabled={disabled} onClick={() => { void run({ command: 'resume', id: job.id }); }}><RefreshCw /> Resume {job.title}</button>)}
         </>}
         {(step === 'game' || step === 'required') && <Inputs state={state} kind={step} run={run} disabled={disabled} />}
         {step === 'artwork' && <Artwork items={state.artwork} run={run} disabled={disabled} />}
         {step === 'install' && state.plan && <section className="plan-summary"><dl><div><dt>Destination</dt><dd>{device?.label} · {device?.transport === 'ftp' ? 'FTP' : device?.transport === 'card' ? 'Memory card' : 'USB'}</dd></div><div><dt>Space needed</dt><dd>{bytes(state.plan.requiredBytes)}</dd></div>
+          {state.plan.transferBytes !== undefined && <div><dt>To transfer</dt><dd>{bytes(state.plan.transferBytes)}</dd></div>}
+          {state.plan.appOnly && <div><dt>Game files</dt><dd>Checked and unchanged</dd></div>}
           <div><dt>Artwork</dt><dd>{state.plan.customArtwork.length ? 'Custom artwork selected' : 'Default artwork'}</dd></div><div><dt>Existing saves</dt><dd>Protected</dd></div></dl>
           {state.plan.blockers.filter(code => !['existing_app', 'capacity_unknown'].includes(code)).map(code => <p className="error-text" key={code}>{errorMessage(code)}</p>)}
           {state.plan.warnings.filter(code => code !== 'capacity_unverified').map(code => <p key={code} className="muted">{errorMessage(code)}</p>)}
@@ -90,8 +101,8 @@ export function App({ bridge = window.vitaInstaller }: { bridge?: InstallerBridg
         {state.busy === 'preparing' && state.preparation && <Progress key={`${state.preparation.phase}:${state.preparation.unit}:${state.preparation.item ?? 0}`}
           label="Preparation progress" {...state.preparation} />}
         </div><button onClick={() => { void run({ command: 'cancel' }); }}>Cancel</button></div>}
-    {!state.job && <footer className="app-footer"><button disabled={disabled || current === 0} onClick={() => setStep(steps[current - 1].id)}><ArrowLeft /> Back</button>
-      <button className="primary" disabled={nextDisabled} onClick={() => { void next(); }}>{step === 'required' ? 'Prepare files' : step === 'artwork' ? 'Review install' : step === 'install' ? 'Install' : 'Continue'}<ArrowRight /></button></footer>}
+    {!state.job && <footer className="app-footer"><button disabled={disabled || current <= 0} onClick={() => setStep(visibleSteps[current - 1].id)}><ArrowLeft /> Back</button>
+      <button className="primary" disabled={nextDisabled} onClick={() => { void next(); }}>{step === 'required' ? 'Prepare files' : step === 'artwork' ? 'Review install' : step === 'install' ? 'Install' : step === 'release' && state.appUpdateAvailable ? 'Update app' : 'Continue'}<ArrowRight /></button></footer>}
     {connecting && <Connection state={state} run={run} close={() => setConnecting(false)} />}
   </div>;
 }

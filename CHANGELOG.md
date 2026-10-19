@@ -1,5 +1,22 @@
 # Changes
 
+## 0.1.5 private preview
+
+- Add app-only updates for verified, compatible installations. Skip ISO selection
+  and media preparation while retaining complete installed-data checks.
+- Preserve the checked data inventory across consecutive updates; missing or
+  altered files require full setup. Update approval remains separate.
+- Bundle the pinned Mac arm64 Galaxy quality-55 movie helper, source and notices.
+  Complete preparation passes for all nine movies and 2,375 output files.
+- Preserve exact known installed Galaxy optimized movies, saves and settings.
+  Galaxy's distributable profile remains held for hardware/release acceptance.
+
+## 0.1.4 private preview
+
+- Show measured preparation, movie, copying and final verification progress.
+- Add elapsed time and phase-specific estimates, suppressing unreliable counts
+  during stalls, pauses and steps without known totals.
+
 ## 0.1.3 private preview
 
 - Import approved public CBOC releases directly from a GitHub URL.

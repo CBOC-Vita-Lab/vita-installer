@@ -24,6 +24,14 @@ it('never substitutes a package just because its title and filename look right',
   const m = manifestSchema.parse(JSON.parse(raw.toString())); await writeFile(join(root, 'cboc-release.json'), raw); await writeFile(join(root, m.package!.path), 'older validation build');
   await expect(importRelease(root, { fingerprints: new Set((await catalog()).fingerprints), keys: new Map() })).rejects.toMatchObject({ code: 'package_hash_mismatch' });
 });
+it('declares Galaxy saves, settings and shader prerequisites before it can be enabled', async () => {
+  const profile = manifestSchema.parse(JSON.parse(await readFile('resources/profiles/galaxy.json', 'utf8')));
+  expect(profile.protectedPaths).toEqual(expect.arrayContaining([
+    'ux0:data/smg/saves', 'ux0:data/smg/settings.ini', 'ux0:data/smg/env.txt', 'ux0:data/smg/shadercache',
+  ]));
+  expect(profile.prerequisites).toContain('shader-compiler');
+  expect(profile.requiredInputs).toContainEqual({ id: 'shader', label: 'Shader compiler (libshacccg.suprx)', kind: 'shader-compiler' });
+});
 it.skipIf(!process.env.VITA_PUBLISHING_ROOT)('imports all selected real packages and held Galaxy through the actual ZIP pipeline', async () => {
   const pub = process.env.VITA_PUBLISHING_ROOT!, candidates = JSON.parse(await readFile(join(pub, 'audit/installer-candidates-20261018.json'), 'utf8'));
   const root = await mkdtemp(join(tmpdir(), 'current-bundles-')); roots.push(root);

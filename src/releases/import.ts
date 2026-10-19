@@ -78,7 +78,7 @@ export async function importRelease(selection: string, store: TrustStore, signal
       try {
         const vpkPath = manifest.package ? await checkedChild(root, manifest.package.path) : null;
         const inventory = vpkPath ? await verifyVpk(vpkPath, manifest, signal) : null;
-        results.push({ manifest, manifestSha256: digest(raw), sourceRoot: root, vpkPath, inventory, ownedWorkspace: workspace });
+        results.push({ manifest, manifestSha256: digest(raw), manifestEvidence: raw.toString('base64'), sourceRoot: root, vpkPath, inventory, ownedWorkspace: workspace });
       } catch (error) {
         if (!recover || !['ENOENT', 'ENOTDIR', 'package_hash_mismatch'].includes((error as { code?: string }).code ?? '')) throw error;
         const repaired = await recover(manifest, digest(raw), signal);

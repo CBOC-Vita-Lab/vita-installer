@@ -5,11 +5,13 @@ const forge = createRequire(import.meta.url)('../../forge.config.cjs');
 const receipt = () => ({ platform: 'darwin-arm64', host: 'darwin-arm64', signing: 'unsigned-internal', signingSubject: null,
   files: ['app/dist/main/index.cjs', 'app/dist/main/job-worker.mjs', 'app/dist/main/preload.cjs', 'app/dist/renderer/index.html', 'app/LICENSE',
     'installer-resources/profiles/trust.json', 'installer-workers/darwin-arm64/catalog.json', 'installer-workers/darwin-arm64/vita-prepare',
+    'installer-workers/darwin-arm64/vita-movies',
     'installer-workers/darwin-arm64/vita-volume/vita-volume', 'installer-workers/darwin-arm64/vita-volume/_internal/Python',
     'installer-notices/SBOM.cdx.json', 'installer-notices/THIRD_PARTY_NOTICES.md', 'installer-notices/Python-LICENSE.txt',
     'installer-notices/pycdlib-LICENSE.txt', 'installer-notices/PyInstaller-COPYING.txt', 'installer-notices/Galaxy-LICENSE.txt',
+    'installer-notices/libjpeg-turbo-LICENSE.md', 'installer-notices/libjpeg-turbo-README.ijg',
     'installer-notices/Electron-LICENSE.txt', 'installer-notices/Chromium-LICENSES.html'],
-  helperArchitectures: ['arm64', 'arm64'], networkPolicy: NETWORK_POLICY });
+  helperArchitectures: ['arm64', 'arm64', 'arm64'], networkPolicy: NETWORK_POLICY });
 it('requires native helpers, runtime and notices for the exact native platform', () => {
   expect(() => validatePackagePolicy(receipt())).not.toThrow();
   expect(() => validatePackagePolicy({ ...receipt(), files: [...receipt().files, 'app/node_modules/lucide-react/dist/shared/src/build/icon.mjs'] })).not.toThrow();

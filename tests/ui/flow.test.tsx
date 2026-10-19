@@ -19,6 +19,8 @@ function harness(initial: UiSnapshot = ready(), conflicts = false) {
     command: async request => { calls.push(request);
       if (request.command === 'selectRelease') set({ selectedRelease: request.id });
       if (request.command === 'prepare') set({ prepared: true });
+      if (request.command === 'prepareUpdate') set({ prepared: true, appUpdateSelected: true });
+      if (request.command === 'fullSetup') set({ prepared: false, appUpdateSelected: false });
       if (request.command === 'artwork') set({ artwork: state.artwork.map(a => a.slot !== request.slot ? a : { ...a, mode: request.action === 'default' ? 'default' : 'custom', fit: request.fit ?? a.fit, x: request.x ?? a.x, y: request.y ?? a.y, filename: request.action === 'default' ? undefined : 'custom.png' }) });
       if (request.command === 'plan') set({ plan: { id: 'b'.repeat(32), blockers: [], warnings: conflicts && !request.replaceRetroflow ? ['existing_cover_kept'] : [], appExists: conflicts, requiresUr0Action: false, requiredBytes: 1024, freeBytes: conflicts ? undefined : 4096, customArtwork: [],
         consents: { update: request.explicitUpdate, space: request.acknowledgeUnknownSpace, cover: request.replaceRetroflow } } });
@@ -26,6 +28,20 @@ function harness(initial: UiSnapshot = ready(), conflicts = false) {
   render(<App bridge={bridge} />); return { bridge, calls, set };
 }
 afterEach(cleanup);
+it('takes a compatible update straight to artwork with full setup still available', async () => {
+  const h = harness({ ...ready(), appUpdateAvailable: true,
+    inputs: [{ ...ready().inputs[0], status: 'missing' }] });
+  expect(await screen.findByRole('button', { name: 'Full setup' })).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Update app' }));
+  expect(await screen.findByRole('heading', { name: 'Artwork' })).toBeVisible();
+  expect(h.calls).toContainEqual({ command: 'prepareUpdate' });
+  expect(h.calls.some(call => call.command === 'prepare')).toBe(false);
+  expect(within(screen.getByRole('navigation', { name: 'Installation steps' })).queryByText('Game files')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+  expect(await screen.findByRole('heading', { name: 'Confirm release' })).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Full setup' }));
+  expect(await screen.findByRole('heading', { name: 'Game files' })).toBeVisible();
+});
 it('imports a GitHub link without opening a file picker and shows cancellable download progress', async () => {
   const h = harness(emptySnapshot());
   const url = 'https://github.com/CBOC-Vita-Lab/vitadhoc';

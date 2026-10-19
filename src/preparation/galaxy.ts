@@ -12,6 +12,28 @@ import type { ReleaseManifest } from '../releases/manifest';
 import type { PreparationProgress } from '../shared/contracts';
 import inputCatalog from '../../resources/integrity/galaxy-rmge01-r0.json';
 import cookedCatalog from '../../resources/integrity/galaxy-cooked-rmge01-r0.json';
+import movieCatalog from '../../resources/integrity/galaxy-movies-q55-v1.json';
+
+export function isInstalledGalaxyMovie(manifest: ReleaseManifest,
+  source: { destination: string; bytes: number; sha256: string }, existing: { bytes: number; sha256: string }) {
+  if (manifest.recipeId !== 'galaxy' || manifest.package?.runtimeSha256 !== cookedCatalog.runtimeSha256
+    || !source.destination.startsWith(`${manifest.destinations.data}/`)) return false;
+  const path = source.destination.slice(manifest.destinations.data.length + 1);
+  const candidate = movieCatalog.files.find(file => file.path === path);
+  const installed = cookedCatalog.files.find(file => file.path === path);
+  return !!candidate && !!installed && candidate.sha256 === source.sha256 && candidate.bytes === source.bytes
+    && installed.sha256 === existing.sha256 && installed.bytes === existing.bytes;
+}
+
+export function checkedGalaxyOutput(movieWorker: VerifiedTool) {
+  requireThat(movieCatalog.runtimeSha256 === cookedCatalog.runtimeSha256
+    && movieCatalog.quality === 55 && movieCatalog.workerSha256s.includes(movieWorker.sha256), 'unsupported_movie_recipe');
+  const originalMovies = cookedCatalog.files.filter(file => file.path.startsWith('files/MovieData/'));
+  requireThat(movieCatalog.files.length === originalMovies.length
+    && new Set(movieCatalog.files.map(file => file.path)).size === originalMovies.length
+    && movieCatalog.files.every(file => originalMovies.some(original => original.path === file.path)), 'invalid_preparation_recipe');
+  return cookedCatalog.files.map(file => movieCatalog.files.find(movie => movie.path === file.path) ?? file);
+}
 
 export function checkGalaxyRecipe(manifest: ReleaseManifest) {
   requireThat(manifest.package?.runtimeSha256 === cookedCatalog.runtimeSha256, 'unsupported_preparation_build');
@@ -47,6 +69,7 @@ export async function checkGalaxyExtraction(source: string, signal?: AbortSignal
 
 export async function prepareGalaxy(source: string, output: string, destination: string, limits: ArchiveLimits,
   worker: VerifiedTool, movieWorker: VerifiedTool, signal?: AbortSignal, onProgress: (progress: PreparationProgress) => void = () => {}) {
+  const expected = checkedGalaxyOutput(movieWorker);
   onProgress({ phase: 'checking', completed: 0, unit: 'files' });
   const root = await checkGalaxyExtraction(source, signal, true);
   const fst = await hashFile(join(root, 'sys/fst.bin'), signal);
@@ -62,7 +85,7 @@ export async function prepareGalaxy(source: string, output: string, destination:
   } });
   const receipt = JSON.parse(result.stdout);
   requireThat(receipt.prepared === true && receipt.movies === true && receipt.layoutVerified === true, 'galaxy_conversion_failed');
-  const movies = cookedCatalog.files.filter(f => f.path.startsWith('files/MovieData/'));
+  const movies = expected.filter(f => f.path.startsWith('files/MovieData/'));
   for (const [index, movie] of movies.entries()) {
     const path = await checkedChild(output, movie.path), optimized = `${path}.optimized`;
     const handle = await open(path, 'r'), header = Buffer.alloc(24);
@@ -90,11 +113,11 @@ export async function prepareGalaxy(source: string, output: string, destination:
   onProgress({ phase: 'checking', completed: 0, unit: 'files' });
   await checkGalaxyExtraction(root, signal, true);
   requireThat(await hashFile(join(root, 'sys/fst.bin'), signal) === fst, 'source_changed');
-  await verifyInventory(output, cookedCatalog.files, signal, true,
+  await verifyInventory(output, expected, signal, true,
     (completed, total) => onProgress({ phase: 'hashing', completed, total, unit: 'bytes' }));
   await verifyFile(join(output, 'sys/fst.bin'), { sha256: fst }, signal);
   onProgress({ phase: 'hashing', completed: 0, unit: 'files' });
   const files = await inventoryTree(output, destination, limits, signal);
-  requireThat(files.length === cookedCatalog.files.length + 1, 'unexpected_conversion_output');
+  requireThat(files.length === expected.length + 1, 'unexpected_conversion_output');
   return files;
 }

@@ -17,7 +17,7 @@ const requestSchema = z.discriminatedUnion('command', [
   z.object({ command: z.literal('removeInput'), id: inputId }).strict(),
   z.object({ command: z.literal('artwork'), slot: z.enum(['bubble', 'livearea', 'retroflow']), action: z.enum(['default', 'choose', 'adjust']),
     fit: z.enum(['cover', 'contain']).optional(), x: z.number().min(0).max(1).optional(), y: z.number().min(0).max(1).optional() }).strict(),
-  z.object({ command: z.literal('prepare') }).strict(),
+  z.object({ command: z.enum(['prepare', 'prepareUpdate', 'fullSetup']) }).strict(),
   z.object({ command: z.literal('plan'), acknowledgeUnknownSpace: z.boolean(), explicitUpdate: z.boolean(), replaceRetroflow: z.boolean() }).strict(),
   z.object({ command: z.literal('execute'), id }).strict(), z.object({ command: z.literal('resume'), id }).strict(),
   z.object({ command: z.enum(['pause', 'cancel', 'clearError', 'reset']) }).strict(),

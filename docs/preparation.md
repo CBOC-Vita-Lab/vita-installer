@@ -47,6 +47,11 @@ process uses argument arrays, a bounded runtime/output budget and a minimal
 environment without account/API credentials. Cancellation waits for the child
 to exit; partial output is not an installation candidate.
 
+The movie helper currently has one validated host recipe: macOS arm64, Clang
+portable floating-point mode and static libjpeg-turbo 3.1.4.1. The build script
+checks its exact binary hash; another compiler or platform requires a separately
+reviewed helper and full output validation, not an automatic hash update.
+
 ## Build-specific preparation
 
 Prepare files on the computer, before transfer. Use the recipe belonging to
@@ -71,10 +76,11 @@ a reviewed matching recipe.
 The current evidence and remaining work are recorded in
 [Galaxy validation](galaxy-validation.md).
 
-Galaxy remains held: all nine local optimized references match the installed
-Vita files, but the recovered host encoder has not yet reproduced those exact
-outputs. Do not enable the profile or change the expected hashes just to make
-that check pass. The native movie helper is not yet in the packaged catalog.
+Galaxy remains held for physical acceptance. A separate portable quality-55
+recipe now passes the complete preparation pipeline. Its helper and all nine
+outputs have exact pins, while the original installed-movie catalog remains
+unchanged. Known installed optimized movies are retained rather than replaced
+solely for encoder rounding differences. Arbitrary near-matches are rejected.
 
 Strikers retains its reviewed disc extraction; Infected retains the supported
 ISO; VitAdhoc retains user-selected ROMs. Do not recompress their media or

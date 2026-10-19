@@ -5,6 +5,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const movieBuild = spawnSync(process.execPath, [join(root, 'scripts/build-movie-worker.mjs')], { cwd: root, stdio: 'inherit' });
+if (movieBuild.error || movieBuild.status !== 0) throw movieBuild.error ?? new Error('Movie helper validation failed.');
 const platform = `${process.platform}-${process.arch}`;
 const output = join(root, 'workers', 'bin', platform), work = join(root, 'workers', 'build', platform);
 await mkdir(output, { recursive: true }); await mkdir(work, { recursive: true });
@@ -32,5 +34,6 @@ async function collect(directory, relative = '') {
 await collect(join(root, 'workers'));
 await writeFile(join(output, 'catalog.json'), JSON.stringify({ schemaVersion: 1, platform,
   worker: { path: name, sha256: sha256(await readFile(join(output, name))) },
-  volumeWorker: { path: volumeName, sha256: sha256(await readFile(join(output, volumeName))) }, sources }, null, 2) + '\n');
+  volumeWorker: { path: volumeName, sha256: sha256(await readFile(join(output, volumeName))) },
+  movieWorker: { path: 'vita-movies', sha256: sha256(await readFile(join(output, 'vita-movies'))) }, sources }, null, 2) + '\n');
 console.log(`Packaged data and volume workers: ${platform}`);

@@ -37,7 +37,7 @@ export class MemoryTransport implements Transport {
   async freeSpace() { return this.free; }
   async close() {}
 }
-export async function jobFixture(recipe: 'strikers' | 'infected' | 'vitadhoc' = 'strikers') {
+export async function jobFixture(recipe: 'strikers' | 'infected' | 'vitadhoc' | 'galaxy' = 'strikers') {
   const root = await mkdtemp(join(tmpdir(), 'job-test-'));
   const profile = PROFILES[recipe];
   const bytes = await zip({ 'eboot.bin': runtime, 'sce_sys/param.sfo': sfo(profile.title) });

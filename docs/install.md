@@ -68,9 +68,10 @@ estimates use verified bytes, including time spent checking those files.
 Final verification has a separate byte counter. Pausing or changing stages
 clears the previous estimate.
 
-There is no validated all-computer installation time yet. Galaxy's basic
-conversion measured 34.6 seconds on one development Mac, excluding extraction,
-movie optimization, verification and transfer. Its roughly 2.47 GB of prepared
+There is no validated all-computer installation time yet. Galaxy's complete
+preparation, including all nine optimized movies and output checks, measured
+about 3 minutes 20 seconds on one development Mac from an extracted game.
+That excludes disc-image extraction and Vita transfer. Its roughly 2.47 GB of prepared
 data would take about 21 minutes for one copy at 2 MB/s. This is arithmetic,
 not a measured installation time: readback checks transfer data again.
 
@@ -85,6 +86,17 @@ kept rather than copied again. A different existing game-data file stops the
 current installer for review; update approval does not allow silently replacing
 it. Saves and settings remain protected.
 
-The current preview still prepares and checks game data before an update.
-An app-only update mode and selective asset preparation are not implemented
-yet. Do not assume a small VPK update will currently skip those steps.
+For a compatible release installed by this app on the same computer and Vita,
+choose **Update app**, pick artwork, then approve the update. No ISO selection
+or media conversion is needed. The app verifies its previous installation
+receipt and the installed game files before copying the new VPK. Missing or
+changed data stops the update; use **Full setup** to prepare it again.
+
+Keep the installer's local job records and the Vita's installer job folder.
+Without a completed, matching receipt, use Full setup. USB/card transfers that
+were not confirmed installed also require Full setup. Future releases must
+explicitly declare compatible game data to offer the faster path.
+
+Matching game files are never recopied. Selective preparation and automatic
+replacement of changed game-data files are not implemented. A full setup still
+prepares the complete game, then copies only missing files that pass checks.

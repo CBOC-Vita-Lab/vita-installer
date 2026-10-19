@@ -38,7 +38,7 @@ async function architecture(path) {
   return data.readUInt16LE(offset + 4) === 0x8664 ? 'x64' : 'unknown';
 }
 const helperArchitectures = [];
-for (const item of [catalog.worker, catalog.volumeWorker]) {
+for (const item of [catalog.worker, catalog.volumeWorker, catalog.movieWorker]) {
   const path = resolve(workerRoot, item.path); if (!path.startsWith(workerRoot + sep) || await fileHash(path) !== item.sha256) throw new Error('Packaged helper hash mismatch');
   helperArchitectures.push(await architecture(path));
 }

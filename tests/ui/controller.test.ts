@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import sharp from 'sharp';
+import { generateKeyPairSync, sign } from 'node:crypto';
 import { InstallerController } from '../../src/main/controller';
 import { digest, manifest, runtime, sfo, zip } from '../fixtures/releases';
 import { MemoryTransport, device } from '../jobs/fixture';
@@ -12,7 +13,7 @@ import { downloadGithubRelease } from '../../src/releases/download';
 import * as runner from '../../src/preparation/runner';
 const roots: string[] = [], controllers: InstallerController[] = [];
 afterEach(async () => { vi.restoreAllMocks(); for (const c of controllers.splice(0)) await c.dispose(); for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
-async function fixture(downloads = false, recipe: 'vitadhoc' | 'infected' | 'galaxy' = 'vitadhoc') {
+async function fixture(downloads = false, recipe: 'vitadhoc' | 'infected' | 'galaxy' = 'vitadhoc', signed = false) {
   const root = await mkdtemp(join(tmpdir(), 'controller-test-')); roots.push(root);
   const icon = await sharp({ create: { width: 128, height: 128, channels: 4, background: '#67e8df' } }).png().toBuffer();
   const bg = await sharp({ create: { width: 840, height: 500, channels: 4, background: '#b0ee52' } }).png().toBuffer();
@@ -23,12 +24,17 @@ async function fixture(downloads = false, recipe: 'vitadhoc' | 'infected' | 'gal
     requiredInputs: recipe !== 'vitadhoc' ? [{ id: 'game', label: 'Game file', kind: `${recipe}-disc` }] : [],
     optionalInputs: recipe === 'vitadhoc' ? [{ id: 'roms', label: 'Your games', kind: 'roms' }] : [],
     destinations: { data: recipe === 'vitadhoc' ? 'ux0:data/GBAdhoc/roms' : recipe === 'galaxy' ? 'ux0:data/smg/game' : 'ux0:data/infected' }, protectedPaths: [], prerequisites: [] };
-  const raw = Buffer.from(JSON.stringify(m)); await writeFile(join(root, 'cboc-release.json'), raw); await writeFile(join(root, 'Strikers.vpk'), vpk);
+  const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+  const encode = (value: object) => {
+    const raw = Buffer.from(JSON.stringify(value));
+    return signed ? Buffer.from(JSON.stringify({ keyId: 'test-publisher', manifest: raw.toString('base64'), signature: sign(null, raw, privateKey).toString('base64') })) : raw;
+  };
+  const raw = encode(m); await writeFile(join(root, 'cboc-release.json'), raw); await writeFile(join(root, 'Strikers.vpk'), vpk);
   const bundle = await zip({ 'cboc-release.json': raw, 'Strikers.vpk': vpk });
   const repo = `https://github.com/CBOC-Vita-Lab/${recipe === 'vitadhoc' ? 'vitadhoc' : `${recipe}-vita`}`;
   const url = `${repo}/releases/download/build21/cboc-release.zip`;
   let downloadCount = 0;
-  const trust = { fingerprints: new Set([digest(raw)]), keys: new Map() };
+  const trust = { fingerprints: new Set(signed ? [] : [digest(raw)]), keys: new Map(signed ? [['test-publisher', publicKey]] : []) };
   const transport = new MemoryTransport();
   const c = new InstallerController({ userData: join(root, 'private'), trust,
     downloadRelease: downloads ? (value, expectedManifestSha256, signal, onProgress) => downloadGithubRelease(value, {
@@ -42,8 +48,52 @@ async function fixture(downloads = false, recipe: 'vitadhoc' | 'infected' | 'gal
       } }) : undefined,
     discover: async function* () { yield transport.device; }, inspect: async () => transport.device, open: async () => transport,
     tools: async () => recipe === 'infected' ? { dataWorker: { path: 'test-reader', sha256: digest('worker') } } : {} }, () => {});
-  controllers.push(c); return { root, c, vpk, transport, downloads: () => downloadCount };
+  controllers.push(c); return { root, c, vpk, transport, trust, encode, manifest: m, downloads: () => downloadCount };
 }
+it('offers compatible signed app updates without a bundled prior fingerprint', async () => {
+  const f = await fixture(false, 'vitadhoc', true);
+  await f.c.command({ command: 'discover' }); await f.c.command({ command: 'import', kind: 'folder' }, [f.root]);
+  await f.c.command({ command: 'prepare' });
+  await f.c.command({ command: 'plan', acknowledgeUnknownSpace: false, explicitUpdate: false, replaceRetroflow: false });
+  const id = f.c.snapshot().plan!.id; await f.c.command({ command: 'execute', id });
+  const journal = new FileJournal(join(f.root, 'private/jobs')), record = await journal.load(id);
+  record.promotion = 'reconciled'; record.snapshot.phase = 'complete'; record.snapshot.completionMode = 'installed'; await journal.save(record);
+  f.transport.files.set('ux0:app/GBAD00001/eboot.bin', runtime); f.transport.files.set('ux0:app/GBAD00001/sce_sys/param.sfo', sfo('GBAD00001'));
+  await f.c.command({ command: 'reset' });
+  await writeFile(join(f.root, 'cboc-release.json'), f.encode({ ...f.manifest, version: 'next', appUpdateFrom: [record.plan.manifestSha256] }));
+  await f.c.command({ command: 'import', kind: 'folder' }, [f.root]);
+  expect(f.trust.fingerprints.size).toBe(0);
+  expect(f.c.snapshot().appUpdateAvailable).toBe(true);
+  await f.c.command({ command: 'prepareUpdate' });
+  await f.c.command({ command: 'plan', acknowledgeUnknownSpace: false, explicitUpdate: false, replaceRetroflow: false });
+  expect(f.c.snapshot().plan).toMatchObject({ appOnly: true, blockers: ['existing_app'] });
+  f.trust.keys.clear(); await f.c.command({ command: 'prepareUpdate' });
+  expect(f.c.snapshot().appUpdateAvailable).toBe(false);
+  expect(f.c.snapshot().error).toBe('incompatible_update');
+});
+it('offers a verified app update without asking for the original ISO again', async () => {
+  const worker = vi.spyOn(runner, 'runWorker').mockResolvedValue({ stdout: JSON.stringify({ bootSha256: '952d4bb2c08209f4cbc0020d95c4cc601e9944cad5c7ade4c1d060fe8daab1bc' }), stderr: '' });
+  const f = await fixture(false, 'infected'), game = join(f.root, 'game.iso'); await writeFile(game, 'own game');
+  await f.c.command({ command: 'discover' }); await f.c.command({ command: 'import', kind: 'folder' }, [f.root]);
+  await f.c.command({ command: 'prepare' });
+  await f.c.command({ command: 'plan', acknowledgeUnknownSpace: false, explicitUpdate: false, replaceRetroflow: false });
+  const id = f.c.snapshot().plan!.id; await f.c.command({ command: 'execute', id });
+  const journal = new FileJournal(join(f.root, 'private/jobs')), record = await journal.load(id);
+  record.promotion = 'reconciled'; record.snapshot.phase = 'complete'; record.snapshot.completionMode = 'installed'; await journal.save(record);
+  f.transport.files.set('ux0:app/INFC00001/eboot.bin', runtime); f.transport.files.set('ux0:app/INFC00001/sce_sys/param.sfo', sfo('INFC00001'));
+  await rm(game); await f.c.command({ command: 'reset' }); await f.c.command({ command: 'import', kind: 'folder' }, [f.root]);
+  expect(f.c.snapshot().appUpdateAvailable).toBe(true); worker.mockClear(); f.transport.writes = [];
+  await f.c.command({ command: 'prepareUpdate' });
+  expect(f.c.snapshot().error).toBeUndefined(); expect(f.c.snapshot().prepared).toBe(true); expect(worker).not.toHaveBeenCalled();
+  await f.c.command({ command: 'plan', acknowledgeUnknownSpace: false, explicitUpdate: false, replaceRetroflow: false });
+  expect(f.c.snapshot().plan).toMatchObject({ appOnly: true, blockers: ['existing_app'], consents: { update: false } });
+  await f.c.command({ command: 'plan', acknowledgeUnknownSpace: false, explicitUpdate: true, replaceRetroflow: false });
+  expect(f.c.snapshot().plan).toMatchObject({ appOnly: true, blockers: [], consents: { update: true } });
+  expect(f.transport.writes).toEqual([]);
+  await f.c.command({ command: 'reset' });
+  expect(f.c.snapshot().appUpdateAvailable).toBe(false);
+  expect(f.c.snapshot().appUpdateSelected).toBe(false);
+});
 it('lets a verified Galaxy package reach the required-file and artwork steps without installing over an existing game', async () => {
   const f = await fixture(false, 'galaxy'); f.transport.files.set('ux0:app/SMGV00001/eboot.bin', runtime);
   await f.c.command({ command: 'discover' }); await f.c.command({ command: 'import', kind: 'folder' }, [f.root]);
