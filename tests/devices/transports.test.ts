@@ -2,7 +2,7 @@ import { afterEach, expect, it } from 'vitest';
 import { mkdtemp, mkdir, writeFile, readFile, rm, rename, symlink, lstat, realpath, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { spawn, type ChildProcess } from 'node:child_process';
+import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { once } from 'node:events';
 import { openTransport, stageRoot, type Transport } from '../../src/devices/transport';
@@ -104,9 +104,14 @@ it('moves an approved old cover to an owned backup, but never an unrelated file'
 });
 it('does not write through read-only storage permissions', async () => {
   const v = await volume(), t = await opened(v.device, v.options);
-  await chmod(join(v.root, 'data'), 0o500);
+  const path = join(v.root, 'data');
+  if (process.platform === 'win32') execFileSync('icacls', [path, '/deny', '*S-1-1-0:(OI)(CI)(W)']);
+  else await chmod(path, 0o500);
   try { await expect(t.writeOwnedPartial(partial, bytes())).rejects.toMatchObject({ code: 'EACCES' }); }
-  finally { await chmod(join(v.root, 'data'), 0o700); }
+  finally {
+    if (process.platform === 'win32') execFileSync('icacls', [path, '/remove:d', '*S-1-1-0']);
+    else await chmod(path, 0o700);
+  }
 });
 async function ftp(writable = true, fault?: string, prom = false) {
   const root = await mkdtemp(join(tmpdir(), 'transport-ftp-')); roots.push(root);

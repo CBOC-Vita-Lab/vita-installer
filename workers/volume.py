@@ -32,6 +32,20 @@ def check_root(root, expected):
         raise ValueError("device_changed")
 
 
+def worker_identity(root, expected):
+    try:
+        info = os.lstat(root)
+    except OSError as error:
+        raise ValueError("device_changed") from error
+    identity = (info.st_dev, info.st_ino)
+    # libuv exposes a 32-bit volume serial and 64-bit file ID on Windows.
+    # Bind that command boundary once, then keep Python's full-width guards.
+    observed = (info.st_dev & 0xFFFFFFFF, info.st_ino & 0xFFFFFFFFFFFFFFFF) if os.name == "nt" else identity
+    if not stat.S_ISDIR(info.st_mode) or observed != expected:
+        raise ValueError("device_changed")
+    return identity
+
+
 def windows_open(path, directory=False, read=False):
     import ctypes
     from ctypes import wintypes
@@ -187,7 +201,7 @@ def main():
     parser.add_argument("sha256", nargs="?")
     args = parser.parse_args()
     try:
-        expected = (args.device, args.inode)
+        expected = worker_identity(args.root, (args.device, args.inode))
         if args.operation == "write":
             result = {"bytes": write_volume(args.root, expected, args.relative, sys.stdin.buffer)}
         elif args.operation == "move":
