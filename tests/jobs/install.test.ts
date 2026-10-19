@@ -30,6 +30,28 @@ it('reports installed only after VitaShell promotion and installed-title/runtime
   expect(result.completionMode).toBe('installed'); expect(f.calls).toEqual([f.plan.vpkDestination]);
   expect(await verifyInstalled(f.plan, f.transport)).toMatchObject({ titleId: f.plan.titleId, runtimeSha256: f.plan.package.runtimeSha256, preserved: true });
 });
+it('reads new game bytes once in staging and once at the final gate, not three times', async () => {
+  const f = await jobFixture(); roots.push(f.root);
+  const plan = await createInstallPlan(f.release, f.prepared, f.device, 'first_install', { transport: f.transport, artwork: f.artwork });
+  const journal = new FileJournal(join(f.root, 'jobs')), file = plan.files[0], reads: string[] = [];
+  const read = f.transport.read.bind(f.transport);
+  f.transport.read = async function* (path) { reads.push(path); yield* read(path); };
+  expect((await executeTransfer(plan, f.transport, journal, () => {})).phase).toBe('verifying');
+  const result = await finishInstall(plan, f.transport, journal, () => {}, {
+    inspect: async () => ({ ...f.device, capabilities: { ...f.device.capabilities, install: false } }),
+    promote: async () => { throw new Error('must not promote'); },
+  });
+  expect(result.completionMode).toBe('ready_on_vita');
+  expect(reads.filter(path => path === file.stage || path === file.destination)).toEqual([file.stage, file.destination]);
+});
+it.each(['changed', 'deleted'] as const)('blocks promotion if final game data was %s after staging verification', async change => {
+  const f = await fixture('companion'), file = f.plan.files[0];
+  if (change === 'deleted') f.transport.files.delete(file.destination);
+  else f.transport.files.set(file.destination, Buffer.alloc(file.bytes, 0x78));
+  await expect(finishInstall(f.plan, f.transport, f.journal, () => {}, f.services)).rejects.toThrow();
+  expect(f.calls).toEqual([]);
+  expect((await f.journal.load(f.plan.jobId)).promotion).toBe('not_started');
+});
 it('reports final verification bytes separately and clears them before promotion readback', async () => {
   const f = await fixture(), snapshots: import('../../src/shared/contracts').JobSnapshot[] = [];
   const result = await finishInstall(f.plan, f.transport, f.journal, s => snapshots.push(s), f.services);

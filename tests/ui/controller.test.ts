@@ -288,6 +288,52 @@ it('requires a reviewed matching conflict before accepting update consent', asyn
   expect(f.c.snapshot().plan?.blockers).toContain('existing_app');
   expect(f.c.snapshot().plan?.consents?.update).toBe(false);
 });
+it.each(['unchanged', 'save changed before review', 'save changed before install', 'space became insufficient'] as const)(
+  'checks the destination once when approving unknown capacity: %s', async change => {
+    const f = await fixture(), input = join(f.root, 'owned.gba'), game = 'ux0:data/GBAdhoc/roms/owned.gba';
+    vi.spyOn(nativeDevice, 'inspectDevice').mockImplementation(async () => f.transport.device);
+    const save = 'ux0:user/00/savedata/GBAD00001/save.dat';
+    await writeFile(input, 'game'); f.transport.files.set(game, Buffer.from('game'));
+    f.transport.files.set(save, Buffer.from('original save')); f.transport.free = undefined;
+    let reads = 0;
+    const read = f.transport.read.bind(f.transport);
+    f.transport.read = async function* (path) { if (path === game) reads++; yield* read(path); };
+    await f.c.command({ command: 'import', kind: 'folder' }, [f.root]); await f.c.command({ command: 'discover' });
+    await f.c.command({ command: 'chooseInput', id: 'roms', kind: 'file' }, [input]); await f.c.command({ command: 'prepare' });
+    const request = { command: 'plan' as const, acknowledgeUnknownSpace: true, explicitUpdate: false, replaceRetroflow: false };
+    await f.c.command(request);
+    expect(f.c.snapshot().plan).toMatchObject({ blockers: ['capacity_unknown'], consents: { space: false } });
+    if (change === 'save changed before review') f.transport.files.set(save, Buffer.from('current save'));
+    reads = 0; await f.c.command(request);
+    expect(f.c.snapshot().error).toBeUndefined();
+    expect(f.c.snapshot().plan).toMatchObject({ blockers: [], warnings: ['capacity_unverified'], consents: { space: true } });
+    expect(reads).toBe(1); expect(f.transport.writes).toEqual([]);
+    if (change === 'save changed before install') f.transport.files.set(save, Buffer.from('new save'));
+    if (change === 'space became insufficient') f.transport.free = 1;
+    const id = f.c.snapshot().plan!.id; await f.c.command({ command: 'execute', id });
+    if (change === 'save changed before install' || change === 'space became insufficient') {
+      expect(f.c.snapshot().error).toBe(change === 'save changed before install' ? 'protected_files_changed' : 'insufficient_space');
+      expect(f.transport.writes).toEqual([]);
+    } else {
+      expect(f.c.snapshot().error).toBeUndefined();
+      expect(f.c.snapshot().job?.completionMode).toBe('ready_on_vita');
+      const record = await new FileJournal(join(f.root, 'private/jobs')).load(id);
+      expect(record.plan.protectedFiles.find(file => file.path === save)?.sha256)
+        .toBe(digest(change === 'save changed before review' ? 'current save' : 'original save'));
+    }
+  });
+it('keeps other blockers when approving only unknown capacity', async () => {
+  const f = await fixture(), input = join(f.root, 'owned.gba'); await writeFile(input, 'game');
+  f.transport.files.set('ux0:data/GBAdhoc/roms/owned.gba', Buffer.from('different game'));
+  f.transport.files.set('ux0:app/GBAD00001/eboot.bin', runtime); f.transport.free = undefined;
+  await f.c.command({ command: 'import', kind: 'folder' }, [f.root]); await f.c.command({ command: 'discover' });
+  await f.c.command({ command: 'chooseInput', id: 'roms', kind: 'file' }, [input]); await f.c.command({ command: 'prepare' });
+  const request = { command: 'plan' as const, acknowledgeUnknownSpace: true, explicitUpdate: false, replaceRetroflow: false };
+  await f.c.command(request); await f.c.command(request);
+  expect(f.c.snapshot().plan).toMatchObject({ blockers: ['existing_app', 'file_conflict'], consents: { space: true, update: false } });
+  await f.c.command({ command: 'execute', id: f.c.snapshot().plan!.id });
+  expect(f.c.snapshot().error).toBe('install_blocked'); expect(f.transport.writes).toEqual([]);
+});
 it('blocks a deleted release package before preparation and offers the release step', async () => {
   const f = await fixture(); await f.c.command({ command: 'import', kind: 'folder' }, [f.root]); await f.c.command({ command: 'discover' });
   await rm(join(f.root, 'Strikers.vpk'));

@@ -9,6 +9,7 @@ import { openTransport, stageRoot, type Transport } from '../../src/devices/tran
 import type { DeviceCandidate } from '../../src/shared/contracts';
 import type { VolumeEvidence } from '../../src/devices/discover';
 import { hashFile } from '../../src/shared/files';
+import { observeTrees } from '../../src/jobs/observe';
 const roots: string[] = [], transports: Transport[] = [], children: ChildProcess[] = [];
 const jobId = 'a'.repeat(32), partial = `${stageRoot(jobId)}/one.partial`, destination = 'ux0:data/game/new.bin';
 const scope = { jobId, destinations: [destination] };
@@ -127,6 +128,58 @@ it('streams and verifies real socket transfers without append or a fabricated ca
   for (const path of ['ux0:../escape', 'ux0:data/a\r\nDELE x', 'ux0:data/a;b', 'ftp://outside/file'])
     await expect(t.stat(path)).rejects.toMatchObject({ code: 'unsafe_device_path' });
 }, 10000);
+it('checks FTP files, directories and absence without opening listing data connections', async () => {
+  const f = await ftp(), t = await opened({ ...f.device, adapter: 'companion' }, { scope });
+  await writeFile(join(f.root, 'ux0/data/game/existing.bin'), 'existing');
+  expect(await t.stat('ux0:data/game/existing.bin')).toMatchObject({ kind: 'file', bytes: 8 });
+  expect(await t.stat('ux0:data/game')).toMatchObject({ kind: 'directory' });
+  expect(await t.stat(destination)).toBeNull();
+  const commands = (await readFile(join(f.root, 'commands.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line).command);
+  expect(commands.filter(command => ['LIST', 'MLSD'].includes(command))).toEqual([]);
+  expect(commands.length).toBeLessThanOrEqual(5);
+  await writeFile(join(f.root, 'ux0/data/game/new.bin'), 'appeared');
+  expect(await t.stat(destination)).toMatchObject({ kind: 'file', bytes: 8 });
+  await expect(t.writeOwnedPartial(partial, bytes())).resolves.toBeUndefined();
+  await expect(t.renameOwned(partial, destination)).rejects.toMatchObject({ code: 'destination_conflict' });
+  expect(await readFile(join(f.root, 'ux0/data/game/new.bin'), 'utf8')).toBe('appeared');
+});
+it('creates and reuses FTP parent directories without listing them for every file', async () => {
+  const f = await ftp(), t = await opened({ ...f.device, adapter: 'companion' }, { scope });
+  await t.writeOwnedPartial(partial, bytes()); await t.renameOwned(partial, destination);
+  await t.writeOwnedPartial(`${stageRoot(jobId)}/two.partial`, bytes('second'));
+  const commands = (await readFile(join(f.root, 'commands.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line).command);
+  expect(commands.filter(command => ['LIST', 'MLSD'].includes(command))).toEqual([]);
+  expect(await all(t.read(destination))).toEqual(Buffer.from('payload'));
+  await expect(t.writeOwnedPartial(partial.replace('one.partial', 'two.partial'), bytes('overwrite'))).rejects.toMatchObject({ code: 'destination_conflict' });
+});
+it.each(['ftp', 'companion'] as const)('preserves directory traversal when a %s server returns SIZE for directories', async adapter => {
+  const f = await ftp(true, 'size-directory'), t = await opened({ ...f.device, adapter }, { scope });
+  await mkdir(join(f.root, 'ux0/data/game/saves'), { recursive: true });
+  const save = join(f.root, 'ux0/data/game/saves/save.dat'); await writeFile(save, 'current save');
+  expect(await t.stat('ux0:data/game')).toMatchObject({ kind: 'directory' });
+  expect(await observeTrees(t, ['ux0:data/game'])).toEqual([
+    { path: 'ux0:data/game/saves/save.dat', bytes: 12, sha256: await hashFile(save) },
+  ]);
+  expect(await t.stat('ux0:data/game/saves/save.dat')).toMatchObject({ kind: 'file', bytes: 12 });
+  expect(await t.stat(destination)).toBeNull();
+});
+it('falls back to fresh directory listings when SIZE is unsupported', async () => {
+  const f = await ftp(true, 'size-unsupported'), t = await opened(f.device, { scope });
+  expect(await t.stat(destination)).toBeNull();
+  await writeFile(join(f.root, 'ux0/data/game/new.bin'), 'new');
+  expect(await t.stat(destination)).toMatchObject({ kind: 'file', bytes: 3 });
+  const commands = (await readFile(join(f.root, 'commands.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line).command);
+  expect(commands.filter(command => command === 'SIZE')).toHaveLength(1);
+  expect(commands.filter(command => ['LIST', 'MLSD'].includes(command)).length).toBeGreaterThanOrEqual(2);
+});
+it('does not confuse denied SIZE metadata with an absent file', async () => {
+  const f = await ftp(true, 'size-denied'), t = await opened({ ...f.device, adapter: 'companion' }, { scope });
+  await writeFile(join(f.root, 'ux0/data/game/new.bin'), 'protected');
+  expect(await t.stat(destination)).toMatchObject({ kind: 'file', bytes: 9 });
+  await t.writeOwnedPartial(partial, bytes());
+  await expect(t.renameOwned(partial, destination)).rejects.toMatchObject({ code: 'destination_conflict' });
+  expect(await readFile(join(f.root, 'ux0/data/game/new.bin'), 'utf8')).toBe('protected');
+});
 it.each([undefined, 'promote-reject', 'promote-drop'])('sends one scoped VitaShell PROM request (%s)', async fault => {
   const f = await ftp(true, fault, true);
   const t = await opened({ ...f.device, adapter: 'vitashell', capabilities: { ...f.device.capabilities, install: true } }, { scope, promotionTimeoutMs: 1000 });

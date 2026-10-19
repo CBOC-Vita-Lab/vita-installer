@@ -166,6 +166,18 @@ it('keeps resume/cancel reachable after a disconnect and blocks conflicts before
   expect(h.calls).toContainEqual({ command: 'resume', id });
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' })); expect(h.calls).toContainEqual({ command: 'cancel' });
 });
+it('explains changed saves and offers a fresh review instead of a failing resume loop', async () => {
+  const h = harness({ ...ready(), job: { jobId: id, phase: 'paused', errorCode: 'protected_files_changed', bytesDone: 12, bytesTotal: 100, verifiedFiles: 1, totalFiles: 2, availableActions: ['resume', 'cancel'] } });
+  expect(await screen.findByText('Saves or settings changed. Review the installation again to keep the current files.')).toBeVisible();
+  expect(screen.queryByRole('button', { name: 'Resume' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Review installation again' }));
+  await waitFor(() => expect(h.calls).toEqual([{ command: 'cancel' }, { command: 'reset' }]));
+});
+it('explains an FTP interruption saved by an older installer', async () => {
+  harness({ ...ready(), job: { jobId: id, phase: 'paused', errorCode: '426', bytesDone: 12, bytesTotal: 100, verifiedFiles: 1, totalFiles: 2, availableActions: ['resume', 'cancel'] } });
+  expect(await screen.findByText('Transfer interrupted. Keep the Vita connected and try again. Completed files will be checked and reused.')).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Resume' })).toBeEnabled();
+});
 it('requires an explicit main-storage confirmation for an unknown card', async () => {
   const card = { ...ready().devices[0], id: 'card', transport: 'card' as const, adapter: 'volume' as const, label: 'Vita SD', state: 'needs_confirmation' as const, storageRole: 'unknown' as const, freeBytes: 16 * 1024 ** 3 };
   const h = harness({ ...ready(), devices: [card], selectedDevice: undefined });

@@ -33,7 +33,9 @@ export function Progress({ label, completed = 0, total, unit = 'bytes', measured
   const first = samples[0], last = samples.at(-1)!;
   const duration = (last.at - first.at) / 1000, amount = last.completed - first.completed;
   const known = Number.isSafeInteger(total) && total! > 0 && Number.isFinite(completed) && completed >= 0 && completed <= total!;
-  const remaining = known && samples.length >= 3 && duration >= 5 && amount > 0 && now - last.at < 10000 && measured < total!
+  // Tiny text files measure per-file latency, not throughput for the large assets still to come.
+  const representative = unit !== 'bytes' || amount >= Math.min(total! * 0.01, 32 * 1024 ** 2);
+  const remaining = known && representative && samples.length >= 3 && duration >= 5 && amount > 0 && now - last.at < 10000 && measured < total!
     ? (total! - measured) / (amount / duration) : undefined;
   const format = unit === 'bytes' ? bytes : (value: number) => value.toLocaleString('en-US');
   return <div className="work-progress">

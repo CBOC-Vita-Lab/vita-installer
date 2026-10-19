@@ -21,7 +21,7 @@ This is an internal preview, not an accepted public installer release.
 | Desktop update UI | Version 0.1.7 packaged Mac app launched; actual private-release status and manual check inspected. Synthetic available/busy/offline states checked at 1200x813, 800x600 and 390x844 with no horizontal overflow or console errors. No Vita writes |
 | Signing/notarization | No public signing identity selected; unsigned internal previews only |
 | Third-party redistribution | Component/license inventory included; complete libvips/native-library source and notice review still pending |
-| Strikers | Approved movie runtime matches verified main-app update; full VPK/desktop installation and public rights gates remain held |
+| Strikers | Quiet runtime, source and install ZIP uploaded with matching checksums; installer 0.1.8+ accepts the exact package. Runtime matches the separate device-update receipt. Full VPK/desktop installation, quiet-build gameplay and public rights gates remain held |
 | Infected | Private-only artwork; public release held |
 | VitAdhoc | GPL compatibility clarification and current package acceptance pending. A fresh device read found the newer build21 covers runtime; the existing private bundle still contains the earlier build21 runtime and must not be called the latest installed build |
 | Galaxy | Exact thp48d runtime and nine installed movie references verified. A separately pinned portable q55 recipe passes complete host preparation: 2,375 files in 199.99 seconds on one Mac. Historical encoder reproduction and distributable-package/playback acceptance remain open; profile held |

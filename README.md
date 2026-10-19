@@ -68,7 +68,7 @@ does not replace itself or restart automatically. [Update details](docs/updates.
 
 | Game/app | Guide | Current private bundle |
 | --- | --- | --- |
-| Mario Strikers Charged | [Install](docs/games/strikers.md) | `Strikers-movie-fix-20261019-install.zip` (installer 0.1.6+) |
+| Mario Strikers Charged | [Install](docs/games/strikers.md) | `Strikers-quiet-20261019-install.zip` (installer 0.1.8+) |
 | Infected | [Install](docs/games/infected.md) | `Infected-current-desktop-private.zip` |
 | VitAdhoc | [Install](docs/games/vitadhoc.md) | `VitAdhoc-build21-desktop-private.zip` |
 | Galaxy | [Status](docs/games/galaxy.md) | Held; no final VPK |

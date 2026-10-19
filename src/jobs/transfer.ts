@@ -101,7 +101,9 @@ export async function executeTransfer(plan: InstallPlan, transport: Transport, j
         }
         if (destination) requireThat(destination.kind === 'file' && (await observeFile(transport, file.destination, signal)).sha256 === file.sha256, 'target_changed');
         else await transport.renameOwned(file.stage, file.destination, signal);
-        requireThat((await observeFile(transport, file.destination, signal)).sha256 === file.sha256, 'transfer_verification_failed');
+        // Staged bytes are already hashed. finishInstall hashes every final file before promotion.
+        const placed = await transport.stat(file.destination);
+        requireThat(placed?.kind === 'file' && placed.bytes === file.bytes, 'transfer_verification_failed');
       }
       if (!record.verified.includes(file.destination)) record.verified.push(file.destination);
       record.snapshot.bytesDone += file.bytes; record.snapshot.verifiedBytes! += file.bytes;

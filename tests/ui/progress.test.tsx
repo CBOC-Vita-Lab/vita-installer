@@ -11,6 +11,16 @@ import type { JobSnapshot } from '../../src/shared/contracts';
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 const job = (): JobSnapshot => ({ jobId: 'a'.repeat(32), phase: 'transferring', bytesDone: 0, bytesTotal: 1000,
   verifiedFiles: 0, verifiedBytes: 0, totalFiles: 10, availableActions: ['cancel'] });
+it('does not extrapolate a multi-gigabyte transfer from its first tiny files', () => {
+  vi.useFakeTimers();
+  const view = render(<Progress label="Installation progress" completed={0} total={1908864902} />);
+  act(() => vi.advanceTimersByTime(15000));
+  view.rerender(<Progress label="Installation progress" completed={40000} total={1908864902} />);
+  act(() => vi.advanceTimersByTime(15000));
+  view.rerender(<Progress label="Installation progress" completed={82000} total={1908864902} />);
+  expect(screen.queryByText(/About .* left/)).not.toBeInTheDocument();
+  expect(screen.getByRole('progressbar')).toHaveAttribute('value', '82000');
+});
 it('estimates from verified work, not queued upload bytes, and clears estimates while paused', () => {
   vi.useFakeTimers();
   const renderJob = (state: JobSnapshot) => <Installation job={state} run={async () => {}} busy={false} />;

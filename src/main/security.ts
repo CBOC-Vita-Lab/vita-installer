@@ -35,6 +35,7 @@ export const rendererPreferences = (preload: string) => ({ preload, contextIsola
   allowRunningInsecureContent: false, webviewTag: false, navigateOnDragDrop: false });
 export const trustedSender = (frameUrl: string, appUrl: string, isMainFrame: boolean): boolean => isMainFrame && frameUrl === appUrl;
 export function safeError(error: unknown): string {
+  if (error instanceof Error && 'code' in error && error.code === 426) return 'ftp_transfer_interrupted';
   return error instanceof InstallerError && /^[a-z][a-z0-9_]{0,79}$/.test(error.code) ? error.code : 'operation_failed';
 }
 export const CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'";

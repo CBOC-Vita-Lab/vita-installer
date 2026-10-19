@@ -6,7 +6,7 @@ import { devicePath, finalPath, ownedPath, replacementPath, stageRoot, type Remo
 import { createHash } from 'node:crypto';
 
 export async function openFtp(device: DeviceCandidate, options: TransportOptions): Promise<Transport> {
-  const client = new Client(options.timeoutMs ?? 15000); let closed = false;
+  const client = new Client(options.timeoutMs ?? 15000); let closed = false, supportsSize = true;
   try { await client.access({ host: device.host!, port: device.port!, user: 'anonymous', password: 'anonymous@', secure: false }); }
   catch (error) { client.close(); throw error; }
   const remote = (path: string) => { const p = devicePath(path); requireThat(p.mount === 'ux0' || device.capabilities.ur0, 'mount_unavailable'); return `/${p.mount}:/${p.relative}`; };
@@ -20,13 +20,34 @@ export async function openFtp(device: DeviceCandidate, options: TransportOptions
     });
   }
   async function stat(path: string): Promise<RemoteEntry | null> {
-    remote(path); const slash = path.lastIndexOf('/');
+    const absolute = remote(path), slash = path.lastIndexOf('/');
     requireThat(slash >= 4, 'unsafe_device_path');
+    guard();
+    // Older Vita servers return SIZE for directories too; check CWD before treating a size as a file.
+    try { await client.cd(absolute); return { name: path.slice(slash + 1), kind: 'directory', bytes: 0 }; }
+    catch (error) { if ((error as { code?: number }).code !== 550) throw error; }
+    if (supportsSize) {
+      try {
+        const bytes = await client.size(absolute);
+        requireThat(Number.isSafeInteger(bytes) && bytes >= 0, 'unsafe_destination');
+        return { name: path.slice(slash + 1), kind: 'file', bytes };
+      } catch (error) {
+        const code = (error as { code?: number }).code;
+        if (code === 500 || code === 502 || code === 504) supportsSize = false;
+        else if (code === 550) {
+          if (device.adapter === 'companion' && (error as Error).message === "550 The file doesn't exist.") return null;
+          // Other servers also use 550 for denied metadata access. A fresh listing must decide.
+        } else throw error;
+      }
+    }
     try { return (await list(path.slice(0, slash))).find(e => e.name === path.slice(slash + 1)) ?? null; }
     catch (error) { if ((error as { code?: number }).code === 550) return null; throw error; }
   }
   async function parents(path: string) {
     const { mount, relative } = devicePath(path), parts = relative.split('/');
+    guard();
+    try { await client.cd(remote(path.slice(0, path.lastIndexOf('/')))); return; }
+    catch (error) { if ((error as { code?: number }).code !== 550) throw error; }
     for (let i = 2; i < parts.length; i++) {
       const dir = `${mount}:${parts.slice(0, i).join('/')}`;
       const exists = await stat(dir); if (exists) { requireThat(exists.kind === 'directory', 'unsafe_destination'); continue; }

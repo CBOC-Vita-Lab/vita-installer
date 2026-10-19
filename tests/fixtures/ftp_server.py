@@ -13,7 +13,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("root", type=Path)
 parser.add_argument("--prom", action="store_true")
 parser.add_argument("--writable", action="store_true")
-parser.add_argument("--fault", choices=["full", "list", "disconnect", "mid-file", "promote-reject", "promote-drop"])
+parser.add_argument("--fault", choices=["full", "list", "disconnect", "mid-file", "promote-reject", "promote-drop", "size-unsupported", "size-denied", "size-directory"])
 args = parser.parse_args()
 logging.getLogger().setLevel(logging.CRITICAL)
 
@@ -38,6 +38,16 @@ class Handler(FTPHandler):
     abstracted_fs = VitaFS
     dtp_handler = FaultData
 
+    def ftp_SIZE(self, path):
+        if args.fault == "size-directory" and self.fs.isdir(path):
+            self.respond("213 4096")
+        elif args.fault == "size-denied" and self.fs.isfile(path):
+            self.respond("550 Permission denied.")
+        elif not self.fs.lexists(path):
+            self.respond("550 The file doesn't exist.")
+        else:
+            super().ftp_SIZE(path)
+
     def ftp_PROM(self, path):
         with (args.root / "promotions.jsonl").open("a") as log:
             log.write(json.dumps(path) + "\n")
@@ -47,6 +57,12 @@ class Handler(FTPHandler):
             self.respond("500 ERROR PROMOTING" if args.fault == "promote-reject" else "200 OK PROMOTING")
 
     def pre_process_command(self, line, cmd, arg):
+        if cmd in ("CWD", "SIZE", "LIST", "MLSD", "MKD", "STOR", "RNFR", "RNTO"):
+            with (args.root / "commands.jsonl").open("a") as log:
+                log.write(json.dumps({"command": cmd, "argument": arg}) + "\n")
+        if cmd == "SIZE" and args.fault == "size-unsupported":
+            self.respond("502 SIZE unavailable.")
+            return
         if cmd in ("LIST", "MLSD") and ("ux0:" in arg or "ur0:" in arg) and not arg.startswith("/"):
             self.respond("550 Vita LIST requires an absolute FTP path.")
             return

@@ -12,7 +12,7 @@ import { importRelease } from '../releases/import';
 import { prepareArtwork } from '../artwork/prepare';
 import { convertImage, imageSize, readImage } from '../artwork/images';
 import { inspectInputs, prepareInputs, SHADER_COMPILER, InputCheckError } from '../preparation/inputs';
-import { createInstallPlan } from '../jobs/plan';
+import { createInstallPlan, planFingerprint } from '../jobs/plan';
 import { executeTransfer, writeScope } from '../jobs/transfer';
 import { FileJournal, type JobRecord } from '../jobs/journal';
 import { compatibleAppUpdate, trustedUpdateReceipt } from '../jobs/update';
@@ -249,10 +249,16 @@ export class InstallerController {
           if (reviewed?.consentFingerprint === baseline.consentFingerprint) {
             consents = { update: request.explicitUpdate && baseline.appExists, space: request.acknowledgeUnknownSpace,
               cover: request.replaceRetroflow && baseline.warnings.includes('existing_cover_kept') };
-            const approved = await createInstallPlan(this.release(), this.prepared, device, consents.update ? 'explicit_update' : 'first_install', {
-              ...options, acknowledgeUnknownSpace: consents.space, replaceRetroflow: consents.cover }, signal);
-            if (approved.consentFingerprint === baseline.consentFingerprint) this.plan = approved;
-            else consents = { update: false, space: false, cover: false };
+            if (consents.space && !consents.update && !consents.cover && baseline.blockers.includes('capacity_unknown')) {
+              // Capacity consent changes no operations; retain the fresh scan instead of reading every file again.
+              baseline.blockers = baseline.blockers.filter(blocker => blocker !== 'capacity_unknown');
+              baseline.fingerprint = planFingerprint(baseline);
+            } else {
+              const approved = await createInstallPlan(this.release(), this.prepared, device, consents.update ? 'explicit_update' : 'first_install', {
+                ...options, acknowledgeUnknownSpace: consents.space, replaceRetroflow: consents.cover }, signal);
+              if (approved.consentFingerprint === baseline.consentFingerprint) this.plan = approved;
+              else consents = { update: false, space: false, cover: false };
+            }
           }
         }
         finally { await transport.close(); }

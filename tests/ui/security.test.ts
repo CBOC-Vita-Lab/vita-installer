@@ -26,4 +26,5 @@ it('keeps external links allowlisted and diagnostics free of paths, tokens or ra
     'https://github.com/CBOC-Vita-Lab/strikers-charged-vita?token=secret', 'https://user:secret@github.com/CBOC-Vita-Lab/strikers-charged-vita']) expect(isAllowedExternal(url)).toBe(false);
   expect(safeError(new Error('/Users/person/private/key TOKEN=secret'))).toBe('operation_failed');
   expect(safeError(new InstallerError('invalid_artwork'))).toBe('invalid_artwork');
+  expect(safeError(Object.assign(new Error('/Users/person/private/movie.thp'), { code: 426 }))).toBe('ftp_transfer_interrupted');
 });

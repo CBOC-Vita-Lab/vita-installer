@@ -70,6 +70,19 @@ it('rechecks target conflicts and saved-state changes after preflight', async ()
   await expect(executeTransfer(g.plan, g.transport, g.journal, () => {})).rejects.toMatchObject({ code: 'protected_files_changed' });
   expect(g.transport.writes).toEqual([]);
 });
+it('a fresh plan after changed saves reuses verified copies without changing the current save', async () => {
+  const f = await fixture();
+  await executeTransfer(f.plan, f.transport, f.journal, () => {});
+  f.transport.files.set(f.save, Buffer.from('new save'));
+  await expect(executeTransfer(f.plan, f.transport, f.journal, () => {})).rejects.toMatchObject({ code: 'protected_files_changed' });
+  const next = await createInstallPlan(f.release, f.prepared, f.device, 'first_install', { transport: f.transport, artwork: f.artwork });
+  const copied = f.plan.files[0].destination, writes = f.transport.writes.filter(path => path === copied).length;
+  expect(next.files.find(file => file.destination === copied)?.action).toBe('keep');
+  expect(next.protectedFiles.find(file => file.path === f.save)?.sha256).toBe(digest('new save'));
+  expect((await executeTransfer(next, f.transport, f.journal, () => {})).phase).toBe('verifying');
+  expect(f.transport.writes.filter(path => path === copied)).toHaveLength(writes);
+  expect(f.transport.files.get(f.save)?.toString()).toBe('new save');
+});
 it('does not resume a different mount or blindly repeat an uncertain promotion', async () => {
   const f = await fixture(); await executeTransfer(f.plan, f.transport, f.journal, () => {});
   f.transport.device = { ...f.device, identity: 'different-card' };

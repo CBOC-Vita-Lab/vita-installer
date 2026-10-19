@@ -1,9 +1,13 @@
+const transferInterrupted = 'Transfer interrupted. Keep the Vita connected and try again. Completed files will be checked and reused.';
 export const errorMessage = (code?: string, kind?: string): string => ({
   unsupported_game_revision: kind === 'infected-disc' || kind === 'infected' ? 'USA v1.02 (ULUS-10054) is required. Choose the matching game file.' : kind === 'strikers-disc' || kind === 'strikers' ? 'USA Rev 1 is required. Choose the matching game file.' : 'Choose the game revision listed for this release.',
   invalid_artwork: 'Choose a PNG, JPEG or still WebP under 20 MB.',
   unsupported_artwork_template: 'This release does not support that artwork layout.',
   connection_lost: 'Connection lost. Reconnect the same Vita to resume.',
   transport_closed: 'Connection lost. Reconnect the same Vita to resume.',
+  '426': transferInterrupted,
+  ftp_transfer_interrupted: transferInterrupted,
+  protected_files_changed: 'Saves or settings changed. Review the installation again to keep the current files.',
   device_changed: 'This is not the selected Vita or card. Reconnect the original.',
   device_not_ready: 'Connect your Vita before continuing.',
   existing_app: 'This game is already installed. An update needs your confirmation.',
