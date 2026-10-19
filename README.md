@@ -5,25 +5,24 @@
 A desktop installer for reviewed CBOC Vita bundles. Choose your release, add
 your own game files, pick the artwork, then install.
 
-**Public source preview.** GitHub release downloads remain unpublished drafts.
+**Public preview.** The Apple Silicon Mac app is available below.
 Binary redistribution, signing and full installation testing are still under
 review; publication is not a claim of third-party approval. This preview does
 not include commercial games, a proprietary BIOS or the shader compiler.
 Galaxy remains unavailable. Platform and device acceptance is tracked in
 [Acceptance](docs/acceptance.md).
 
-## Install a game (existing preview testers)
+## Install Strikers
 
-1. Download the [Apple Silicon Mac 0.1.9 preview](https://github.com/CBOC-Vita-Lab/vita-installer/releases/tag/untagged-09e00aebad3d79563276), unzip it and open the app.
+1. Download [CBOC Vita Installer 0.1.9 for Apple Silicon Mac](https://github.com/CBOC-Vita-Lab/vita-installer/releases/download/v0.1.9/CBOC-Vita-Installer-0.1.9-darwin-arm64.zip), unzip it and open the app.
 2. Connect your Vita, or attach its already configured memory card.
-3. Select the game's install ZIP/folder. For public releases, a GitHub URL also works. Pick a game if several are found.
+3. Paste `https://github.com/CBOC-Vita-Lab/strikers-charged-vita`, or select its [install ZIP](https://github.com/CBOC-Vita-Lab/strikers-charged-vita/releases/latest) or complete folder.
 4. Choose your game file and any missing required files.
 5. Keep the default artwork or choose your own, then click **Install**.
 
-Download the game ZIP listed under **Releases > Assets**, not GitHub's
-**Code > Download ZIP** or source-code archives. Keep the release ZIP intact;
-the app opens it for you. Private releases must be downloaded in your browser
-first, using an account with access.
+Use the named game install ZIP under **Releases > Assets**, not an installer
+source-code archive. Keep the release ZIP intact; the app opens it for you.
+The complete Strikers repository folder also works.
 
 The app prepares the folders; no separate Python or Dolphin installation is
 needed. It shows the exact remaining VitaShell step when automatic installation
@@ -44,9 +43,9 @@ checked. Full setup remains available when data needs to change.
 Intel Mac and Windows x64 packages are retained separately for validation.
 They have passed automated package checks, not native interactive installation
 or full Vita acceptance. See [Downloads](docs/downloads.md) before choosing a file.
-Public visitors can read the source and build notes now; there is no public
-accepted installer release yet. Actions artifacts are unaccepted validation
-builds for developers, not recommended player downloads.
+Only the existing Apple Silicon package is published for this release.
+Full installation acceptance remains pending. Actions artifacts are validation
+builds for developers, not player downloads.
 
 ## While it runs
 
@@ -75,7 +74,7 @@ does not replace itself or restart automatically. [Update details](docs/updates.
 
 ## Releases
 
-| Game/app | Guide | Current private bundle |
+| Game/app | Guide | Current bundle / status |
 | --- | --- | --- |
 | Mario Strikers Charged | [Install](docs/games/strikers.md) | `Strikers-quiet-20261019-install.zip` (installer 0.1.8+) |
 | Infected | [Status](docs/games/infected.md) | Owner-only local bundle; GitHub has source, not an install ZIP |

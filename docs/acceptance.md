@@ -1,6 +1,8 @@
 # Preview acceptance
 
-This is an internal preview, not an accepted public installer release.
+The existing Apple Silicon 0.1.9 package and Strikers quiet package were made
+public at the publisher's request. No additional tests were run for publication.
+This does not mark the outstanding acceptance or licensing checks complete.
 
 | Area | Evidence/status |
 | --- | --- |
@@ -20,7 +22,7 @@ This is an internal preview, not an accepted public installer release.
 | App-only updates | Automated completed-receipt, compatibility, consecutive-update inventory, missing/corrupt data, wrong target/runtime, missing remote marker and pre-write mutation checks. The UI skips original-game preparation; manual update approval remains required |
 | Desktop installer updates | Stable-version comparison, platform-specific browser downloads, private/offline/error states, bounded metadata, strict links and busy-operation gates covered by automated tests. No in-place replacement; public discovery and cross-version platform acceptance remain pending |
 | Desktop update UI | Version 0.1.7 packaged Mac app launched; actual private-release status and manual check inspected. Synthetic available/busy/offline states checked at 1200x813, 800x600 and 390x844 with no horizontal overflow or console errors. No Vita writes |
-| Signing/notarization | No public signing identity selected; unsigned internal previews only |
+| Signing/notarization | No public signing identity selected; the current Apple Silicon download is unsigned |
 | Third-party redistribution | Native notice collection now includes metadata and available notices from 357 checksum-verified Rust archives. All three platform packages verify 1,108 notice files. Exact native build dependencies, four missing standalone Rust notices and the remaining source/relinking review are still open |
 | Strikers | Quiet runtime, source and install ZIP uploaded with matching checksums; installer 0.1.8+ accepts the exact package. Runtime matches the separate device-update receipt. Full VPK/desktop installation, quiet-build gameplay and public rights gates remain held |
 | Infected | Private-only artwork; public release held |
@@ -32,7 +34,7 @@ media inventory; that hardware step remains unaccepted. The safe live test did
 not check update approval or launch any game. It wrote only disposable files in
 a unique installer test directory, then removed them.
 
-Passing app tests does not clear the game release gates. Public release requires
+Passing app tests does not clear the game release gates. Full acceptance requires
 exact-platform package tests, clean-environment startup, device installation
 and save-preservation evidence, signing/privacy review and verified downloads.
 

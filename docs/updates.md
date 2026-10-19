@@ -33,6 +33,11 @@ Game app-only updates are separate and can skip unchanged prepared game data.
 
 ## Shipping a new version
 
+The publisher chose to make the existing Apple Silicon 0.1.9 package public
+with its pending-approval notice, without another test run. This is a publication
+decision, not evidence that the outstanding signing, rights or device checks
+have passed. The checklist below remains the normal process for future versions.
+
 1. Bump `version` in `package.json` and the lockfile. Keep the app name,
    `org.cboc.vita-installer` bundle ID and app-data location unchanged.
 2. Run the full tests, typecheck, native packaging and package verification.

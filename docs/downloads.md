@@ -1,10 +1,8 @@
 # Downloads
 
-Strikers and the installer repositories are public source previews. Infected,
-Galaxy and VitAdhoc remain private. All current release downloads are still
-unpublished drafts, requiring repository write access; they do not appear in
-the app's public update check. Public repository access alone does not expose
-draft assets. Licensing and full installation review remain pending.
+Strikers and the Apple Silicon installer are public downloads. Infected,
+Galaxy and VitAdhoc remain private. Licensing and full installation review
+remain pending; publication is not a claim of third-party approval.
 
 ## Desktop app
 
@@ -12,7 +10,7 @@ Get the app only from [vita-installer releases](https://github.com/CBOC-Vita-Lab
 
 | Download | Use |
 | --- | --- |
-| [`CBOC-Vita-Installer-0.1.9-darwin-arm64.zip`](https://github.com/CBOC-Vita-Lab/vita-installer/releases/tag/untagged-09e00aebad3d79563276) | Current unsigned Apple Silicon Mac preview |
+| [`CBOC-Vita-Installer-0.1.9-darwin-arm64.zip`](https://github.com/CBOC-Vita-Lab/vita-installer/releases/download/v0.1.9/CBOC-Vita-Installer-0.1.9-darwin-arm64.zip) | Current unsigned Apple Silicon Mac app |
 | Files labelled `validation` | Internal package checks only; not accepted player updates |
 | Source code ZIP | Developers only; not an application |
 
@@ -40,4 +38,4 @@ checksum file. This checks the download, not gameplay or redistribution rights.
 
 Game dumps, proprietary BIOS/shader files, private artwork and unapproved HD
 packs are not release assets. Older owner-only bundles stay local. No download
-in this list is a promise of public-release or complete hardware acceptance.
+in this list is a promise of complete hardware acceptance or additional rights.
