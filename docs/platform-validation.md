@@ -32,6 +32,16 @@ No paid CI job, signing enrollment or certificate purchase has been started.
 
 ## Repeat on a native runner
 
+The manually triggered **Native regression checks** workflow runs the app and
+source-worker suites on Intel macOS and Windows x64. It uses read-only repository
+access, pinned official actions, sequential standard runners and a 20-minute
+timeout per platform. It does not publish releases, access a Vita, upload game
+inputs or clear packaging acceptance. Run only within the included allowance
+with the organization's zero-spend Actions budget in place.
+
+The movie-helper builder still rejects unvalidated platforms and unknown
+executable hashes. Native regression results do not bypass that release gate.
+
 Use the requested architecture, Node 24 and Python 3.14.4. Create
 `.venv-workers`, install `workers/requirements.txt` and test-only
 `pyftpdlib==2.2.0`, then run:

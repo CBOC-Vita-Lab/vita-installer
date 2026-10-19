@@ -1,0 +1,75 @@
+name: Native regression checks
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-checks-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - runner: macos-15-intel
+            platform: darwin-x64
+            python: .venv-workers/bin/python
+          - runner: windows-2022
+            platform: win32-x64
+            python: .venv-workers/Scripts/python.exe
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '24.22.0'
+          architecture: x64
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.14.4'
+          architecture: x64
+      - name: Confirm native target
+        env:
+          EXPECTED_PLATFORM: ${{ matrix.platform }}
+        run: node -e "if (process.platform + '-' + process.arch !== process.env.EXPECTED_PLATFORM) process.exit(1); console.log(process.platform, process.arch, process.version)"
+      - name: Install build-only dependencies
+        run: |
+          python -m venv .venv-workers
+          "${{ matrix.python }}" -m pip install -r workers/requirements.txt -r tests/requirements.txt
+          npm ci
+          mkdir -p out
+      - name: App regression tests
+        run: npm test -- --reporter=default --reporter=json --outputFile=out/native-tests.json
+      - name: Python preparation tests
+        if: ${{ !cancelled() }}
+        run: '"${{ matrix.python }}" -m unittest discover -s tests/preparation -p "test_*.py" -v'
+      - name: Python volume tests
+        if: ${{ !cancelled() }}
+        run: '"${{ matrix.python }}" -m unittest discover -s tests/devices -p "test_*.py" -v'
+      - name: Typecheck and compile app sources
+        if: ${{ !cancelled() }}
+        run: |
+          npm run typecheck
+          npm run build
+          node scripts/verify-worker.mjs
+      - name: Retain test report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-tests-${{ matrix.platform }}
+          path: out/native-tests.json
+          if-no-files-found: ignore
+          retention-days: 3
