@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { resolve, join } from 'node:path';
+import { resolve, join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const root = resolve(import.meta.dirname, '../..');
@@ -12,6 +12,14 @@ const worker = resolve(process.env.VITA_TEST_MOVIE_WORKER ?? join(root, 'out/mov
 const hash = data => createHash('sha256').update(data).digest('hex');
 const reference = JSON.parse(await readFile(join(fixtures, 'reference.json')));
 const run = args => spawnSync(worker, args, { encoding: 'utf8', timeout: 30_000, env: { ...process.env, PATH: '' } });
+
+test('native candidate source bytes match the reviewed converter and decoder', async () => {
+  const receipt = JSON.parse(await readFile(join(dirname(worker), 'candidate.json')));
+  assert.equal(receipt.transcodeSourceSha256, reference.transcodeSourceSha256);
+  assert.equal(receipt.decoderSourceSha256, reference.decoderSourceSha256);
+  assert.equal(receipt.workerSha256, hash(await readFile(worker)));
+  assert.equal(receipt.acceptedForPackaging, false);
+});
 
 function frames(data) {
   let offset = data.readUInt32LE(0x28), size = data.readUInt32LE(0x18);
@@ -60,8 +68,13 @@ test('native movie candidate returns failure for missing and truncated inputs', 
   const dir = await mkdtemp(join(tmpdir(), 'movie invalid '));
   try {
     const truncated = join(dir, 'truncated.thp'); await writeFile(truncated, 'THP\0');
-    for (const args of [[], [join(dir, 'missing.thp'), join(dir, 'out.thp')], [truncated, join(dir, 'out.thp')]]) {
-      const child = run(args); assert.ifError(child.error); assert.notEqual(child.status, 0);
+    const cases = [
+      { args: [], status: 2 },
+      { args: [join(dir, 'missing.thp'), join(dir, 'out.thp')], status: 1 },
+      { args: [truncated, join(dir, 'out.thp')], status: 1 },
+    ];
+    for (const { args, status } of cases) {
+      const child = run(args); assert.ifError(child.error); assert.equal(child.signal, null); assert.equal(child.status, status);
     }
   } finally { await rm(dir, { recursive: true, force: true }); }
 });

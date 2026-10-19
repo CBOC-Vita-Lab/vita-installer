@@ -81,6 +81,8 @@ const manifest = {
   provenance: 'Twelve generated flat, gradient, checkerboard and seeded block-noise frames. Audio is a synthetic byte pattern, not playable audio. No game data.',
   recipeId: recipe.recipeId, quality: 55, frames: frames.length, referenceWorkerSha256: workerHash,
   inputSha256: hash(await readFile(input)), outputSha256: hash(await readFile(output)),
+  transcodeSourceSha256: hash(await readFile(resolve(root, 'workers/vendor/galaxy/tools/thp_transcode.cpp'))),
+  decoderSourceSha256: hash(await readFile(resolve(root, 'workers/vendor/galaxy/platform/src/sdk/thp_video.cpp'))),
   generatorSharpVersion: sharp.versions.sharp,
 };
 await writeFile(resolve(dir, 'reference.json'), JSON.stringify(manifest, null, 2) + '\n');
