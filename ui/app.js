@@ -215,8 +215,7 @@
     var src = it && it.app && it.app.titleId ? base + 'api/icon?id=' + it.id : '';
     if (icon.getAttribute('data-src') !== src) {
       icon.setAttribute('data-src', src);
-      icon.style.visibility = src ? '' : 'hidden';
-      if (src) icon.src = src;
+      icon.src = src || 'logo.png';
     }
     var pct = p.total > 0 ? Math.min(100, Math.floor(p.done * 100 / p.total)) : -1;
     var meter = $('jobBar').parentNode;
@@ -253,7 +252,7 @@
   // Apps without a usable icon get a placeholder tile.
   document.addEventListener('error', function (e) {
     var t = e.target;
-    if (t && t.id === 'jobIcon') { t.style.visibility = 'hidden'; return; }
+    if (t && t.id === 'jobIcon') { if (t.src.indexOf('logo.png') < 0) t.src = 'logo.png'; return; }
     if (t && t.tagName === 'IMG' && t.className === 'icon') {
       var ph = document.createElement('div');
       ph.className = 'icon ph';

@@ -14,6 +14,8 @@ No FTP client, no VitaShell menus, no copying folders around.</p>
 
 ---
 
+<p align="center"><img src="docs/img/start.png" width="720" alt="The installer's start screen"></p>
+
 Drop in a game (a `.vpk`, a release `.zip`, a folder, or a GitHub link), and the installer finds your Vita, sends everything over and installs it. If the game needs something you have to supply yourself, like your own disc, it asks for that one file, checks it's the right one and does the rest.
 
 - **Works with any Vita app or game.** Any VPK works. Release ZIPs that ship `data/` or `ux0/` folders get those copied too. CBOC releases also get their extra steps done automatically.
@@ -45,6 +47,8 @@ All files are on the [latest release](https://github.com/CBOC-Vita-Lab/vita-inst
 3. **Add a game.** Drag it onto the window, click **Choose file**, or paste a GitHub link. CBOC games are listed on the start screen, and one click downloads them.
 4. **Add anything it asks for.** For example your own game disc (ISO, RVZ, WBFS, or a folder extracted with Dolphin) or the shader compiler. Files sitting next to the download are found automatically.
 5. **Click Install.** That's it. Add several games and they install one after another.
+
+<p align="center"><img src="docs/img/progress.png" width="460" alt="Sending a game to the Vita"></p>
 
 ### Big games: use USB
 
