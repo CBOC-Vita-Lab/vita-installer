@@ -1,14 +1,11 @@
 name: Release
 
-# Publishing a release (or pushing a tag such as v1.0.0) builds every download
-# on macOS, so the Mac app is properly signed, and attaches them to the
-# release. A release created from a tag gets that version's CHANGELOG.md
-# section as its notes.
+# Pushing a tag such as v1.0.0 builds every download on macOS (so the Mac
+# app is properly signed) and publishes them as a GitHub release, using that
+# version's section of CHANGELOG.md as the release notes.
 on:
   push:
     tags: ['v*']
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       tag:
@@ -18,19 +15,16 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: release-${{ inputs.tag || github.event.release.tag_name || github.ref_name }}
-
 jobs:
   build:
     runs-on: macos-latest
     env:
-      TAG: ${{ inputs.tag || github.event.release.tag_name || github.ref_name }}
+      TAG: ${{ inputs.tag || github.ref_name }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.event.release.tag_name || github.ref }}
+          ref: ${{ inputs.tag || github.ref }}
       - uses: actions/setup-go@v5
         with:
           go-version: '1.20.14'
@@ -43,9 +37,6 @@ jobs:
           awk -v v="## $version" '$0==v{on=1;next} /^## /{on=0} on' CHANGELOG.md > notes.md
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dist/* --clobber
-            if [ -z "$(gh release view "$TAG" --json body --jq .body)" ]; then
-              gh release edit "$TAG" --notes-file notes.md
-            fi
           else
             gh release create "$TAG" dist/* --title "CBOC Vita Installer $version" --notes-file notes.md --latest
           fi

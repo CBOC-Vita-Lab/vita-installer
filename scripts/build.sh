@@ -21,12 +21,16 @@ build() { GOOS="$1" GOARCH="$2" go build -trimpath -ldflags "$LDFLAGS $4" -o "$3
 echo "== macOS (universal, 10.13 and later)"
 build darwin amd64 "$OUT/tmp/mac-amd64" ""
 build darwin arm64 "$OUT/tmp/mac-arm64" ""
+# Go 1.20 leaves out LC_UUID, which macOS 15 needs before it allows local
+# network access (finding the Vita). Add it.
+go run ./scripts/macho uuid "$OUT/tmp/mac-amd64"
+go run ./scripts/macho uuid "$OUT/tmp/mac-arm64"
 bundle="$OUT/tmp/$APP.app"
 mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources"
 if command -v lipo >/dev/null; then
   lipo -create -output "$bundle/Contents/MacOS/$APP" "$OUT/tmp/mac-amd64" "$OUT/tmp/mac-arm64"
 else
-  go run ./scripts/fat "$bundle/Contents/MacOS/$APP" "$OUT/tmp/mac-amd64" "$OUT/tmp/mac-arm64"
+  go run ./scripts/macho fat "$bundle/Contents/MacOS/$APP" "$OUT/tmp/mac-amd64" "$OUT/tmp/mac-arm64"
 fi
 sed "s/VERSION/${VERSION}/g" packaging/Info.plist > "$bundle/Contents/Info.plist"
 cp packaging/AppIcon.icns "$bundle/Contents/Resources/AppIcon.icns"
