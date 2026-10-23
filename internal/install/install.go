@@ -639,25 +639,39 @@ func removeTree(ft *ftpTarget, dir string) {
 	if ft == nil {
 		return
 	}
+	// A dropped connection (not an FTP error reply) is returned, so the
+	// whole walk is retried on a fresh connection.
+	lost := func(err error) bool {
+		var fe *ftp.Error
+		return err != nil && !errors.As(err, &fe)
+	}
 	ft.control(context.Background(), func(c *ftp.Conn) error {
-		var walk func(d string)
-		walk = func(d string) {
+		var walk func(d string) error
+		walk = func(d string) error {
 			entries, err := c.List(d)
 			if err != nil {
-				return
+				if lost(err) {
+					return err
+				}
+				return nil
 			}
 			for _, e := range entries {
 				p := d + "/" + e.Name
 				if e.IsDir {
-					walk(p)
+					err = walk(p)
 				} else {
-					c.Delete(p)
+					err = c.Delete(p)
+				}
+				if lost(err) {
+					return err
 				}
 			}
-			c.Rmdir(d)
+			if err := c.Rmdir(d); lost(err) {
+				return err
+			}
+			return nil
 		}
-		walk(dir)
-		return nil
+		return walk(dir)
 	})
 }
 

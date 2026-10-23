@@ -112,8 +112,8 @@ func TestInstallOverVitaShell(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(vroot, "ux0/README.txt")); err == nil {
 		t.Fatal("docs copied")
 	}
-	if v.MaxClients < 2 {
-		t.Errorf("expected parallel connections, max was %d", v.MaxClients)
+	if atomic.LoadInt32(&v.MaxClients) < 2 {
+		t.Errorf("expected parallel connections, max was %d", atomic.LoadInt32(&v.MaxClients))
 	}
 	if strings.Join(phases, ",") != "prepare,check,send,install,done" {
 		t.Errorf("phases %v", phases)

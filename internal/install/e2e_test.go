@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -43,7 +44,7 @@ func TestRealRelease(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("installed=%v copied=%d skipped=%d bytes=%d in %s (max %d connections)", res.Installed, res.Copied, res.Skipped, res.Bytes, time.Since(start), v.MaxClients)
+	t.Logf("installed=%v copied=%d skipped=%d bytes=%d in %s (max %d connections)", res.Installed, res.Copied, res.Skipped, res.Bytes, time.Since(start), atomic.LoadInt32(&v.MaxClients))
 	start = time.Now()
 	res, err = Run(context.Background(), r, Options{Vita: &device.Vita{Host: "127.0.0.1", Port: v.Port()}, Cache: filepath.Join(filepath.Dir(root), "cache")})
 	if err != nil {
