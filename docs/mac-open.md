@@ -1,28 +1,14 @@
-# First Mac Launch
+# Opening the app on a Mac
 
-Use **0.1.11 or newer** on an Apple Silicon Mac (M1 or later).
-Version 0.1.10 has an incomplete app signature and can be reported as damaged.
+The app is not notarized by Apple (that needs a paid Apple developer account), so macOS asks before the first launch. You only do this once.
 
-1. Download the named Mac ZIP from the
-   [official releases](https://github.com/CBOC-Vita-Lab/vita-installer/releases/latest).
-2. Unzip it. Quit any older installer after its current operation finishes,
-   then move **CBOC Vita Installer.app** to Applications and replace the old app.
-3. Open the app. If macOS says it cannot verify the developer, dismiss the warning.
-4. Open **System Settings > Privacy & Security**, choose **Open Anyway** for
-   CBOC Vita Installer, then confirm **Open**. Authenticate if macOS requests it.
+1. Unzip `CBOC-Vita-Installer-…-mac.zip` and drag **CBOC Vita Installer** to **Applications**.
+2. Right-click (or Control-click) the app and choose **Open**, then **Open** again.
+3. If macOS still says it can't be opened (macOS 15 and later): open **System Settings > Privacy & Security**, scroll down to the message about CBOC Vita Installer and click **Open Anyway**.
+4. When asked whether the app may find devices on your local network, click **Allow**. That is how it finds your Vita on Wi-Fi.
 
-Only approve an app obtained from the official release that you intend to run.
-This approval is specific to this app; do not disable Gatekeeper globally or
-run commands to strip quarantine. The preview is ad-hoc signed for integrity,
-not signed by an Apple-identified developer or notarized by Apple.
+The app has no window of its own: it opens a page in your browser and shows no Dock icon. To quit it, click the status button at the top right of the page and choose **Quit installer**, or just close the tab. It quits by itself a minute or two later.
 
-If **0.1.11** still says **damaged**, or macOS says it **will damage your computer**,
-stop rather than bypassing that warning. Confirm the version and compare the ZIP
-with `INSTALLER-SHA256SUMS.txt` from the same release. Report the exact message,
-macOS version and Mac chip. Do not attach personal logs, game files or saves.
+Please don't turn off Gatekeeper or remove quarantine flags with Terminal commands. The steps above are all you need.
 
-Replacing the desktop app does not change Vita games. Keep its app-data folder
-so installation history and recovery records are retained.
-
-[Apple's instructions](https://support.apple.com/en-us/102445) explain per-app
-approval and the different security warnings.
+Works on macOS 10.13 High Sierra and later, on both Intel and Apple Silicon Macs.

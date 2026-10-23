@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key><string>CBOC Vita Installer</string>
+	<key>CFBundleDisplayName</key><string>CBOC Vita Installer</string>
+	<key>CFBundleIdentifier</key><string>lab.cboc.vita-installer</string>
+	<key>CFBundleExecutable</key><string>CBOC Vita Installer</string>
+	<key>CFBundleIconFile</key><string>AppIcon</string>
+	<key>CFBundlePackageType</key><string>APPL</string>
+	<key>CFBundleShortVersionString</key><string>VERSION</string>
+	<key>CFBundleVersion</key><string>VERSION</string>
+	<key>LSMinimumSystemVersion</key><string>10.13</string>
+	<key>LSUIElement</key><true/>
+	<key>NSHighResolutionCapable</key><true/>
+	<key>NSLocalNetworkUsageDescription</key><string>Used to find your PS Vita on your Wi-Fi network and send games to it.</string>
+</dict>
+</plist>

@@ -1,0 +1,8 @@
+[
+  {
+    "name": "Mario Strikers Charged",
+    "repo": "CBOC-Vita-Lab/strikers-charged-vita",
+    "about": "Native PS Vita port of the Wii soccer game.",
+    "needs": "Your own Wii USA Rev 1 disc (ISO, RVZ or extracted folder)"
+  }
+]

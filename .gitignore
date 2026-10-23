@@ -1,13 +1,4 @@
-node_modules/
 dist/
-out/
-.vite/
-.superpowers/
-coverage/
-*.log
+*.syso
 .DS_Store
-workers/bin/
-resources/tools/
-.venv-workers/
-workers/build/
-__pycache__/
+fake-vita/

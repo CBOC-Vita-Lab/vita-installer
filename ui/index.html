@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CBOC Vita Installer</title>
+<link rel="icon" href="favicon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="bar">
+  <div class="brand"><img src="logo.png" alt="" width="34" height="34"><span>CBOC <b>Vita Installer</b></span></div>
+  <button id="conn" class="pill" type="button" aria-haspopup="dialog"><i class="dot"></i><span id="connText">Looking for your Vita…</span></button>
+</header>
+
+<div id="update" class="banner" hidden></div>
+<div id="notice" class="banner" hidden role="alert"></div>
+
+<main>
+  <section id="add" class="drop" tabindex="-1">
+    <div class="drop-inner">
+      <div class="drop-icon" aria-hidden="true">
+        <svg viewBox="0 0 48 48" width="44" height="44"><path d="M24 6v24m0 0l-9-9m9 9l9-9" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 32v6a4 4 0 004 4h24a4 4 0 004-4v-6" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>
+      </div>
+      <h1 id="dropTitle">Drop a Vita game here</h1>
+      <p class="muted">Any <b>.vpk</b>, release <b>.zip</b> or folder. Drop several at once to install them together.</p>
+      <div class="row center">
+        <button id="pickFile" class="btn primary" type="button">Choose file</button>
+        <button id="pickFolder" class="btn" type="button">Choose folder</button>
+      </div>
+      <form id="urlForm" class="url" autocomplete="off">
+        <input id="url" type="url" placeholder="…or paste a GitHub link" aria-label="GitHub or download link">
+        <button class="btn" type="submit">Get</button>
+      </form>
+      <div id="catalog" class="catalog"></div>
+    </div>
+  </section>
+
+  <section id="items" class="items" aria-live="polite"></section>
+</main>
+
+<footer id="dock" class="dock" hidden>
+  <div id="dockText" class="dock-text"></div>
+  <button id="installBtn" class="btn primary big" type="button">Install</button>
+</footer>
+
+<div id="job" class="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="jobTitle">
+  <div class="sheet-card">
+    <div class="job-head">
+      <img id="jobIcon" class="icon" alt="" width="64" height="64">
+      <div>
+        <div id="jobStep" class="muted small"></div>
+        <h2 id="jobTitle"></h2>
+      </div>
+    </div>
+    <div class="meter"><div id="jobBar"></div></div>
+    <div class="job-stats">
+      <div><b id="jobPct">0%</b><span id="jobPhase" class="muted"></span></div>
+      <div class="right"><span id="jobSpeed"></span><span id="jobEta" class="muted"></span></div>
+    </div>
+    <div id="jobFile" class="muted small ellipsis"></div>
+    <div class="row end"><button id="stopBtn" class="btn ghost" type="button">Stop</button></div>
+  </div>
+</div>
+
+<div id="connSheet" class="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="connTitle">
+  <div class="sheet-card">
+    <div class="row between"><h2 id="connTitle">Connect your Vita</h2><button class="x" data-close type="button" aria-label="Close">×</button></div>
+    <div id="connList" class="choices"></div>
+    <div class="howto">
+      <div>
+        <h3>Wi-Fi <span class="tag">recommended</span></h3>
+        <p>On the Vita open <b>VitaShell</b> and press <kbd>SELECT</kbd>. Keep both on the same Wi-Fi. With <b>Vita Companion</b> installed it works even without VitaShell open, and games can be started from here.</p>
+        <form id="hostForm" class="url" autocomplete="off">
+          <input id="host" placeholder="Vita address, e.g. 192.168.1.20" aria-label="Vita IP address">
+          <button class="btn" type="submit">Connect</button>
+        </form>
+      </div>
+      <div>
+        <h3>USB or memory card <span class="tag">fastest for big games</span></h3>
+        <p>In VitaShell press <kbd>START</kbd>, set <b>SELECT button</b> to <b>USB</b>, connect the cable and press <kbd>SELECT</kbd>. Or put the Vita's memory card in a card reader. It is found automatically.</p>
+        <button id="pickDrive" class="btn" type="button">Choose drive…</button>
+      </div>
+    </div>
+    <div class="row between foot"><span class="muted small" id="versionText"></span><button id="quitBtn" class="btn ghost small" type="button">Quit installer</button></div>
+  </div>
+</div>
+
+<div id="overlay" class="overlay" hidden><div>Drop to add</div></div>
+<script src="app.js"></script>
+</body>
+</html>

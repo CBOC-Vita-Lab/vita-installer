@@ -1,118 +1,89 @@
-# CBOC Vita Installer
+<p align="center"><img src="packaging/icon-256.png" width="112" height="112" alt="CBOC Vita Installer"></p>
 
-<img src="resources/branding/cboc-mark.png" width="80" height="80" alt="CBOC logo">
+<h1 align="center">CBOC Vita Installer</h1>
 
-An **optional desktop setup helper** for CBOC Vita bundles. Choose your release,
-add your own game files, pick the artwork, then install.
+<p align="center"><b>Put games on your PS Vita from your computer.</b><br>
+No FTP client, no VitaShell menus, no copying folders around.</p>
 
-**You do not need this program to install or play Strikers.** The game runs on
-the PS Vita. [Manual setup from Windows, Mac or Linux](https://github.com/CBOC-Vita-Lab/strikers-charged-vita/blob/main/INSTALL.md)
-uses the ready-made VPK, your extracted game files and VitaShell. No compiling
-or Python is required. No computer or desktop app is needed while playing.
-The Apple Silicon restriction applies only to this helper's current download.
+<p align="center">
+<a href="https://github.com/CBOC-Vita-Lab/vita-installer/releases/latest"><b>Download</b></a> ·
+<a href="#how-to-use-it">How to use it</a> ·
+<a href="#questions">Questions</a> ·
+<a href="docs/release-format.md">For port authors</a>
+</p>
 
-**Public preview.** The Apple Silicon Mac app is available below.
-Binary redistribution, Apple notarization and full installation testing are still under
-review; publication is not a claim of third-party approval. This preview does
-not include commercial games, a proprietary BIOS or the shader compiler.
-Galaxy remains unavailable. Platform and device acceptance is tracked in
-[Acceptance](docs/acceptance.md).
+---
 
-## Choose Your Method
+Drop in a game (a `.vpk`, a release `.zip`, a folder, or a GitHub link), and the installer finds your Vita, sends everything over and installs it. If the game needs something you have to supply yourself, like your own disc, it asks for that one file, checks it's the right one and does the rest.
 
-| Method | Computer | What to do |
-| --- | --- | --- |
-| [Manual setup](https://github.com/CBOC-Vita-Lab/strikers-charged-vita/blob/main/INSTALL.md) | Windows, macOS (Intel or Apple Silicon), Linux | Extract your own ISO/RVZ, copy `sys/` and `files/` to the Vita, install the VPK in VitaShell. USB, FTP and configured memory-card transfers are covered. |
-| Optional CBOC helper | Apple Silicon Mac preview | Follow the steps below to automate preparation and transfer. |
+- **Works with any Vita app or game.** Any VPK works. Release ZIPs that ship `data/` or `ux0/` folders get those copied too. CBOC releases also get their extra steps done automatically.
+- **Finds your Vita for you.** It looks for it on your Wi-Fi, and spots a Vita memory card or VitaShell USB connection plugged into the computer.
+- **Fast.** It sends several files at once and skips anything your Vita already has, so updates and retries only send what changed. Wi-Fi installs need no button presses on the Vita.
+- **Safe for your saves.** It never deletes your files on the Vita, and it never touches the save and settings folders a release marks as protected.
+- **Small and runs on old computers.** About 6 MB, nothing else to install. Works on macOS 10.13 and later, Windows 7 and later, and Linux.
 
-Both routes install the same Strikers VPK. You still need your own supported
-Wii USA Rev 1 (`R4QE01`) game and a legitimately obtained `libshacccg.suprx`.
-Already extracted the game? The manual route needs only copying and VitaShell
-installation. [Dolphin extraction instructions](https://github.com/CBOC-Vita-Lab/strikers-charged-vita/blob/main/PREPARE-GAME.md#dolphin-no-python-needed)
-are available for ISO/RVZ users; Dolphin is used for extraction, not Vita gameplay.
+## Download
 
-## Install With This Helper
+| Computer | File |
+| --- | --- |
+| Mac (Intel or Apple Silicon, macOS 10.13+) | `CBOC-Vita-Installer-…-mac.zip` |
+| Windows 10 / 11 (most PCs) | `CBOC-Vita-Installer-…-windows-x64.exe` |
+| Windows 7 / 8 or 32-bit Windows | `CBOC-Vita-Installer-…-windows-x86.exe` |
+| Windows on ARM | `CBOC-Vita-Installer-…-windows-arm64.exe` |
+| Linux | `CBOC-Vita-Installer-…-linux-amd64.tar.gz` (or `arm64`) |
 
-1. Download [CBOC Vita Installer 0.1.11 for Apple Silicon Mac](https://github.com/CBOC-Vita-Lab/vita-installer/releases/download/v0.1.11/CBOC-Vita-Installer-0.1.11-darwin-arm64.zip), unzip it and move the app to Applications.
-2. Connect your Vita, or attach its already configured memory card.
-3. Paste `https://github.com/CBOC-Vita-Lab/strikers-charged-vita`, or select its [install ZIP](https://github.com/CBOC-Vita-Lab/strikers-charged-vita/releases/latest) or complete folder.
-4. Choose your game file and any missing required files.
-5. Keep the default artwork or choose your own, then click **Install**.
+All files are on the [latest release](https://github.com/CBOC-Vita-Lab/vita-installer/releases/latest).
 
-Use the named game install ZIP under **Releases > Assets**, not an installer
-source-code archive. Keep the release ZIP intact; the app opens it for you.
-The complete Strikers repository folder also works.
+**First launch on a Mac:** unzip, then right-click the app and choose **Open**. On newer macOS, if it is still blocked, go to **System Settings > Privacy & Security** and click **Open Anyway**. It also asks to find devices on your local network; allow this so it can find your Vita. [More help](docs/mac-open.md)
 
-**First Mac launch:** open the app. If macOS cannot verify its developer, use
-**System Settings > Privacy & Security > Open Anyway**, then confirm Open.
-This preview has a valid ad-hoc signature but is not Apple-notarized.
-Version 0.1.11 fixes the broken signature in 0.1.10; replace the old app rather
-than disabling security or removing quarantine attributes. [Mac help](docs/mac-open.md).
+**First launch on Windows:** if SmartScreen says "Windows protected your PC", click **More info > Run anyway**. The app is not code-signed, which is why Windows asks.
 
-The app prepares the folders; no separate Python or Dolphin installation is
-needed. It shows the exact remaining VitaShell step when automatic installation
-is unavailable. Existing different files are not silently replaced.
-Installed titles are labelled before setup. Installing over one requires a
-separate, unchecked update approval; choosing a ZIP never approves an update.
-Missing or damaged release files repair automatically when the same verified
-version is available. Your game files stay yours to provide. Private releases
-still use a local ZIP or folder; the app has no GitHub login.
+## How to use it
 
-For a compatible release previously installed by this app, choose **Update app**
-to skip selecting and preparing the game again. The installed data is still
-checked. Full setup remains available when data needs to change.
+1. **Open the installer.** It opens in your web browser. The page only runs on your own computer.
+2. **Turn on your Vita's connection.** In VitaShell, press **SELECT** to start FTP. The installer finds the Vita by itself. If you have [Vita Companion](https://github.com/devnoname120/vitacompanion) you can skip this, and the installer can start the game for you when it's done.
+3. **Add a game.** Drag it onto the window, click **Choose file**, or paste a GitHub link. CBOC games are listed on the start screen, and one click downloads them.
+4. **Add anything it asks for.** For example your own game disc (ISO, RVZ, WBFS, or a folder extracted with Dolphin) or the shader compiler. Files sitting next to the download are found automatically.
+5. **Click Install.** That's it. Add several games and they install one after another.
 
-[Connection options](docs/install.md) / [Artwork](docs/artwork.md) /
-[Recovery](docs/recovery.md)
+### Big games: use USB
 
-Intel Mac and Windows x64 packages are retained separately for validation.
-They have passed automated package checks, not native interactive installation
-or full Vita acceptance. See [Downloads](docs/downloads.md) before choosing a file.
-Only the Apple Silicon package is published for this release.
-Full installation acceptance remains pending. Actions artifacts are validation
-builds for developers, not player downloads.
+Wi-Fi on the Vita is slow, around 2–4 MB/s. For games of a gigabyte or more, USB is several times faster. In VitaShell press **START**, set **SELECT button** to **USB**, plug in the cable and press **SELECT**. The installer finds the drive by itself. A memory card in a card reader works the same way. USB and card installs copy everything; you then press **X** on the game in VitaShell's `ux0:VPK` folder to install it.
 
-## While it runs
+## Questions
 
-Preparation happens on your computer before copying. The app shows the current
-step, measured progress and elapsed time. A remaining-time estimate appears
-once enough work has completed; it applies to that step, or the current movie,
-not the whole installation. Checks can take time after copying finishes.
+**Which games work?** Any Vita app or homebrew in `.vpk` form, plus release ZIPs that contain one. If a release needs your own game files and doesn't say how, copy them the way its readme says. Releases can describe their extra steps in a [`vita-install.json`](docs/release-format.md) file so the installer handles them.
 
-Keep both devices awake. If the connection drops, reconnect the same Vita and
-choose **Resume**. Follow any final VitaShell action shown by the app. A copied
-package is not called installed until installation has been verified.
+**What does it need on the Vita?** A Vita running HENkaku/Ensō with VitaShell. Over Wi-Fi it uses VitaShell's FTP server and its built-in remote install. With Vita Companion it can also install and launch games while VitaShell is closed.
 
-## Update the installer
+**It can't find my Vita.** Make sure the Vita shows the FTP screen (VitaShell, **SELECT**) and that both are on the same Wi-Fi. Then click the status button at the top right and type the address the Vita shows (for example `192.168.1.20`). Guest networks and some mesh networks keep devices apart; USB always works.
 
-The installer has its own [repository and downloads](https://github.com/CBOC-Vita-Lab/vita-installer/releases), separate from the games.
-It checks for a newer public version when opened and once a day while running.
-Use the download icon beside its version number to check at any time.
+**Is my disc or game uploaded anywhere?** No. Everything happens between your computer and your Vita. The only internet traffic is checking for installer updates, downloading a game when you paste a link, and downloading the disc unpacker ([nodtool](https://github.com/encounter/nod), checked against a fixed hash) the first time you give it an ISO or RVZ.
 
-When an update is available, click **Download update**. Once any installation
-has finished, quit the app and replace it with the download. Keep the app's
-data folder: your installation history and recovery records stay there.
-Updating the desktop app does not update or reinstall games on your Vita.
+**My Mac is older than macOS 12, or my PC runs Windows 7/8, and it asks for an extracted folder.** The disc unpacker needs macOS 12 / Windows 10. On older systems, extract the disc in Dolphin first: right-click the game > **Properties** > **Filesystem**, right-click the disc > **Extract Entire Disc**, then choose that folder.
 
-Private previews still use browser downloads. The current unnotarized preview
-does not replace itself or restart automatically. [Update details](docs/updates.md).
+**The transfer stopped halfway.** Keep the Vita awake and press **Install** again. Files that finished are not sent again.
 
-## Releases
+## For developers
 
-| Game/app | Guide | Current bundle / status |
-| --- | --- | --- |
-| Mario Strikers Charged | [Manual](https://github.com/CBOC-Vita-Lab/strikers-charged-vita/blob/main/INSTALL.md) / [Optional helper](docs/games/strikers.md) | Standalone VPK or `Strikers-settings-20261019-install.zip`; use helper 0.1.11 for the automated Mac route |
-| Infected | [Status](docs/games/infected.md) | Owner-only local bundle; GitHub has source, not an install ZIP |
-| VitAdhoc | [Status](docs/games/vitadhoc.md) | Earlier local build 21 only; newer covers build held |
-| Galaxy | [Status](docs/games/galaxy.md) | Current quiet source available; desktop installation held |
+```sh
+go test ./...                    # tests, including a fake Vita FTP server
+go run .                         # run from source
+go run ./internal/fakevita/cmd/fakevita -root /tmp/fake-vita -speed 3   # a pretend Vita to try it with
+scripts/build.sh 1.0.0           # every download, into dist/
+```
 
-Each game's repository has a separate manual install guide with exact Vita
-paths, backups and technical build details. Source-only ZIPs are not install
-bundles. [Downloads](docs/downloads.md) links to the correct repositories.
+The app is a single Go program (Go 1.20 so it still targets Windows 7 and macOS 10.13) with no dependencies outside the standard library. Its page is plain HTML, CSS and JavaScript in `ui/`.
 
-## Development
+| Folder | What it does |
+| --- | --- |
+| `internal/vita` | Reads VPKs and `param.sfo` |
+| `internal/release` | Turns a VPK, ZIP or folder into installable releases; `vita-install.json` |
+| `internal/prep` | Checks and unpacks game discs (Wii/GameCube, PSP) |
+| `internal/ftp`, `internal/device` | Talks to the Vita; finds it on the network or as a drive |
+| `internal/install` | Plans, sends and installs, with resume and parallel transfers |
+| `internal/web`, `ui/` | The local page and its state |
 
-Use Node 24, run `npm ci`, then `npm test`, `npm run typecheck` and `npm start`.
-Native worker builds are described in [Preparation](docs/preparation.md).
-[Release profiles](docs/releases.md) describe trust and contribution rules.
-The app is MIT licensed; bundled components retain their own licenses.
+Pushing a `v*` tag builds every download and publishes the release (`.github/workflows/release.yml`).
+
+Written entirely by AI (Claude), fully vibecoded. MIT licensed.
