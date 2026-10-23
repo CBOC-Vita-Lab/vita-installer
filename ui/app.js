@@ -103,15 +103,34 @@
   }
 
   function catalog() {
-    var have = {};
+    var have = {}, lib = {};
     (S.items || []).forEach(function (it) { have[it.name] = true; });
+    var connected = !!(S.vita || S.drive);
+    var games = connected ? (S.library || []) : [];
+    games.forEach(function (g) { if (g.repo) lib[g.repo] = g; });
     var h = '';
     (S.catalog || []).forEach(function (c) {
       if (have[c.name]) return;
-      h += '<div class="tile"><div class="t"><div>' + esc(c.name) + '</div><span>' + esc(c.about) + '</span>' +
-        (c.needs ? '<span>Needs: ' + esc(c.needs) + '</span>' : '') + '</div><button class="btn small primary" data-get="' + esc(c.repo) + '">Get</button></div>';
+      var g = lib[c.repo];
+      var badge = g ? (g.update ? '<span class="badge upd">Update</span>' : '<span class="badge ok">On your Vita</span>') : '';
+      var label = g ? (g.update ? 'Update' : 'Reinstall') : 'Get';
+      h += '<div class="tile"><div class="t"><div>' + esc(c.name) + badge + '</div><span>' + esc(c.about) + '</span>' +
+        (g && g.update ? '<span>New version ' + esc(g.latest) + ' (you have ' + esc(g.release || 'an older one') + ')</span>' :
+          c.needs && !g ? '<span>Needs: ' + esc(c.needs) + '</span>' : '') +
+        '</div><button class="btn small' + (g && !g.update ? '' : ' primary') + '" data-get="' + esc(c.repo) + '">' + label + '</button></div>';
     });
-    $('catalog').innerHTML = h ? '<div class="muted small" style="width:100%;margin-bottom:4px">CBOC releases</div>' + h : '';
+    var inCat = {};
+    (S.catalog || []).forEach(function (c) { inCat[c.repo] = true; });
+    var mine = '';
+    games.forEach(function (g) {
+      if (g.repo && inCat[g.repo]) return;
+      if (have[g.name]) return;
+      mine += '<div class="tile"><div class="t"><div>' + esc(g.name) + (g.update ? '<span class="badge upd">Update</span>' : '') + '</div><span>' +
+        esc(g.titleId) + (g.release ? ' · ' + esc(g.release) : '') + (g.update ? ' · new: ' + esc(g.latest) : '') + '</span></div>' +
+        (g.update ? '<button class="btn small primary" data-get="' + esc(g.repo) + '">Update</button>' : '') + '</div>';
+    });
+    $('catalog').innerHTML = (h ? '<div class="muted small" style="width:100%;margin-bottom:4px">CBOC releases</div>' + h : '') +
+      (mine ? '<div class="muted small" style="width:100%;margin:10px 0 4px">Also on your Vita</div>' + mine : '');
   }
 
   var typeHelp = {
@@ -132,9 +151,12 @@
     var app = it.app || {};
     var cls = 'card' + (it.status === 'done' ? ' done' : '') + (it.status === 'failed' ? ' failed' : '');
     var badge = it.status === 'done' && it.result && it.result.installed ? '<span class="badge ok">Installed</span>' :
+      it.same ? '<span class="badge ok">Already installed</span>' :
       it.installed ? '<span class="badge upd">Update</span>' : (S.vita ? '<span class="badge new">New</span>' : '');
     var meta = [esc(it.titleId)];
-    if (it.version) meta.push('v' + esc(it.version));
+    if (it.tag) meta.push(esc(it.tag));
+    else if (it.version) meta.push('v' + esc(it.version));
+    if (it.installed && !it.same && it.onVita && it.onVita !== it.tag && it.status !== 'done') meta.push('replaces ' + esc(it.onVita));
     meta.push(size(itemBytes(it)));
     var icon = app.titleId ? '<img class="icon" src="' + base + 'api/icon?id=' + esc(it.id) + '" alt="">' : '<div class="icon ph">VPK</div>';
     var busy = it.status === 'working' || it.status === 'queued';
@@ -206,7 +228,8 @@
     }
     $('dockText').textContent = text;
     btn.disabled = !connected || !ready.length || !!S.job;
-    btn.textContent = ready.length > 1 ? 'Install ' + ready.length + ' games' : (ready.length && ready[0].installed ? 'Update' : 'Install');
+    btn.textContent = ready.length > 1 ? 'Install ' + ready.length + ' games' :
+      (ready.length && ready[0].same ? 'Reinstall' : ready.length && ready[0].installed ? 'Update' : 'Install');
   }
 
   function job() {
@@ -277,7 +300,7 @@
     var items = S.items || [];
     $('add').className = 'drop' + (items.length ? ' compact' : '');
     $('dropTitle').textContent = items.length ? 'Add more' : 'Drop a Vita game here';
-    var key = JSON.stringify([items, !!S.vita, S.vita && S.vita.companion, !!S.drive]);
+    var key = JSON.stringify([items, !!S.vita, S.vita && S.vita.companion, !!S.drive, S.library]);
     if (key !== lastItems) { lastItems = key; $('items').innerHTML = items.map(itemCard).join(''); }
     dock();
     job();

@@ -119,14 +119,14 @@ func TestInstallOverVitaShell(t *testing.T) {
 		t.Errorf("phases %v", phases)
 	}
 
-	// A second run only re-sends the app.
+	// A second run only re-sends the app (and updates the install record).
 	before := v.Stores
 	res, err = Run(context.Background(), r, Options{Vita: vita, Cache: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := v.Stores - before; got != 1 {
-		t.Errorf("second run sent %d files, want 1 (the app)", got)
+	if got := v.Stores - before; got != 2 {
+		t.Errorf("second run sent %d files, want 2 (the app and the record)", got)
 	}
 	if res.Skipped < 4 {
 		t.Errorf("skipped %d", res.Skipped)

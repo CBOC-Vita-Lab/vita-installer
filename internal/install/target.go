@@ -23,6 +23,7 @@ type target interface {
 	put(ctx context.Context, worker int, local, remote string, progress func(int64)) error
 	remove(remote string)
 	exists(remote string) bool
+	read(ctx context.Context, remote string, limit int64) ([]byte, error)
 	workers() int
 	close()
 }
@@ -178,6 +179,16 @@ func (t *ftpTarget) exists(remote string) bool {
 	return ok
 }
 
+func (t *ftpTarget) read(ctx context.Context, remote string, limit int64) ([]byte, error) {
+	var b []byte
+	err := t.retry(ctx, 0, func(c *ftp.Conn) error {
+		var err error
+		b, err = c.Retrieve(remote, limit)
+		return err
+	})
+	return b, err
+}
+
 // control runs fn on the first connection (for installation commands).
 func (t *ftpTarget) control(ctx context.Context, fn func(*ftp.Conn) error) error {
 	return t.retry(ctx, 0, fn)
@@ -310,6 +321,10 @@ func (d *driveTarget) exists(remote string) bool {
 	}
 	_, err = os.Stat(p)
 	return err == nil
+}
+
+func (d *driveTarget) read(_ context.Context, remote string, limit int64) ([]byte, error) {
+	return driveFiles{d}.read(remote, limit)
 }
 
 func (d *driveTarget) close() {}

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.3
+
+**Smarter updates.**
+
+- The installer now keeps a small install record on the Vita. Updates send every file that changed, even when its size didn't, and skip the rest.
+- With your Vita connected, the start screen shows the CBOC games already on it and offers **Update** when a newer release is out. A game you add again says whether it's already installed or which version it replaces.
+- Infected: optional slots for your own HD texture packs (2x and the Vita 4x pack), checked and put in the right place. The full 4x pack, too big for the Vita, is refused.
+- Files you choose for a game are no longer blocked by the release's protected paths; those now only stop the release's own files from overwriting your saves and settings.
+
+Downloads are the same as 1.0.0, with 1.0.3 in the name.
+
 ## 1.0.2
 
 - Super Mario Galaxy and other ports: converts your game files on your computer before sending them (see 1.0.1).

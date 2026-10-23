@@ -23,7 +23,9 @@ type Release struct {
 	Name    string    `json:"name"`
 	TitleID string    `json:"titleId"`
 	Version string    `json:"version"`
-	Source  string    `json:"source"` // file or folder name the player chose
+	Source  string    `json:"source"`         // file or folder name the player chose
+	Repo    string    `json:"repo,omitempty"` // GitHub owner/repo it was downloaded from
+	Tag     string    `json:"tag,omitempty"`  // and that release's tag
 	App     *vita.App `json:"app"`
 	VPK     string    `json:"-"`
 	Root    string    `json:"-"` // folder the release's relative paths start from

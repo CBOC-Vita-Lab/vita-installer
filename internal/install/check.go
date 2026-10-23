@@ -19,6 +19,8 @@ import (
 type Present struct {
 	Installed bool            // the app is installed
 	Inputs    map[string]bool // inputs whose files are already in place (by input ID)
+	Receipt   *Receipt        // what this installer last installed for this app, if anything
+	Same      bool            // and it was exactly this release
 }
 
 // vitaFiles reads a few things from the Vita, over FTP or from a drive.
@@ -69,6 +71,10 @@ func Check(ctx context.Context, v *device.Vita, drive string, r *release.Release
 	}
 	p := &Present{Inputs: map[string]bool{}}
 	p.Installed = fs.exists("ux0:app/" + r.TitleID + "/eboot.bin")
+	if b, err := fs.read(receiptPath(r.TitleID), 4<<20); err == nil && p.Installed {
+		p.Receipt = parseReceipt(b)
+		p.Same = p.Receipt != nil && p.Receipt.Build == buildHash(r)
+	}
 	for _, in := range r.Inputs {
 		p.Inputs[in.ID] = inPlace(fs, in, drive != "")
 	}

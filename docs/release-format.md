@@ -10,7 +10,7 @@ The installer works with any VPK. It handles a release ZIP or folder like this:
 | `ur0/data/…` next to the VPK | `ur0:data/…` |
 | everything else (readme, source, licenses) | not copied |
 
-Files already on the Vita with the same size are skipped, so updates only send what changed. If the app uses vitaGL (it mentions `libshacccg` or `vitagl`), the installer checks the Vita for `ur0:data/libshacccg.suprx` and asks for it when it's missing.
+Updates only send what changed. The installer keeps a small record of each install on the Vita (`ux0:data/cboc-installer/installed/TITLEID.json`) with a hash of every file the release shipped, so a changed file is sent even when its size stayed the same, and unchanged files are skipped. The player's own files (discs, ISOs) are skipped when the same size is already there. If the app uses vitaGL (it mentions `libshacccg` or `vitagl`), the installer checks the Vita for `ur0:data/libshacccg.suprx` and asks for it when it's missing.
 
 ## vita-install.json
 
@@ -46,7 +46,7 @@ Every field is optional.
 | `vpkSha256` | Refuse a damaged or incomplete download |
 | `copy` | `[{"from": "assets", "to": "ux0:data/mygame"}]` replaces the default `data/`/`ux0/` rules |
 | `needs` | Files the player supplies (below) |
-| `keep` | Vita paths that are never written, such as saves and settings |
+| `keep` | Vita paths the release's own files never overwrite, such as saves and settings (files the player chooses for a need still go where the need says) |
 | `notes` | One short message shown before installing |
 | `held` | If set, the release is shown but cannot be installed; the text says why |
 
@@ -56,7 +56,7 @@ Every field is optional.
 | --- | --- | --- |
 | `wii-disc`, `gc-disc` | ISO, RVZ, WIA, WBFS, CISO, GCZ, or a Dolphin/nodtool extracted folder. `gameId`, `revision` and `verify` (SHA-256 of files in the extracted disc) are checked | the disc's `sys/` and `files/` |
 | `psp-iso` | a PSP `.iso`; `gameId` (for example `ULUS-10054`) is checked | the file, at the exact path in `to` |
-| `file` | one file (`ext` limits the extensions) | the exact path in `to` |
+| `file` | one file (`ext` limits the extensions, `names` are looked for automatically next to the download, `maxBytes` refuses bigger files) | the exact path in `to` |
 | `files` | a file or a folder of files (`ext` filters them); existing files are kept | the folder in `to` |
 | `folder` | a folder | the folder in `to` |
 | `shader-compiler` | `libshacccg.suprx`, only asked for if the Vita doesn't have it | `ur0:data/libshacccg.suprx` |
@@ -121,4 +121,8 @@ For anything the built-in steps don't cover, ship a converter for each computer 
 
 Keys are `<os>-<arch>` as Go names them (`windows-386`, `windows-arm64`, `darwin-arm64`, `darwin-amd64`, `linux-arm64`…); `darwin-universal` covers both Macs. `{in}` is the player's (or the previous step's) folder, which the tool must only read; `{out}` is an empty folder it fills, which the next steps and the Vita get. The program is refused if its SHA-256 doesn't match, and the player is asked to **Allow** it before anything runs. A non-zero exit stops the install and shows the last lines the tool wrote to stderr.
 
-Older CBOC releases ship `cboc-release.json` instead; the installer reads that too.
+Older CBOC releases ship `cboc-release.json` instead; the installer reads that too. Infected releases get two optional HD texture slots (`texpack_2x.bin`, and `texpack_4x_mixed.bin` installed as `texpack_4x.bin`) automatically.
+
+## Updates
+
+When a game is downloaded from GitHub, the install record also keeps the repository and release tag. With the Vita connected, the start screen shows which CBOC games are on it and offers **Update** when the repository has a newer release; a game added again shows **Already installed** or **Update** and which release it replaces. Publish each update as a new GitHub release (a new tag) for this to work.

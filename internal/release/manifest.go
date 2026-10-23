@@ -42,8 +42,10 @@ type Need struct {
 	Revision *int              `json:"revision,omitempty"` // disc revision, if one is required
 	Verify   map[string]string `json:"verify,omitempty"`   // relative file -> SHA-256 inside an extracted disc
 	Optional bool              `json:"optional,omitempty"`
-	Ext      []string          `json:"ext,omitempty"`     // accepted file extensions for file/files
-	Prepare  []Step            `json:"prepare,omitempty"` // conversion before copying (disc and folder needs)
+	Ext      []string          `json:"ext,omitempty"`      // accepted file extensions for file/files
+	Prepare  []Step            `json:"prepare,omitempty"`  // conversion before copying (disc and folder needs)
+	Names    []string          `json:"names,omitempty"`    // file: names to look for automatically (default: the name in to)
+	MaxBytes int64             `json:"maxBytes,omitempty"` // file: refuse bigger files
 }
 
 // Step is one preparation step run on the player's files before they are
@@ -222,6 +224,16 @@ func fromCBOC(b []byte) (*Manifest, error) {
 		case "infected-disc":
 			n.Type, n.To, n.GameID = NeedPSPISO, strings.TrimSuffix(data, "/")+"/Infected.iso", "ULUS-10054"
 			n.Label = "Your Infected UMD backup (PSP, USA, ISO)"
+		case "infected-hd-2x":
+			n.Type, n.To, n.Ext = NeedFile, strings.TrimSuffix(data, "/")+"/texpack_2x.bin", []string{".bin"}
+			n.Label, n.Optional = "HD textures, 2x pack (optional)", true
+			n.Names, n.MaxBytes = []string{"texpack_2x.bin"}, 120<<20
+			n.Help = "texpack_2x.bin, made from your own disc with the texture builder"
+		case "infected-hd-4x":
+			n.Type, n.To, n.Ext = NeedFile, strings.TrimSuffix(data, "/")+"/texpack_4x.bin", []string{".bin"}
+			n.Label, n.Optional = "HD textures, Vita 4x pack (optional)", true
+			n.Names, n.MaxBytes = []string{"texpack_4x_mixed.bin"}, 160<<20
+			n.Help = "texpack_4x_mixed.bin (not the full 4x pack, which is too big for the Vita)"
 		case "shader-compiler":
 			n.Type = NeedShader
 		case "roms":
@@ -244,6 +256,18 @@ func fromCBOC(b []byte) (*Manifest, error) {
 	for _, in := range c.OptionalInputs {
 		if err := add(in.ID, in.Label, in.Kind, true); err != nil {
 			return nil, err
+		}
+	}
+	// Infected releases made before the HD texture slots existed get them too.
+	kinds := map[string]bool{}
+	for _, in := range append(c.RequiredInputs, c.OptionalInputs...) {
+		kinds[in.Kind] = true
+	}
+	if kinds["infected-disc"] {
+		for _, k := range []string{"infected-hd-2x", "infected-hd-4x"} {
+			if !kinds[k] {
+				add(strings.TrimPrefix(k, "infected-"), "", k, true)
+			}
 		}
 	}
 	if c.ReleaseState != "" && c.ReleaseState != "ready" && m.Held == "" {

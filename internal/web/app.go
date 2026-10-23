@@ -21,8 +21,10 @@ import (
 // Item is a release in the install list.
 type Item struct {
 	*release.Release
-	Installed bool            `json:"installed"` // already on the Vita (this install updates it)
-	Status    string          `json:"status"`    // ready, needs, queued, working, done, failed
+	Installed bool            `json:"installed"`        // already on the Vita (this install updates it)
+	Same      bool            `json:"same"`             // this exact release is what is installed
+	OnVita    string          `json:"onVita,omitempty"` // the installed release's tag or version, if known
+	Status    string          `json:"status"`           // ready, needs, queued, working, done, failed
 	Error     string          `json:"error,omitempty"`
 	Result    *install.Result `json:"result,omitempty"`
 	Launched  bool            `json:"launched,omitempty"`
@@ -61,6 +63,7 @@ type State struct {
 	NoticeBad bool           `json:"noticeBad"`
 	Update    *Update        `json:"update"`
 	Catalog   []CatalogEntry `json:"catalog"`
+	Library   []LibraryGame  `json:"library"` // games this installer put on the connected Vita
 	Dialogs   bool           `json:"dialogs"`
 	Seq       int64          `json:"seq"`
 }
@@ -76,6 +79,7 @@ type App struct {
 	cancelJob context.CancelFunc
 	scanMu    sync.Mutex
 	lastHost  string
+	tags      map[string]latestTag
 }
 
 // NewApp prepares state, loading saved settings.
@@ -315,6 +319,7 @@ func (a *App) Connect(ctx context.Context, host, drive string) error {
 
 // refreshItems re-checks each release against the connected Vita.
 func (a *App) refreshItems() {
+	go a.refreshLibrary()
 	a.mu.Lock()
 	v, drive := a.st.Vita, a.st.Drive
 	items := append([]*Item(nil), a.st.Items...)
@@ -326,6 +331,11 @@ func (a *App) refreshItems() {
 		}
 		a.update(func(s *State) {
 			it.Installed = p.Installed
+			it.Same = p.Same
+			it.OnVita = ""
+			if p.Receipt != nil {
+				it.OnVita = p.Receipt.Release
+			}
 			for _, in := range it.Inputs {
 				have := p.Inputs[in.ID]
 				switch {
@@ -363,7 +373,10 @@ func setStatus(it *Item) {
 // ---- Adding releases ----
 
 // Add loads a release from a local path.
-func (a *App) Add(path string) error {
+func (a *App) Add(path string) error { return a.addFrom(path, "", "") }
+
+// addFrom loads a release downloaded from a GitHub repository's release tag.
+func (a *App) addFrom(path, repo, tag string) error {
 	a.update(func(s *State) { s.Task = &Task{Text: "Opening " + filepath.Base(path)} })
 	defer a.update(func(s *State) { s.Task = nil })
 	rs, err := release.Load(path, a.cache)
@@ -372,6 +385,7 @@ func (a *App) Add(path string) error {
 	}
 	var added []*Item
 	for _, r := range rs {
+		r.Repo, r.Tag = repo, tag
 		install.AutoFind(r)
 		added = append(added, &Item{Release: r})
 	}

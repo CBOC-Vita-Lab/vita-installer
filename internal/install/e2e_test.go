@@ -26,6 +26,10 @@ func TestRealRelease(t *testing.T) {
 			CheckInput(in, disc)
 		case "shader-compiler":
 			CheckInput(in, os.Getenv("VITA_E2E_SHADER"))
+		case "file":
+			if p := os.Getenv("VITA_E2E_FILE_" + in.ID); p != "" {
+				CheckInput(in, p)
+			}
 		}
 		t.Logf("input %s: %s %s", in.ID, in.State, in.Message)
 	}

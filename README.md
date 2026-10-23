@@ -71,6 +71,10 @@ Wi-Fi on the Vita is slow, around 2–4 MB/s. For games of a gigabyte or more, U
 
 **It says it's converting my game. How long does that take?** A few minutes for a big game such as Super Mario Galaxy, once. It needs some free space on your computer (about the size of the game) and never changes your own files. If you install again, it reuses the converted copy, and if the converted game is already on your Vita, it isn't sent again.
 
+**How do updates work?** Connect your Vita and the start screen shows the games the installer put on it, with an **Update** button when there is a newer release. Updating only sends the files that changed (checked by content, not just size) and never touches your saves, settings, game data or HD texture packs.
+
+**Can it add Infected's HD textures?** Yes. Infected has two optional slots for HD texture packs you made from your own disc with the texture builder (the packs can't be shared, because they come from the game). Choose `texpack_2x.bin` and/or `texpack_4x_mixed.bin`; the installer puts them where the game looks for them, and refuses the full 4x pack, which is too big for the Vita.
+
 **The transfer stopped halfway.** Keep the Vita awake and press **Install** again. Files that finished are not sent again.
 
 ## For developers

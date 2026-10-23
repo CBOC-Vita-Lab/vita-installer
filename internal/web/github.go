@@ -16,6 +16,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/CBOC-Vita-Lab/vita-installer/internal/install"
 )
 
 // Repo is the installer's own GitHub repository.
@@ -119,6 +121,10 @@ var repoPattern = regexp.MustCompile(`^(?:https?://)?(?:www\.)?github\.com/([A-Z
 // AddURL downloads a release from a GitHub repository or a direct link.
 func (a *App) AddURL(ctx context.Context, raw string) error {
 	raw = strings.TrimSpace(raw)
+	repoName, tagName := "", ""
+	if m := downloadPattern.FindStringSubmatch(raw); m != nil {
+		repoName, tagName = m[1]+"/"+m[2], m[3]
+	}
 	if m := repoPattern.FindStringSubmatch(raw); m != nil && !strings.Contains(raw, "/releases/download/") {
 		owner, repo, tag := m[1], m[2], m[3]
 		api := "https://api.github.com/repos/" + owner + "/" + repo + "/releases/latest"
@@ -126,6 +132,7 @@ func (a *App) AddURL(ctx context.Context, raw string) error {
 			api = "https://api.github.com/repos/" + owner + "/" + repo + "/releases/tags/" + url.PathEscape(tag)
 		}
 		var rel struct {
+			Tag    string `json:"tag_name"`
 			Assets []struct {
 				Name string `json:"name"`
 				URL  string `json:"browser_download_url"`
@@ -158,6 +165,7 @@ func (a *App) AddURL(ctx context.Context, raw string) error {
 			return fmt.Errorf("the latest release of %s has no Vita app to download", repo)
 		}
 		raw = best
+		repoName, tagName = owner+"/"+repo, rel.Tag
 	}
 	u, err := url.Parse(raw)
 	if err != nil || (u.Scheme != "https" && u.Scheme != "http") {
@@ -173,7 +181,73 @@ func (a *App) AddURL(ctx context.Context, raw string) error {
 	if err := a.download(ctx, raw, dest, name); err != nil {
 		return err
 	}
-	return a.Add(dest)
+	return a.addFrom(dest, repoName, tagName)
+}
+
+var downloadPattern = regexp.MustCompile(`^https?://(?:www\.)?github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/releases/download/([^/?#]+)/`)
+
+// LibraryGame is a game this installer put on the connected Vita.
+type LibraryGame struct {
+	Name    string `json:"name"`
+	TitleID string `json:"titleId"`
+	Release string `json:"release,omitempty"` // installed tag or version
+	Repo    string `json:"repo,omitempty"`
+	Latest  string `json:"latest,omitempty"` // newest release on GitHub
+	Update  bool   `json:"update"`
+}
+
+type latestTag struct {
+	tag string
+	at  time.Time
+}
+
+// latest returns a repository's newest release tag (cached for a while).
+func (a *App) latest(ctx context.Context, repo string) string {
+	a.mu.Lock()
+	if a.tags == nil {
+		a.tags = map[string]latestTag{}
+	}
+	c, ok := a.tags[repo]
+	a.mu.Unlock()
+	if ok && time.Since(c.at) < 15*time.Minute {
+		return c.tag
+	}
+	var rel struct {
+		Tag string `json:"tag_name"`
+	}
+	getJSON(ctx, "https://api.github.com/repos/"+repo+"/releases/latest", &rel) // private or missing: no answer
+	a.mu.Lock()
+	a.tags[repo] = latestTag{rel.Tag, time.Now()}
+	a.mu.Unlock()
+	return rel.Tag
+}
+
+// refreshLibrary reads what this installer has put on the connected Vita
+// and looks up newer releases of those games.
+func (a *App) refreshLibrary() {
+	a.mu.Lock()
+	v, drive := a.st.Vita, a.st.Drive
+	a.mu.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	var games []LibraryGame
+	if v != nil || drive != "" {
+		rs, _ := install.Installed(ctx, v, drive)
+		seen := map[string]bool{}
+		for _, r := range rs {
+			if seen[r.TitleID] {
+				continue
+			}
+			seen[r.TitleID] = true
+			g := LibraryGame{Name: r.Name, TitleID: r.TitleID, Release: r.Release, Repo: r.Repo}
+			if r.Repo != "" {
+				g.Latest = a.latest(ctx, r.Repo)
+				g.Update = g.Latest != "" && g.Latest != r.Release
+			}
+			games = append(games, g)
+		}
+	}
+	a.update(func(s *State) { s.Library = games })
 }
 
 func (a *App) download(ctx context.Context, u, dest, name string) error {

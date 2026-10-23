@@ -65,6 +65,8 @@ type item struct {
 	size          int64
 	onlyIfMissing bool
 	app           bool
+	owned         bool   // shipped in the release (not the player's own files)
+	hash          string // SHA-1 of files the release itself ships (compared with the receipt)
 }
 
 // Run installs r.
@@ -124,11 +126,13 @@ func Run(ctx context.Context, r *release.Release, opt Options) (*Result, error) 
 		cleanup = append(cleanup, tmp...)
 	}
 	for _, b := range r.Copies {
-		items = append(items, item{local: b.Local, remote: b.Remote, size: b.Size})
+		items = append(items, item{local: b.Local, remote: b.Remote, size: b.Size, owned: true})
 	}
+	// Protected paths (saves, settings) are never overwritten by the
+	// release's own files; files the player chose go where they asked.
 	var kept []item
 	for _, it := range items {
-		if !r.IsKept(it.remote) {
+		if !it.owned || !r.IsKept(it.remote) {
 			kept = append(kept, it)
 		}
 	}
@@ -163,12 +167,49 @@ func Run(ctx context.Context, r *release.Release, opt Options) (*Result, error) 
 		appItems = []item{{local: r.VPK, remote: appRemote, size: r.App.Size, app: true}}
 	}
 
-	// 4. Skip what the Vita already has.
+	// 4. Skip what the Vita already has. Files the release ships are only
+	// skipped when the receipt of the last install says they are identical,
+	// so an update that changes a file but not its size still sends it.
 	report(Progress{Phase: "check", Text: "Checking what is already on your Vita", ETA: -1})
 	all := append(appItems, items...)
-	todo, skipped, err := compare(ctx, t, all, mode == "companion")
+	for i := range all {
+		if all[i].app || all[i].owned {
+			h, err := fileHash(all[i].local)
+			if err != nil {
+				return nil, err
+			}
+			all[i].hash = h
+		}
+	}
+	rc := newReceipt(r)
+	rc.Build = buildHash(r)
+	prev := readReceipt(ctx, t, r.TitleID)
+	var known map[string]string
+	if prev != nil {
+		known = prev.Files
+	}
+	todo, skipped, err := compare(ctx, t, all, known)
 	if err != nil {
 		return nil, err
+	}
+	// Forget files about to be replaced, so an interrupted update never
+	// trusts a file that was only half updated.
+	if prev != nil {
+		dropped := false
+		for _, it := range todo {
+			if _, ok := prev.Files[it.remote]; ok {
+				delete(prev.Files, it.remote)
+				dropped = true
+			}
+		}
+		if dropped {
+			if err := writeReceipt(ctx, t, opt.Cache, prev); err != nil {
+				return nil, fmt.Errorf("could not update the install record on the Vita: %v", err)
+			}
+		}
+		for k, v := range prev.Files {
+			rc.Files[k] = v
+		}
 	}
 	if opt.Drive != "" {
 		var need int64
@@ -251,6 +292,13 @@ func Run(ctx context.Context, r *release.Release, opt Options) (*Result, error) 
 			res.Steps = append(res.Steps, "In VitaShell, copy ux0:VPK/libshacccg.suprx to ur0:data/ (Triangle > Copy, then Paste in ur0:data).")
 		}
 	}
+	// Record what is now on the Vita.
+	for _, it := range all {
+		if it.hash != "" && !strings.HasPrefix(it.remote, Staging+"/") {
+			rc.Files[it.remote] = it.hash
+		}
+	}
+	writeReceipt(ctx, t, opt.Cache, rc)
 	for _, d := range cleanup {
 		os.RemoveAll(d)
 	}
@@ -417,9 +465,9 @@ func expandDir(local, remote string) []item {
 }
 
 // compare drops files the Vita already has with the same size and creates
-// the folders the rest need. Staged app files are always re-sent unless
-// resuming (same size), which is safe because they are installer-owned.
-func compare(ctx context.Context, t target, items []item, _ bool) ([]item, int, error) {
+// the folders the rest need. Files the release ships (hash set) are only
+// skipped when known, the last install's receipt, has the same hash.
+func compare(ctx context.Context, t target, items []item, known map[string]string) ([]item, int, error) {
 	dirs := map[string]bool{}
 	for _, it := range items {
 		dirs[path.Dir(it.remote)] = true
@@ -478,7 +526,7 @@ func compare(ctx context.Context, t target, items []item, _ bool) ([]item, int, 
 	for _, it := range items {
 		l := got[path.Dir(it.remote)]
 		size, ok := l.files[path.Base(it.remote)]
-		if ok && size >= 0 && (it.onlyIfMissing || size == it.size) {
+		if ok && size >= 0 && (it.onlyIfMissing || size == it.size) && (it.hash == "" || known[it.remote] == it.hash) {
 			skipped++
 			continue
 		}

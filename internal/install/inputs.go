@@ -85,6 +85,10 @@ func CheckInput(in *release.Input, path string) {
 			fail("This file type is not accepted here.")
 			return
 		}
+		if in.MaxBytes > 0 && st.Size() > in.MaxBytes {
+			fail("This file is too big for this (" + human(st.Size()) + ", at most " + human(in.MaxBytes) + "). " + capital(in.Help) + ".")
+			return
+		}
 		in.State, in.Bytes = "ok", st.Size()
 	case release.NeedFolder:
 		if !st.IsDir() {
@@ -230,7 +234,18 @@ func plausible(in *release.Input, path string) bool {
 	case release.NeedShader:
 		return name == "libshacccg.suprx"
 	case release.NeedFile:
-		return !st.IsDir() && name == strings.ToLower(filepath.Base(in.To))
+		if st.IsDir() {
+			return false
+		}
+		if len(in.Names) > 0 {
+			for _, n := range in.Names {
+				if strings.EqualFold(n, name) {
+					return true
+				}
+			}
+			return false
+		}
+		return name == strings.ToLower(filepath.Base(in.To))
 	}
 	return false
 }
