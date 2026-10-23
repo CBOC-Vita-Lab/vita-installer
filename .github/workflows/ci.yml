@@ -22,3 +22,8 @@ jobs:
           go-version: '1.20.14'
       - run: go vet ./...
       - run: go test -race ./...
+      - name: Self-update, end to end
+        run: go test -count=1 -run TestSelfUpdateE2E ./internal/selfupdate
+        env:
+          SELFUPDATE_E2E: '1'
+        shell: bash

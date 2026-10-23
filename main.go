@@ -12,12 +12,14 @@ import (
 	"flag"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/device"
+	"github.com/CBOC-Vita-Lab/vita-installer/internal/selfupdate"
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/sys"
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/web"
 )
@@ -35,6 +37,7 @@ func main() {
 	noBrowser := flag.Bool("no-browser", false, "do not open the browser")
 	version := flag.Bool("version", false, "print the version")
 	companionPort := flag.Int("companion-port", device.CompanionPort, "Vita Companion command port (for testing)")
+	token := flag.String("token", "", "page token to reuse (set by the installer itself after an update)")
 	flag.Parse()
 	device.CompanionPort = *companionPort
 	if *version {
@@ -42,7 +45,7 @@ func main() {
 		return
 	}
 	sys.Init()
-	if err := run(*addr, !*noBrowser); err != nil {
+	if err := run(*addr, *token, !*noBrowser); err != nil {
 		sys.Alert(appName, err.Error())
 		os.Exit(1)
 	}
@@ -87,16 +90,36 @@ func alreadyRunning(config string, openBrowser bool) bool {
 	return true
 }
 
-func run(addr string, openBrowser bool) error {
+func run(addr, token string, openBrowser bool) error {
 	cache, config := dirs()
 	os.MkdirAll(config, 0o755)
 	if addr == "127.0.0.1:0" && alreadyRunning(config, openBrowser) {
 		return nil
 	}
+	// A newer version downloaded last time is switched to now.
+	selfupdate.Clean(cache, Version, web.Newer)
+	if st := selfupdate.Pending(cache, Version, web.Newer); st != nil {
+		if ok, _ := selfupdate.Possible(); ok && selfupdate.Apply(st, os.Args[1:]) == nil {
+			return nil
+		}
+		selfupdate.MarkFailed(cache, st.Version) // could not switch: carry on with this version
+	}
 	static, _ := fs.Sub(uiFiles, "ui")
 	app := web.NewApp(Version, cache, config)
 	srv := web.NewServer(app, static)
-	l, err := srv.Listen(addr)
+	if len(token) == 32 {
+		srv.Token = token
+	}
+	// After an update the previous version may still be letting go of the
+	// address, so keep trying for a few seconds.
+	var l net.Listener
+	var err error
+	for i := 0; i < 50; i++ {
+		if l, err = srv.Listen(addr); err == nil || addr == "127.0.0.1:0" {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
 	if err != nil {
 		return fmt.Errorf("could not start: %v", err)
 	}

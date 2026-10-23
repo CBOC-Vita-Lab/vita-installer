@@ -1,5 +1,21 @@
 # What's New
 
+## Version 1.2 — October 23, 2026
+
+The installer now keeps itself up to date.
+
+**Easier**
+
+- New versions download in the background and are checked against the release's checksums before anything changes.
+- Click **Update now** to switch straight away, or just open the installer next time: it's already on the new version.
+- The page you have open reconnects to the new version by itself.
+- If an update can't be installed on your computer, it says why and offers the download instead.
+
+**Under the hood**
+
+- The new version must start and report the right version number before it replaces the old one.
+- Windows downloads now carry the right version number in their file details.
+
 ## Version 1.1 — October 23, 2026
 
 The everything-better update. The installer has been rebuilt from the ground up.
