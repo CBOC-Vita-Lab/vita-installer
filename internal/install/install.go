@@ -657,4 +657,3 @@ func Launch(ctx context.Context, v *device.Vita, titleID string) error {
 	}
 	return nil
 }
-
