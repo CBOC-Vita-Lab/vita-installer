@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.4
+
+- Simpler instructions on the project page.
+- Small fix to the progress display at the end of a transfer.
+
+Works on Mac (Intel and Apple Silicon, macOS 10.13 and later), Windows 7 to 11 (64-bit, 32-bit and ARM) and Linux (PC and ARM).
+
 ## 1.0.3
 
 **Smarter updates.**
