@@ -10,9 +10,13 @@ Putting a game on a PS Vita used to mean FTP apps, folder hunting and a lot of g
 
 <p align="center"><b><a href="https://github.com/CBOC-Vita-Lab/vita-installer/releases/latest">Download the latest version</a></b> · <a href="#how-to-use-it">How to use it</a> · <a href="CHANGELOG.md">What's new</a> · <a href="#help">Help</a></p>
 
-## New In Version 1.1
+## New In Version 1.2
 
-The installer has been rebuilt from the ground up: smaller, faster, and it now runs on almost any computer.
+**It keeps itself up to date.** When a new version is out, the installer downloads it in the background and checks it's genuine. Click **Update now**, or just open the installer next time and you're on the new version. Your page even reconnects by itself.
+
+## Version 1.1 Highlights
+
+The installer was rebuilt from the ground up: smaller, faster, and it runs on almost any computer.
 
 - **Runs almost everywhere.** Intel and Apple Silicon Macs back to macOS 10.13, Windows 7 to 11 (including 32-bit and ARM) and Linux. The old version only ran on Apple Silicon Macs.
 - **A fraction of the size.** About 7 MB instead of 150 MB, with nothing else to install.
@@ -30,7 +34,8 @@ The installer has been rebuilt from the ground up: smaller, faster, and it now r
 | **Computers** | Mac (Intel or Apple Silicon, macOS 10.13 and newer), Windows 7, 8, 10 and 11 (64-bit, 32-bit and ARM), Linux (PC and ARM) |
 | **Your Vita** | Any homebrew-enabled Vita (HENkaku or Ensō) with VitaShell |
 | **Wi-Fi speed** | The Vita's Wi-Fi manages about 2–4 MB/s, so a 2 GB game takes 10–20 minutes. USB is several times faster |
-| **Updates** | Usually seconds, because only changed files are sent |
+| **Game updates** | Usually seconds, because only changed files are sent |
+| **Installer updates** | Automatic: downloaded in the background, switched over with one click or the next time you open it |
 | **Super Mario Galaxy** | About 2–3 minutes to convert your disc on a recent computer, once |
 | **Your files** | Nothing is uploaded anywhere. Everything stays between your computer and your Vita |
 
@@ -43,11 +48,13 @@ The installer has been rebuilt from the ground up: smaller, faster, and it now r
 3. **Pick a game.** Click **Get** next to a CBOC game, drop in a `.vpk` or `.zip`, or paste a GitHub link.
 4. **Press Install.** Add your own game file first if it asks for one.
 
-Updating? Just open the installer with your Vita connected and press **Update**.
+Updating a game? Open the installer with your Vita connected and press **Update**. The installer keeps itself up to date too.
 
 **First launch:** on a Mac, right-click the app and choose **Open** ([more help](docs/mac-open.md)). On Windows, if a blue "Windows protected your PC" box appears, click **More info > Run anyway**.
 
 ## Help
+
+**The update banner says to download it myself.** On a Mac, move the app into your **Applications** folder first; macOS doesn't let apps update themselves while they run straight from Downloads.
 
 **It can't find my Vita.** Keep VitaShell's FTP screen open and both devices on the same Wi-Fi. You can also click the status button at the top right and type the address your Vita shows.
 
@@ -61,9 +68,9 @@ Updating? Just open the installer with your Vita connected and press **Update**.
 
 | File | What it is |
 | --- | --- |
-| `CBOC-Vita-Installer-1.1-mac.zip` | The Mac app, for Intel and Apple Silicon |
-| `CBOC-Vita-Installer-1.1-windows-x64.exe` / `-x86.exe` / `-arm64.exe` | Windows: most PCs, older or 32-bit PCs, and ARM PCs |
-| `CBOC-Vita-Installer-1.1-linux-amd64.tar.gz` / `-arm64.tar.gz` | Linux |
+| `CBOC-Vita-Installer-1.2-mac.zip` | The Mac app, for Intel and Apple Silicon |
+| `CBOC-Vita-Installer-1.2-windows-x64.exe` / `-x86.exe` / `-arm64.exe` | Windows: most PCs, older or 32-bit PCs, and ARM PCs |
+| `CBOC-Vita-Installer-1.2-linux-amd64.tar.gz` / `-arm64.tar.gz` | Linux |
 | `SHA256SUMS.txt` | Checksums, if you want to check your download |
 
 ## For Developers
@@ -71,7 +78,7 @@ Updating? Just open the installer with your Vita connected and press **Update**.
 | | |
 | --- | --- |
 | [Release format](docs/release-format.md) | How a Vita release tells the installer what it needs, including converting the player's files |
-| Build and test | `go test ./...`, then `scripts/build.sh 1.1` (Go 1.20, no other dependencies) |
+| Build and test | `go test ./...`, then `scripts/build.sh 1.2` (Go 1.20, no other dependencies) |
 
 The app is one Go program with a plain HTML page in `ui/`. The code is in `internal/`.
 

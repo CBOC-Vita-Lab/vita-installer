@@ -24,6 +24,7 @@
   }
 
   var localNotice = null;
+  var updating = false;
   function showNotice(text, bad) { localNotice = { text: text, bad: bad }; render(); }
 
   function esc(s) {
@@ -48,7 +49,12 @@
   // ---- live state ----
   function connect() {
     var es = new EventSource(base + 'api/events');
-    es.onmessage = function (e) { S = JSON.parse(e.data); render(); };
+    es.onmessage = function (e) {
+      var before = S && S.version;
+      S = JSON.parse(e.data);
+      if (before && S.version !== before) { updating = false; localNotice = { text: 'Updated to version ' + S.version + '.', bad: false }; }
+      render();
+    };
     es.onerror = function () {
       es.close();
       setTimeout(connect, 1500);
@@ -88,10 +94,22 @@
 
   function banners() {
     var u = $('update');
-    if (S.update) {
+    var up = S.update;
+    if (up) {
       u.hidden = false;
       u.className = 'banner good';
-      u.innerHTML = '<span>Version ' + esc(S.update.version) + ' of the installer is available.</span><button class="btn small" data-open="' + esc(S.update.url) + '">Download</button>';
+      var v = 'Version ' + esc(up.version);
+      if (updating) {
+        u.innerHTML = '<span>Updating to ' + v + '… this page reconnects by itself.</span>';
+      } else if (up.ready) {
+        u.innerHTML = '<span>' + v + ' is ready. It also installs itself the next time you open the installer.</span>' +
+          '<button class="btn small primary" data-selfupdate>Update now</button>';
+      } else if (up.downloading) {
+        u.innerHTML = '<span>Getting ' + v + ' of the installer…' + (up.percent ? ' ' + up.percent + '%' : '') + '</span>';
+      } else {
+        u.innerHTML = '<span>' + v + ' of the installer is available' + (up.manual ? ' (' + esc(up.manual) + ')' : '') + '.</span>' +
+          '<button class="btn small" data-open="' + esc(up.url) + '">Download</button>';
+      }
     } else u.hidden = true;
     var n = $('notice');
     var note = localNotice || (S.notice ? { text: S.notice, bad: S.noticeBad } : null);
@@ -319,6 +337,10 @@
     else if (d.allowItem) api('input', { item: d.allowItem, input: d.allowInput, path: 'yes' });
     else if (d.get) { api('url', { url: 'https://github.com/' + d.get }); }
     else if (d.open) api('open', { url: d.open });
+    else if (d.selfupdate !== undefined) {
+      updating = true; render();
+      api('selfupdate').then(function (j) { if (!j || !j.ok) { updating = false; render(); } });
+    }
     else if (d.dismiss !== undefined) { localNotice = null; api('dismiss'); render(); }
     else if (d.host) { api('connect', { host: d.host }); }
     else if (d.drive) { api('connect', { drive: d.drive }); }

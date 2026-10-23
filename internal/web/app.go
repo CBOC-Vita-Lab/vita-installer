@@ -16,6 +16,7 @@ import (
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/device"
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/install"
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/release"
+	"github.com/CBOC-Vita-Lab/vita-installer/internal/selfupdate"
 )
 
 // Item is a release in the install list.
@@ -80,6 +81,7 @@ type App struct {
 	scanMu    sync.Mutex
 	lastHost  string
 	tags      map[string]latestTag
+	staged    *selfupdate.Staged
 }
 
 // NewApp prepares state, loading saved settings.

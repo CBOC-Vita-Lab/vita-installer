@@ -48,7 +48,9 @@ fi
 echo "== Windows (7 and later)"
 WINRES="go-winres"
 command -v go-winres >/dev/null || WINRES="go run github.com/tc-hib/go-winres@v0.3.3"
-WINVER="${VERSION%%-*}.0"
+WINVER="${VERSION%%-*}"
+[[ "$WINVER" =~ ^[0-9]+\.[0-9]+$ ]] && WINVER="$WINVER.0"
+WINVER="$WINVER.0"
 [[ "$WINVER" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.0$ ]] || WINVER="0.0.0.0"
 $WINRES make --in packaging/winres.json --out rsrc --arch amd64,386,arm64 \
   --product-version "$WINVER" --file-version "$WINVER"

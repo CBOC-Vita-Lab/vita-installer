@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -17,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/CBOC-Vita-Lab/vita-installer/internal/selfupdate"
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/sys"
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/vita"
 )
@@ -30,6 +32,7 @@ type Server struct {
 	Static  fs.FS
 	Addr    string
 	Quit    chan struct{}
+	quit    sync.Once
 	clients int
 	idle    time.Time
 	mu      sync.Mutex
@@ -58,6 +61,11 @@ func (s *Server) URL() string { return "http://" + s.Addr + "/" + s.Token + "/" 
 // Serve handles requests until the listener closes.
 func (s *Server) Serve(l net.Listener) error {
 	return (&http.Server{Handler: s, ReadHeaderTimeout: 10 * time.Second}).Serve(l)
+}
+
+func (s *Server) stop() {
+	time.Sleep(200 * time.Millisecond)
+	s.quit.Do(func() { close(s.Quit) })
 }
 
 // IdleFor reports how long no page has been open (0 while one is).
@@ -239,7 +247,33 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request, name string) {
 		reply(w, nil)
 	case "quit":
 		reply(w, nil)
-		go func() { time.Sleep(200 * time.Millisecond); close(s.Quit) }()
+		go s.stop()
+	case "selfupdate":
+		st := a.Staged()
+		switch {
+		case st == nil:
+			reply(w, errors.New("the update is still downloading"))
+		case a.Busy():
+			reply(w, errors.New("wait until the installation finishes, then update"))
+		default:
+			// The new version takes over this page's address, so the open
+			// page reconnects to it by itself.
+			if err := selfupdate.Apply(st, []string{"-addr", s.Addr, "-token", s.Token, "-no-browser"}); err != nil {
+				selfupdate.MarkFailed(a.cache, st.Version)
+				a.mu.Lock()
+				a.staged = nil
+				a.mu.Unlock()
+				a.update(func(x *State) {
+					if x.Update != nil {
+						x.Update.Ready, x.Update.Manual = false, "it could not replace itself on this computer"
+					}
+				})
+				reply(w, fmt.Errorf("the update could not be installed (%v). Download it instead", err))
+				return
+			}
+			reply(w, nil)
+			go s.stop()
+		}
 	default:
 		http.Error(w, "not found", 404)
 	}

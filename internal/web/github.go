@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/install"
+	"github.com/CBOC-Vita-Lab/vita-installer/internal/selfupdate"
 )
 
 // Repo is the installer's own GitHub repository.
@@ -45,8 +46,12 @@ func builtinCatalog() []CatalogEntry {
 
 // Update describes a newer installer.
 type Update struct {
-	Version string `json:"version"`
-	URL     string `json:"url"`
+	Version     string `json:"version"`
+	URL         string `json:"url"`
+	Ready       bool   `json:"ready"`            // downloaded and checked: one click to switch
+	Downloading bool   `json:"downloading"`      // being downloaded in the background
+	Percent     int    `json:"percent"`          // of the download
+	Manual      string `json:"manual,omitempty"` // why it can't update itself (download it instead)
 }
 
 var httpClient = &http.Client{Timeout: 30 * time.Second}
@@ -76,15 +81,83 @@ func (a *App) CheckOnline(ctx context.Context) {
 		a.update(func(s *State) { s.Catalog = cat })
 	}
 	var rel struct {
-		Tag  string `json:"tag_name"`
-		HTML string `json:"html_url"`
+		Tag    string `json:"tag_name"`
+		HTML   string `json:"html_url"`
+		Assets []struct {
+			Name string `json:"name"`
+			URL  string `json:"browser_download_url"`
+		} `json:"assets"`
 	}
-	if err := getJSON(ctx, "https://api.github.com/repos/"+Repo+"/releases/latest", &rel); err == nil {
-		if newer(rel.Tag, a.st.Version) {
-			a.update(func(s *State) { s.Update = &Update{Version: strings.TrimPrefix(rel.Tag, "v"), URL: rel.HTML} })
+	feed := "https://api.github.com/repos/" + Repo + "/releases/latest"
+	if f := os.Getenv("CBOC_UPDATE_FEED"); f != "" { // for testing updates
+		feed = f
+	}
+	if err := getJSON(ctx, feed, &rel); err != nil || !newer(rel.Tag, a.st.Version) {
+		return
+	}
+	version := strings.TrimPrefix(rel.Tag, "v")
+	u := &Update{Version: version, URL: rel.HTML}
+	asset, assetURL, sumsURL := "", "", ""
+	for _, as := range rel.Assets {
+		switch {
+		case strings.HasSuffix(as.Name, selfupdate.AssetSuffix()) && selfupdate.AssetSuffix() != "":
+			asset, assetURL = as.Name, as.URL
+		case as.Name == "SHA256SUMS.txt":
+			sumsURL = as.URL
 		}
 	}
+	ok, why := selfupdate.Possible()
+	switch {
+	case !ok:
+		u.Manual = why
+	case selfupdate.Failed(a.cache, version):
+		u.Manual = "it could not replace itself on this computer"
+	case assetURL == "" || sumsURL == "":
+		u.Manual = "this release has no download for this computer"
+	default:
+		u.Downloading = true
+	}
+	a.update(func(s *State) { s.Update = u })
+	if !u.Downloading {
+		return
+	}
+	// Download in the background; it is applied with one click, or by
+	// itself the next time the installer opens.
+	last := time.Time{}
+	st, err := selfupdate.Stage(ctx, a.cache, version, asset, assetURL, sumsURL, func(done, total int64) {
+		if total <= 0 || time.Since(last) < 500*time.Millisecond {
+			return
+		}
+		last = time.Now()
+		pct := int(done * 100 / total)
+		a.update(func(s *State) {
+			if s.Update != nil {
+				s.Update.Percent = pct
+			}
+		})
+	})
+	a.mu.Lock()
+	a.staged = st
+	a.mu.Unlock()
+	a.update(func(s *State) {
+		s.Update.Downloading = false
+		if err != nil {
+			s.Update.Manual = "the automatic update did not work (" + err.Error() + ")"
+		} else {
+			s.Update.Ready = true
+		}
+	})
 }
+
+// Staged returns a downloaded update ready to apply, if any.
+func (a *App) Staged() *selfupdate.Staged {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.staged
+}
+
+// Newer reports whether version tag a is newer than b.
+func Newer(a, b string) bool { return newer(a, b) }
 
 func newer(tag, current string) bool {
 	parse := func(s string) []int {
