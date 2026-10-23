@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/device"
@@ -223,5 +224,23 @@ func mustFile(t *testing.T, root, rel string) {
 	t.Helper()
 	if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(rel))); err != nil {
 		t.Fatalf("missing %s", rel)
+	}
+}
+
+func TestVitaThatAcceptsOneConnection(t *testing.T) {
+	rel, dir := makeRelease(t, false)
+	r := load(t, rel)
+	for _, in := range r.Inputs {
+		in.State = "skip"
+	}
+	v, err := fakevita.Start(filepath.Join(dir, "vita"), true, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer v.Close()
+	atomic.StoreInt32(&v.Limit, 1)
+	res, err := Run(context.Background(), r, Options{Vita: &device.Vita{Host: "127.0.0.1", Port: v.Port()}, Cache: t.TempDir(), Connections: 4})
+	if err != nil || !res.Installed {
+		t.Fatalf("%v %+v", err, res)
 	}
 }

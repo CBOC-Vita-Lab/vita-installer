@@ -33,15 +33,17 @@ type ftpTarget struct {
 	addr  string
 	mu    sync.Mutex
 	conns []*ftp.Conn
+	used  []bool // the worker has had a working connection
 }
 
 func newFTPTarget(ctx context.Context, addr string, n int) (*ftpTarget, error) {
-	t := &ftpTarget{addr: addr, conns: make([]*ftp.Conn, n)}
+	t := &ftpTarget{addr: addr, conns: make([]*ftp.Conn, n), used: make([]bool, n)}
 	c, err := ftp.Dial(ctx, addr, 15*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("cannot connect to the Vita at %s: %v", addr, err)
 	}
 	t.conns[0] = c
+	t.used[0] = true
 	return t, nil
 }
 
@@ -61,6 +63,7 @@ func (t *ftpTarget) conn(ctx context.Context, i int) (*ftp.Conn, error) {
 	}
 	t.mu.Lock()
 	t.conns[i] = c
+	t.used[i] = true
 	t.mu.Unlock()
 	return c, nil
 }
@@ -83,6 +86,12 @@ func (t *ftpTarget) retry(ctx context.Context, i int, fn func(*ftp.Conn) error) 
 		}
 		var c *ftp.Conn
 		c, err = t.conn(ctx, i)
+		t.mu.Lock()
+		extra := i > 0 && !t.used[i]
+		t.mu.Unlock()
+		if err != nil && extra {
+			return err // an extra connection the Vita refuses; the caller carries on without it
+		}
 		if err == nil {
 			err = fn(c)
 			var fe *ftp.Error

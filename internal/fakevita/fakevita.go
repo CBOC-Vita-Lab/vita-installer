@@ -34,6 +34,8 @@ type Vita struct {
 	// Speed limits each upload to this many bytes per second (0 = unlimited),
 	// roughly like a Vita on Wi-Fi.
 	Speed int64
+	// Limit refuses connections beyond this many at once (0 = no limit).
+	Limit int32
 	// FailStoreAfter makes the n-th STOR drop the connection mid-file (once).
 	FailStoreAfter int32
 }
@@ -120,6 +122,10 @@ func (v *Vita) session(c net.Conn) {
 	defer c.Close()
 	r := bufio.NewReader(c)
 	say := func(f string, a ...interface{}) { fmt.Fprintf(c, f+"\r\n", a...) }
+	if l := atomic.LoadInt32(&v.Limit); l > 0 && n > l {
+		say("421 Too many connections.")
+		return
+	}
 	say("220 FTPVita Server ready.")
 	cwd := "/"
 	var pasv net.Listener

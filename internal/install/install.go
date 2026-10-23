@@ -410,6 +410,7 @@ func compare(ctx context.Context, t target, items []item, _ bool) ([]item, int, 
 	got := make(map[string]listing, len(list))
 	var mu sync.Mutex
 	var firstErr error
+	var retry []string
 	jobs := make(chan string)
 	var wg sync.WaitGroup
 	for w := 0; w < t.workers(); w++ {
@@ -420,10 +421,11 @@ func compare(ctx context.Context, t target, items []item, _ bool) ([]item, int, 
 			for d := range jobs {
 				files, ok, err := t.sizes(ctx, w, d)
 				mu.Lock()
-				if err != nil && firstErr == nil {
-					firstErr = err
+				if err != nil {
+					retry = append(retry, d) // listed again below on the first connection
+				} else {
+					got[d] = listing{files, ok}
 				}
-				got[d] = listing{files, ok}
 				mu.Unlock()
 			}
 		}()
@@ -433,6 +435,14 @@ func compare(ctx context.Context, t target, items []item, _ bool) ([]item, int, 
 	}
 	close(jobs)
 	wg.Wait()
+	for _, d := range retry {
+		files, ok, err := t.sizes(ctx, 0, d)
+		if err != nil {
+			firstErr = err
+			break
+		}
+		got[d] = listing{files, ok}
+	}
 	if firstErr != nil {
 		return nil, 0, fmt.Errorf("lost contact with the Vita: %v", firstErr)
 	}
@@ -509,24 +519,51 @@ func send(ctx context.Context, t target, items []item, report func(Progress)) er
 	current.Store("")
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	jobs := make(chan item)
+	queue := append([]item(nil), items...)
+	var qmu sync.Mutex
+	next := func() (item, bool) {
+		qmu.Lock()
+		defer qmu.Unlock()
+		if len(queue) == 0 || ctx.Err() != nil {
+			return item{}, false
+		}
+		it := queue[0]
+		queue = queue[1:]
+		return it, true
+	}
 	errc := make(chan error, t.workers())
+	alive := int32(t.workers())
 	var wg sync.WaitGroup
 	for w := 0; w < t.workers(); w++ {
 		w := w
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for it := range jobs {
+			sent := 0
+			for {
+				it, ok := next()
+				if !ok {
+					return
+				}
 				current.Store(path.Base(it.remote))
 				err := t.put(ctx, w, it.local, it.remote, func(n int64) { atomic.AddInt64(&done, n) })
 				if err != nil {
-					if ctx.Err() == nil {
-						errc <- fmt.Errorf("could not send %s: %v", path.Base(it.remote), err)
+					if ctx.Err() != nil {
+						return
 					}
+					// An extra connection the Vita won't accept: hand the file
+					// back and let the other connections carry on.
+					if w > 0 && sent == 0 && atomic.AddInt32(&alive, -1) > 0 {
+						qmu.Lock()
+						queue = append([]item{it}, queue...)
+						qmu.Unlock()
+						return
+					}
+					errc <- fmt.Errorf("could not send %s: %v", path.Base(it.remote), err)
 					cancel()
 					return
 				}
+				sent++
 				atomic.AddInt32(&files, 1)
 			}
 		}()
@@ -562,15 +599,6 @@ func send(ctx context.Context, t target, items []item, report func(Progress)) er
 			}
 		}
 	}()
-feed:
-	for _, it := range items {
-		select {
-		case jobs <- it:
-		case <-ctx.Done():
-			break feed
-		}
-	}
-	close(jobs)
 	wg.Wait()
 	close(stop)
 	select {
