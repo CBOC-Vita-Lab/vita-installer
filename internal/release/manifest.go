@@ -42,7 +42,38 @@ type Need struct {
 	Revision *int              `json:"revision,omitempty"` // disc revision, if one is required
 	Verify   map[string]string `json:"verify,omitempty"`   // relative file -> SHA-256 inside an extracted disc
 	Optional bool              `json:"optional,omitempty"`
-	Ext      []string          `json:"ext,omitempty"` // accepted file extensions for file/files
+	Ext      []string          `json:"ext,omitempty"`     // accepted file extensions for file/files
+	Prepare  []Step            `json:"prepare,omitempty"` // conversion before copying (disc and folder needs)
+}
+
+// Step is one preparation step run on the player's files before they are
+// copied. Paths in a step are relative to the prepared folder, except
+// catalog and program paths, which are relative to the release.
+type Step struct {
+	Step    string            `json:"step"`              // galaxy, yaz0, thp-le, thp, buckets, verify, tool
+	Path    string            `json:"path,omitempty"`    // folder the step works on (default: everything)
+	Quality int               `json:"quality,omitempty"` // thp: JPEG quality (default 55)
+	Min     int               `json:"min,omitempty"`     // buckets: folders with more files than this are split (default 64)
+	Per     int               `json:"per,omitempty"`     // buckets: files per bucket folder (default 32)
+	Catalog string            `json:"catalog,omitempty"` // verify: file list in the release
+	Skip    []string          `json:"skip,omitempty"`    // verify: path prefixes not checked
+	Program map[string]string `json:"program,omitempty"` // tool: "darwin-arm64"/"windows-amd64"/... -> program in the release
+	SHA256  map[string]string `json:"sha256,omitempty"`  // tool: the same keys -> the program's SHA-256
+	Args    []string          `json:"args,omitempty"`    // tool: arguments; {in} and {out} are replaced
+	Label   string            `json:"label,omitempty"`   // shown while the step runs
+}
+
+// Steps the installer knows.
+var knownSteps = map[string]bool{"galaxy": true, "galaxy-cook": true, "yaz0": true, "thp-le": true, "thp": true, "buckets": true, "verify": true, "tool": true}
+
+// RunsTool reports whether the need runs a program shipped in the release.
+func (n *Need) RunsTool() bool {
+	for _, s := range n.Prepare {
+		if s.Step == "tool" {
+			return true
+		}
+	}
+	return false
 }
 
 // Need types.
@@ -54,6 +85,7 @@ const (
 	NeedFolder  = "folder"
 	NeedFiles   = "files"
 	NeedShader  = "shader-compiler"
+	NeedConsent = "consent" // added by the installer when a release runs its own converter
 )
 
 // ShaderPath is where vitaGL ports look for the shader compiler.
@@ -77,6 +109,27 @@ func readManifest(file string) (*Manifest, error) {
 func (m *Manifest) check() error {
 	for i := range m.Needs {
 		n := &m.Needs[i]
+		for _, st := range n.Prepare {
+			if !knownSteps[st.Step] {
+				return fmt.Errorf("preparation step %q is unknown; a newer installer may be required", st.Step)
+			}
+			if strings.Contains(st.Path, "..") || strings.Contains(st.Catalog, "..") {
+				return fmt.Errorf("preparation step %q has an unsafe path", st.Step)
+			}
+			if st.Step == "verify" && st.Catalog == "" {
+				return fmt.Errorf("a verify step needs a catalog")
+			}
+			if st.Step == "tool" {
+				if len(st.Program) == 0 {
+					return fmt.Errorf("a tool step needs a program")
+				}
+				for k, prog := range st.Program {
+					if strings.Contains(prog, "..") || len(st.SHA256[k]) != 64 {
+						return fmt.Errorf("tool program for %s needs a safe path and a SHA-256", k)
+					}
+				}
+			}
+		}
 		if n.ID == "" {
 			n.ID = fmt.Sprintf("need%d", i+1)
 		}
@@ -163,8 +216,9 @@ func fromCBOC(b []byte) (*Manifest, error) {
 			n.Label = "Your Mario Strikers Charged disc (Wii, USA, Rev 1)"
 			n.Verify = map[string]string{"sys/main.dol": "8f811628ee6646c60620a9c599ef08ed929d2eccc98a779c211847f1500f81fd"}
 		case "galaxy-disc":
-			m.Held = "Super Mario Galaxy needs a newer installer for its game-data conversion."
 			n.Type, n.To, n.GameID, n.Revision = NeedWiiDisc, data, "RMGE01", &rev0
+			n.Label = "Your Super Mario Galaxy disc (Wii, USA)"
+			n.Prepare = []Step{{Step: "galaxy"}}
 		case "infected-disc":
 			n.Type, n.To, n.GameID = NeedPSPISO, strings.TrimSuffix(data, "/")+"/Infected.iso", "ULUS-10054"
 			n.Label = "Your Infected UMD backup (PSP, USA, ISO)"

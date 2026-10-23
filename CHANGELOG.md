@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.1
+
+**Converts your game files for ports that need it, starting with Super Mario Galaxy.**
+
+- Super Mario Galaxy (USA): choose your disc or extracted folder and the installer does the whole conversion on your computer in a few minutes: every archive, model, collision, layout and sound made ready for the Vita, every file checked against the expected result, and the movies re-encoded about half the size so they copy and play faster. Nothing to run by hand.
+- Any port can now ask for its files to be converted: decompress Yaz0, convert or shrink THP movies, arrange big folders, check files against a list, or run its own converter (checked against a fixed hash, and only after you allow it). See [the format](https://github.com/CBOC-Vita-Lab/vita-installer/blob/main/docs/release-format.md#converting-the-players-files-prepare).
+- Converted games are kept for a while, so installing again starts sending straight away, and a game already converted on your Vita isn't sent again when you update the app.
+- Shows files and frames while converting, with time left.
+
+Downloads are the same as 1.0.0, with 1.0.1 in the name.
+
+
 ## 1.0.0
 
 **One small download that installs any PS Vita game from your computer.** A full rewrite of the installer.

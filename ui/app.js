@@ -149,13 +149,16 @@
         var mark = state === 'ok' ? '✓' : state === 'error' ? '!' : '';
         var sub = n.message || (n.path ? n.path.split(/[\\/]/).pop() : (n.help || typeHelp[n.type] || (n.optional ? 'Optional' : '')));
         if (n.optional && !n.path && n.state !== 'skip' && n.type !== 'shader-compiler') sub = 'Optional · ' + sub;
+        if (n.prepare && n.prepare.length && n.state === 'ok') sub += ' It will be converted for the Vita on this computer first.';
         var folderOk = n.type === 'wii-disc' || n.type === 'gc-disc' || n.type === 'folder' || n.type === 'files';
         h += '<div class="need ' + state + '" data-drop-item="' + esc(it.id) + '" data-drop-input="' + esc(n.id) + '"><div class="st">' + mark + '</div>' +
           '<div class="nt"><div>' + esc(n.label) + '</div><span title="' + esc(n.path || '') + '">' + esc(sub) + '</span></div>';
         if (!busy && n.state === 'skip' && n.type !== 'shader-compiler') {
           h += '<button class="btn small ghost" data-pick-item="' + esc(it.id) + '" data-pick-input="' + esc(n.id) + '" data-kind="' + (folderOk ? 'folder' : 'file') + '">Replace</button>';
         }
-        if (!busy && n.state !== 'skip') {
+        if (n.type === 'consent') {
+          if (!busy && n.state !== 'ok') h += '<button class="btn small primary" data-allow-item="' + esc(it.id) + '" data-allow-input="' + esc(n.id) + '">Allow</button>';
+        } else if (!busy && n.state !== 'skip') {
           if (n.type !== 'folder') h += '<button class="btn small" data-pick-item="' + esc(it.id) + '" data-pick-input="' + esc(n.id) + '" data-kind="file">' + (n.path ? 'Change' : 'Choose') + '</button>';
           if (folderOk) h += '<button class="btn small ghost" data-pick-item="' + esc(it.id) + '" data-pick-input="' + esc(n.id) + '" data-kind="folder">Folder</button>';
         }
@@ -231,10 +234,11 @@
       $('jobPct').textContent = pct + '%';
     }
     $('jobPhase').textContent = p.text || '';
-    $('jobSpeed').textContent = p.speed > 0 ? size(p.speed) + '/s' : '';
+    $('jobSpeed').textContent = p.speed > 0 && !p.unit ? size(p.speed) + '/s' : '';
     $('jobEta').textContent = p.eta > 0 ? dur(p.eta) + ' left' : '';
     var f = '';
     if (p.phase === 'send') f = p.files + ' of ' + p.filesTotal + ' files · ' + size(p.done) + ' of ' + size(p.total) + (p.current ? ' · ' + p.current : '');
+    else if (p.unit && p.total > 0) f = p.done + ' of ' + p.total + ' ' + p.unit;
     else if (p.done > 0) f = size(p.done) + (p.total > 0 ? ' of ' + size(p.total) : '');
     $('jobFile').textContent = f;
   }
@@ -289,6 +293,7 @@
     if (d.remove) api('remove', { item: d.remove });
     else if (d.pickItem) api('pick', { item: d.pickItem, input: d.pickInput, kind: d.kind });
     else if (d.launch) api('launch', { item: d.launch });
+    else if (d.allowItem) api('input', { item: d.allowItem, input: d.allowInput, path: 'yes' });
     else if (d.get) { api('url', { url: 'https://github.com/' + d.get }); }
     else if (d.open) api('open', { url: d.open });
     else if (d.dismiss !== undefined) { localNotice = null; api('dismiss'); render(); }

@@ -63,4 +63,62 @@ Every field is optional.
 
 Add `"optional": true` to a need that may be skipped, and `"help"` for one line of advice.
 
+### Converting the player's files (`prepare`)
+
+Many ports read the game's data in a different form from the disc: decompressed, little-endian, smaller movies. Add `prepare` to a `wii-disc`, `gc-disc`, `files` or `folder` need, and the installer converts the player's files on their computer before copying them, so nobody has to run a script. The player's own files are never changed; the result is kept in the installer's cache, so a second install (or a retry) starts sending straight away. After a successful install the Vita gets a small `.cboc-prepared` marker, so later updates of the app don't redo or resend the game data.
+
+```json
+{
+  "id": "game",
+  "type": "wii-disc",
+  "gameId": "RMGE01",
+  "revision": 0,
+  "to": "ux0:data/mygame/game",
+  "prepare": [
+    { "step": "yaz0", "path": "files/ObjectData" },
+    { "step": "thp-le", "path": "files/MovieData" },
+    { "step": "thp", "path": "files/MovieData", "quality": 55 },
+    { "step": "verify", "catalog": "game-files.json.gz", "skip": ["files/MovieData/"] }
+  ]
+}
+```
+
+Steps run in order; `path` limits a step to a folder (default: everything).
+
+| `step` | What it does |
+| --- | --- |
+| `galaxy` | The full Super Mario Galaxy (USA) conversion: every archive, model, collision, layout, sound and movie made little-endian, checked file by file against the expected result, movies re-encoded smaller. About 2–3 minutes |
+| `yaz0` | Decompresses Yaz0 files in place |
+| `thp-le` | Makes THP movies little-endian (headers swapped, picture and sound data untouched) |
+| `thp` | Re-encodes THP movies at JPEG `quality` (default 55): usually about half the size, faster to copy and to read on the Vita |
+| `buckets` | Splits folders with more than `min` files (default 64) into subfolders of `per` files (default 32), named by the FNV-1a hash of the file name, for ports that look files up that way |
+| `verify` | Checks every file against `catalog` (a JSON list, may be gzipped, below); `skip` lists path prefixes not checked |
+| `tool` | Runs a converter shipped in the release (below) |
+
+A `verify` catalog is `{"files": [{"path": "sys/main.dol", "bytes": 123, "sha256": "…"}]}` or the compact `{"files": [["sys/main.dol", 123, "…"]]}`. `"sha256s": [...]` allows several versions of a file.
+
+#### Your own converter (`tool`)
+
+For anything the built-in steps don't cover, ship a converter for each computer and the installer runs it:
+
+```json
+{
+  "step": "tool",
+  "label": "Converting the game",
+  "program": {
+    "windows-amd64": "tools/convert.exe",
+    "darwin-universal": "tools/convert-mac",
+    "linux-amd64": "tools/convert-linux"
+  },
+  "sha256": {
+    "windows-amd64": "…",
+    "darwin-universal": "…",
+    "linux-amd64": "…"
+  },
+  "args": ["{in}", "{out}"]
+}
+```
+
+Keys are `<os>-<arch>` as Go names them (`windows-386`, `windows-arm64`, `darwin-arm64`, `darwin-amd64`, `linux-arm64`…); `darwin-universal` covers both Macs. `{in}` is the player's (or the previous step's) folder, which the tool must only read; `{out}` is an empty folder it fills, which the next steps and the Vita get. The program is refused if its SHA-256 doesn't match, and the player is asked to **Allow** it before anything runs. A non-zero exit stops the install and shows the last lines the tool wrote to stderr.
+
 Older CBOC releases ship `cboc-release.json` instead; the installer reads that too.

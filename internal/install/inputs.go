@@ -15,6 +15,12 @@ func CheckInput(in *release.Input, path string) {
 	if path == "" {
 		return
 	}
+	if in.Type == release.NeedConsent {
+		if path == "yes" {
+			in.State, in.Message = "ok", "Allowed."
+		}
+		return
+	}
 	st, err := os.Stat(path)
 	if err != nil {
 		in.State, in.Message = "error", "This file cannot be opened."

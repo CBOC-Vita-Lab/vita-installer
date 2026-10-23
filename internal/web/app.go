@@ -95,10 +95,10 @@ func NewApp(version, cache, config string) *App {
 	return a
 }
 
-// cleanOld removes copies of dragged files, downloads, unpacked releases and
+// cleanOld removes copies of dragged files, downloads, unpacked releases, prepared games and
 // interrupted work left from earlier sessions, so the cache does not grow.
 func cleanOld(cache string, age time.Duration) {
-	for _, sub := range []string{"uploads", "downloads", "releases", filepath.Join("work", "apps"), filepath.Join("work", "discs")} {
+	for _, sub := range []string{"uploads", "downloads", "releases", "prepared", "tools", filepath.Join("work", "apps"), filepath.Join("work", "discs")} {
 		entries, _ := os.ReadDir(filepath.Join(cache, sub))
 		for _, e := range entries {
 			info, err := e.Info()

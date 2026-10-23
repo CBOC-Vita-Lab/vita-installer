@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"io"
 	"os"
 	"strings"
@@ -84,7 +85,14 @@ func inPlace(fs vitaFiles, in *release.Input, drive bool) bool {
 		return fs.exists(release.ShaderPath)
 	case release.NeedPSPISO, release.NeedFile:
 		return fs.exists(to)
-	case release.NeedWiiDisc, release.NeedGCDisc:
+	case release.NeedWiiDisc, release.NeedGCDisc, release.NeedFolder:
+		if len(in.Prepare) > 0 {
+			b, err := fs.read(to+"/"+markerName, 256)
+			return err == nil && string(b) == PreparedTag(in)
+		}
+		if in.Type == release.NeedFolder {
+			return false
+		}
 		boot, err := fs.read(to+"/sys/boot.bin", 64)
 		if err != nil || len(boot) < 6 || !fs.exists(to+"/files") {
 			return false
@@ -105,4 +113,14 @@ func inPlace(fs vitaFiles, in *release.Input, drive bool) bool {
 		return true
 	}
 	return false
+}
+
+// markerName is written next to prepared game data once it is all on the Vita.
+const markerName = ".cboc-prepared"
+
+// PreparedTag identifies a need's prepared data (game and recipe).
+func PreparedTag(in *release.Input) string {
+	spec, _ := json.Marshal(in.Prepare)
+	h := sha256.Sum256(append([]byte(in.GameID+"|"), spec...))
+	return hex.EncodeToString(h[:16])
 }

@@ -333,8 +333,15 @@ func fromManifest(m *Manifest, dir, vpk, source string) (*Release, error) {
 			r.Copies = append(r.Copies, expand(filepath.Join(dir, filepath.FromSlash(c.From)), c.To)...)
 		}
 	}
+	tool := false
 	for _, n := range m.Needs {
 		r.Inputs = append(r.Inputs, &Input{Need: n})
+		tool = tool || n.RunsTool()
+	}
+	if tool {
+		r.Inputs = append(r.Inputs, &Input{Need: Need{ID: "allow-tool", Type: NeedConsent,
+			Label: "Allow this release's converter to run on this computer",
+			Help:  "It prepares your game files for the Vita. Only allow releases you trust."}, Auto: true})
 	}
 	r.finish()
 	r.addShaderNeed()

@@ -21,6 +21,7 @@ Drop in a game (a `.vpk`, a release `.zip`, a folder, or a GitHub link), and the
 - **Works with any Vita app or game.** Any VPK works. Release ZIPs that ship `data/` or `ux0/` folders get those copied too. CBOC releases also get their extra steps done automatically.
 - **Finds your Vita for you.** It looks for it on your Wi-Fi, and spots a Vita memory card or VitaShell USB connection plugged into the computer.
 - **Fast.** It sends several files at once and skips anything your Vita already has, so updates and retries only send what changed. Wi-Fi installs need no button presses on the Vita.
+- **Converts your game files for the port.** When a port needs your disc's data in a different form (Super Mario Galaxy, for example), it converts it on your computer, checks every file and shrinks the movies, then copies the result. No scripts to run.
 - **Safe for your saves.** It never deletes your files on the Vita, and it never touches the save and settings folders a release marks as protected.
 - **Small and runs on old computers.** About 6 MB, nothing else to install. Works on macOS 10.13 and later, Windows 7 and later, and Linux.
 
@@ -68,6 +69,8 @@ Wi-Fi on the Vita is slow, around 2–4 MB/s. For games of a gigabyte or more, U
 
 **I already extracted my game, or it's already on the Vita.** Choose (or drag in) the extracted folder; the installer finds the `sys/` and `files/` folders inside it (even in a `DATA` subfolder), checks it's the right game and copies them to the exact place the port expects. If the game files are already on your Vita, it notices, marks them "Already on your Vita" and doesn't ask for them at all, so updating only sends the app.
 
+**It says it's converting my game. How long does that take?** A few minutes for a big game such as Super Mario Galaxy, once. It needs some free space on your computer (about the size of the game) and never changes your own files. If you install again, it reuses the converted copy, and if the converted game is already on your Vita, it isn't sent again.
+
 **The transfer stopped halfway.** Keep the Vita awake and press **Install** again. Files that finished are not sent again.
 
 ## For developers
@@ -86,6 +89,7 @@ The app is a single Go program (Go 1.20 so it still targets Windows 7 and macOS 
 | `internal/vita` | Reads VPKs and `param.sfo` |
 | `internal/release` | Turns a VPK, ZIP or folder into installable releases; `vita-install.json` |
 | `internal/prep` | Checks and unpacks game discs (Wii/GameCube, PSP) |
+| `internal/galaxy`, `internal/catalog` | Converts game data for ports (Super Mario Galaxy, Yaz0, THP movies) and checks files against expected hashes |
 | `internal/ftp`, `internal/device` | Talks to the Vita; finds it on the network or as a drive |
 | `internal/install` | Plans, sends and installs, with resume and parallel transfers |
 | `internal/web`, `ui/` | The local page and its state |

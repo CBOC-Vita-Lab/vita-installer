@@ -37,6 +37,7 @@ type Progress struct {
 	Speed      float64 `json:"speed"` // bytes per second
 	ETA        int     `json:"eta"`   // seconds, -1 if unknown
 	Current    string  `json:"current,omitempty"`
+	Unit       string  `json:"unit,omitempty"` // for prepare: "", "files" or "frames"
 }
 
 // Options say where to install.
@@ -115,7 +116,7 @@ func Run(ctx context.Context, r *release.Release, opt Options) (*Result, error) 
 	var items []item
 	var cleanup []string
 	for _, in := range r.Inputs {
-		got, tmp, err := prepareInput(ctx, in, opt, t, report)
+		got, tmp, err := prepareInput(ctx, in, r.Root, opt, t, report)
 		if err != nil {
 			return nil, err
 		}
@@ -187,6 +188,18 @@ func Run(ctx context.Context, r *release.Release, opt Options) (*Result, error) 
 	for _, it := range todo {
 		res.Copied++
 		res.Bytes += it.size
+	}
+	// Mark prepared game data as complete, so later installs know it is there.
+	for _, in := range r.Inputs {
+		if len(in.Prepare) == 0 || in.Path == "" || in.State == "skip" {
+			continue
+		}
+		mark := filepath.Join(opt.Cache, "marker-"+in.ID)
+		os.WriteFile(mark, []byte(PreparedTag(in)), 0o644)
+		if err := t.put(ctx, 0, mark, strings.TrimSuffix(in.To, "/")+"/"+markerName, func(int64) {}); err != nil {
+			return nil, fmt.Errorf("could not finish: %v", err)
+		}
+		os.Remove(mark)
 	}
 
 	// 6. Install.
@@ -288,8 +301,8 @@ func unpackVPK(ctx context.Context, vpk, dir string, report func(Progress)) erro
 }
 
 // prepareInput turns one chosen input into files to copy.
-func prepareInput(ctx context.Context, in *release.Input, opt Options, t target, report func(Progress)) ([]item, []string, error) {
-	if in.Path == "" || in.State == "skip" {
+func prepareInput(ctx context.Context, in *release.Input, releaseRoot string, opt Options, t target, report func(Progress)) ([]item, []string, error) {
+	if in.Path == "" || in.State == "skip" || in.Type == release.NeedConsent {
 		return nil, nil, nil
 	}
 	switch in.Type {
@@ -340,9 +353,15 @@ func prepareInput(ctx context.Context, in *release.Input, opt Options, t target,
 			}
 		}
 		var out []item
-		for _, sub := range []string{"sys", "files"} {
-			for _, b := range expandDir(filepath.Join(root, sub), in.To+"/"+sub) {
-				out = append(out, b)
+		if len(in.Prepare) > 0 {
+			dir, err := runPrepare(ctx, in, releaseRoot, root, opt.Cache, report)
+			if err != nil {
+				return nil, nil, err
+			}
+			out = expandDir(dir, in.To)
+		} else {
+			for _, sub := range []string{"sys", "files"} {
+				out = append(out, expandDir(filepath.Join(root, sub), in.To+"/"+sub)...)
 			}
 		}
 		if len(out) == 0 {
@@ -365,6 +384,13 @@ func prepareInput(ctx context.Context, in *release.Input, opt Options, t target,
 		}
 		return []item{{local: in.Path, remote: release.ShaderPath, size: st.Size(), onlyIfMissing: true}}, nil, nil
 	case release.NeedFolder:
+		if len(in.Prepare) > 0 {
+			dir, err := runPrepare(ctx, in, releaseRoot, in.Path, opt.Cache, report)
+			if err != nil {
+				return nil, nil, err
+			}
+			return expandDir(dir, in.To), nil, nil
+		}
 		return expandDir(in.Path, in.To), nil, nil
 	case release.NeedFiles:
 		var out []item
