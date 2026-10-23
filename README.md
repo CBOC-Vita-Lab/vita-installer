@@ -84,6 +84,6 @@ The app is a single Go program (Go 1.20 so it still targets Windows 7 and macOS 
 | `internal/install` | Plans, sends and installs, with resume and parallel transfers |
 | `internal/web`, `ui/` | The local page and its state |
 
-Pushing a `v*` tag builds every download and publishes the release (`.github/workflows/release.yml`).
+To release, put the new version at the top of `CHANGELOG.md` (`## 1.0.1`) and push to `main`: GitHub builds every download on a Mac and publishes the release with that section as its notes (`.github/workflows/release.yml`).
 
 Written entirely by AI (Claude), fully vibecoded. MIT licensed.
