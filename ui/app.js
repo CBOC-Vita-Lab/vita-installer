@@ -239,6 +239,7 @@
 
   function task() {
     var t = S.task;
+    if (!t && clientTask) { taskEl.hidden = false; taskEl.innerHTML = '<span>' + esc(clientTask) + '</span>'; return; }
     if (!t) { taskEl.hidden = true; return; }
     taskEl.hidden = false;
     var pct = t.total > 0 ? Math.floor(t.done * 100 / t.total) : -1;
@@ -339,20 +340,74 @@
     overlay.hidden = true;
     var row = e.target.closest ? e.target.closest('[data-drop-item]') : null;
     Array.prototype.forEach.call(document.querySelectorAll('.need.dragover'), function (n) { n.classList.remove('dragover'); });
-    var items = e.dataTransfer.items;
-    var files = [];
-    for (var i = 0; i < e.dataTransfer.files.length; i++) {
-      var entry = items && items[i] && items[i].webkitGetAsEntry ? items[i].webkitGetAsEntry() : null;
-      if (entry && entry.isDirectory) {
-        showNotice('Folders cannot be dragged in from a browser. Use “Choose folder” instead.', true);
-        continue;
-      }
-      files.push(e.dataTransfer.files[i]);
+    var dt = e.dataTransfer, list = [];
+    for (var i = 0; i < dt.files.length; i++) {
+      var entry = dt.items && dt.items[i] && dt.items[i].webkitGetAsEntry ? dt.items[i].webkitGetAsEntry() : null;
+      list.push({ file: dt.files[i], entry: entry });
     }
-    files.reduce(function (p, f) {
-      return p.then(function () { return upload(f, row); });
-    }, Promise.resolve());
+    list.reduce(function (p, x) {
+      return p.then(function () {
+        return x.entry && x.entry.isDirectory ? uploadFolder(x.entry, row) : upload(x.file, row);
+      });
+    }, Promise.resolve()).then(function () { clientTask = null; render(); });
   });
+
+  // Folders are read entry by entry and recreated next to the installer.
+  var clientTask = null;
+  function walk(entry, out) {
+    if (entry.isFile) {
+      return new Promise(function (ok) {
+        entry.file(function (f) { out.push({ file: f, path: entry.fullPath.replace(/^\//, '') }); ok(); }, function () { ok(); });
+      });
+    }
+    var reader = entry.createReader();
+    return new Promise(function (ok) {
+      var all = [];
+      (function more() {
+        reader.readEntries(function (batch) {
+          if (!batch.length) {
+            all.reduce(function (p, c) { return p.then(function () { return walk(c, out); }); }, Promise.resolve()).then(ok);
+            return;
+          }
+          all = all.concat(Array.prototype.slice.call(batch));
+          more();
+        }, function () { ok(); });
+      })();
+    });
+  }
+  function uploadFolder(entry, row) {
+    var group = (Date.now().toString(36) + Math.random().toString(36).slice(2, 10)).toLowerCase();
+    var files = [];
+    clientTask = 'Reading ' + entry.name + '…';
+    render();
+    return walk(entry, files).then(function () {
+      files = files.filter(function (x) { return !/(^|\/)(\.DS_Store|\._[^/]*)$/.test(x.path); });
+      var total = 0, done = 0, n = 0, failed = false;
+      files.forEach(function (x) { total += x.file.size; });
+      var next = 0;
+      function worker() {
+        if (failed || next >= files.length) return Promise.resolve();
+        var x = files[next++];
+        var q = 'name=' + encodeURIComponent(x.file.name) + '&group=' + group + '&rel=' + encodeURIComponent(x.path) + '&modified=' + (x.file.lastModified || '');
+        return fetch(base + 'api/upload?' + q, { method: 'POST', headers: { 'X-Requested-With': 'cboc' }, body: x.file })
+          .then(function (r) { return r.json(); })
+          .then(function (j) {
+            if (j && j.error) { failed = true; showNotice(j.error, true); return; }
+            done += x.file.size; n++;
+            clientTask = 'Reading ' + entry.name + ' · ' + n + ' of ' + files.length + ' files' + (total ? ' · ' + Math.floor(done * 100 / total) + '%' : '');
+            task();
+            return worker();
+          });
+      }
+      return Promise.all([worker(), worker(), worker(), worker()]).then(function () {
+        if (failed) return;
+        clientTask = null;
+        var b = { group: group, root: entry.name };
+        if (row) { b.item = row.dataset.dropItem; b.input = row.dataset.dropInput; }
+        return api('uploaded', { path: JSON.stringify(b) }).then(function (j) { if (j && j.ok) localNotice = null; render(); });
+      });
+    }).catch(function () { clientTask = null; showNotice('Could not read the folder ' + entry.name + '.', true); });
+  }
   function upload(f, row) {
     var q = 'name=' + encodeURIComponent(f.name) + '&modified=' + (f.lastModified || '');
     if (row) q += '&item=' + encodeURIComponent(row.dataset.dropItem) + '&input=' + encodeURIComponent(row.dataset.dropInput);

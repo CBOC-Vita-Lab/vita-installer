@@ -12,12 +12,16 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/sys"
+	"github.com/CBOC-Vita-Lab/vita-installer/internal/vita"
 )
+
+var groupPattern = regexp.MustCompile(`^[a-z0-9]{8,40}$`)
 
 // Server serves the page and its API on 127.0.0.1 behind a random token.
 type Server struct {
@@ -199,6 +203,20 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request, name string) {
 		}
 	case "upload":
 		s.upload(w, r)
+	case "uploaded":
+		// A dragged folder has arrived; use it like a chosen folder.
+		var b struct{ Group, Root, Item, Input string }
+		json.Unmarshal([]byte(body.Path), &b)
+		if !groupPattern.MatchString(b.Group) || !vita.SafeName(b.Root) {
+			reply(w, fmt.Errorf("unsafe folder"))
+			return
+		}
+		p := filepath.Join(a.cache, "uploads", b.Group, filepath.FromSlash(b.Root))
+		if b.Input != "" {
+			reply(w, a.SetInput(b.Item, b.Input, p))
+		} else {
+			reply(w, a.Add(p))
+		}
 	case "input":
 		reply(w, a.SetInput(body.Item, body.Input, body.Path))
 	case "remove":
@@ -237,8 +255,36 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dir := filepath.Join(s.App.cache, "uploads")
-	os.MkdirAll(dir, 0o755)
 	dest := filepath.Join(dir, name)
+	// Part of a dragged folder: kept under its group with its relative path.
+	if group, rel := q.Get("group"), q.Get("rel"); group != "" {
+		if !groupPattern.MatchString(group) || !vita.SafeName(rel) {
+			reply(w, fmt.Errorf("unsafe file path"))
+			return
+		}
+		dest = filepath.Join(dir, group, filepath.FromSlash(rel))
+		os.MkdirAll(filepath.Dir(dest), 0o755)
+		f, err := os.Create(dest)
+		if err == nil {
+			_, err = io.Copy(f, r.Body)
+			if cerr := f.Close(); err == nil {
+				err = cerr
+			}
+		}
+		if err != nil {
+			reply(w, fmt.Errorf("could not read %s: %v", name, err))
+			return
+		}
+		if ms := q.Get("modified"); ms != "" {
+			var v int64
+			fmt.Sscan(ms, &v)
+			t := time.Unix(0, v*1e6)
+			os.Chtimes(dest, t, t)
+		}
+		reply(w, nil)
+		return
+	}
+	os.MkdirAll(dir, 0o755)
 	size := r.ContentLength
 	if st, err := os.Stat(dest); err == nil && size > 0 && st.Size() == size && q.Get("modified") != "" &&
 		fmt.Sprint(st.ModTime().UnixNano()/1e6) == q.Get("modified") {

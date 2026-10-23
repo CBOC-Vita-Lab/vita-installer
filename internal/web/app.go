@@ -91,7 +91,22 @@ func NewApp(version, cache, config string) *App {
 		json.Unmarshal(b, &saved)
 	}
 	a.lastHost = saved.LastHost
+	go cleanOld(cache, 48*time.Hour)
 	return a
+}
+
+// cleanOld removes copies of dragged files, downloads, unpacked releases and
+// interrupted work left from earlier sessions, so the cache does not grow.
+func cleanOld(cache string, age time.Duration) {
+	for _, sub := range []string{"uploads", "downloads", "releases", filepath.Join("work", "apps"), filepath.Join("work", "discs")} {
+		entries, _ := os.ReadDir(filepath.Join(cache, sub))
+		for _, e := range entries {
+			info, err := e.Info()
+			if err == nil && time.Since(info.ModTime()) > age {
+				os.RemoveAll(filepath.Join(cache, sub, e.Name()))
+			}
+		}
+	}
 }
 
 func (a *App) saveSettings() {
