@@ -642,8 +642,9 @@ func send(ctx context.Context, t target, items []item, report func(Progress)) er
 			}
 		}()
 	}
-	stop := make(chan struct{})
+	stop, stopped := make(chan struct{}), make(chan struct{})
 	go func() {
+		defer close(stopped)
 		tick := time.NewTicker(250 * time.Millisecond)
 		defer tick.Stop()
 		begin := time.Now()
@@ -675,6 +676,7 @@ func send(ctx context.Context, t target, items []item, report func(Progress)) er
 	}()
 	wg.Wait()
 	close(stop)
+	<-stopped // no progress reports after send returns
 	select {
 	case err := <-errc:
 		return err
