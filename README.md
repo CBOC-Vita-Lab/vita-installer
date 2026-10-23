@@ -66,6 +66,8 @@ Wi-Fi on the Vita is slow, around 2–4 MB/s. For games of a gigabyte or more, U
 
 **My Mac is older than macOS 12, or my PC runs Windows 7/8, and it asks for an extracted folder.** The disc unpacker needs macOS 12 / Windows 10. On older systems, extract the disc in Dolphin first: right-click the game > **Properties** > **Filesystem**, right-click the disc > **Extract Entire Disc**, then choose that folder.
 
+**I already extracted my game, or it's already on the Vita.** Choose (or drag in) the extracted folder; the installer finds the `sys/` and `files/` folders inside it (even in a `DATA` subfolder), checks it's the right game and copies them to the exact place the port expects. If the game files are already on your Vita, it notices, marks them "Already on your Vita" and doesn't ask for them at all, so updating only sends the app.
+
 **The transfer stopped halfway.** Keep the Vita awake and press **Install** again. Files that finished are not sent again.
 
 ## For developers

@@ -401,3 +401,28 @@ func (c *Conn) CmdWaitReply(wait time.Duration) (int, string, error) {
 	defer func() { c.Timeout = old }()
 	return c.read()
 }
+
+// Retrieve downloads up to limit bytes of a file.
+func (c *Conn) Retrieve(path string, limit int64) ([]byte, error) {
+	dc, err := c.pasv()
+	if err != nil {
+		return nil, err
+	}
+	defer dc.Close()
+	code, msg, err := c.Cmd("RETR " + Path(path))
+	if err != nil {
+		return nil, err
+	}
+	if code != 150 && code != 125 {
+		return nil, &Error{code, msg}
+	}
+	dc.SetReadDeadline(time.Now().Add(c.Timeout * 4))
+	data, err := io.ReadAll(io.LimitReader(dc, limit))
+	dc.Close()
+	if err != nil {
+		return nil, err
+	}
+	// Stopping early can make the server report an aborted transfer; that is fine.
+	c.read()
+	return data, nil
+}

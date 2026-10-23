@@ -24,7 +24,8 @@ What's new:
 - Finds the Vita on Wi-Fi automatically and remembers it. Also detects a Vita memory card or VitaShell USB drive.
 - Installs remotely with no button presses on the Vita, through VitaShell or Vita Companion. With Vita Companion it can also launch the game when it's done.
 - Sends files in parallel and skips files the Vita already has. Updates and retries are quick and recover from dropped connections.
-- Your own Wii/GameCube disc as ISO, RVZ, WBFS… or a Dolphin-extracted folder, checked for the right game and revision. PSP ISOs too.
+- Your own Wii/GameCube disc as ISO, RVZ, WBFS… or an already extracted folder (dragged in or chosen), checked for the right game and revision and copied to exactly where the port expects it. PSP ISOs too.
+- Notices game files that are already on the Vita and doesn't ask for them again, so updates only send the app.
 - `vita-install.json` lets any port describe its extra steps ([format](https://github.com/CBOC-Vita-Lab/vita-installer/blob/main/docs/release-format.md)); `cboc-release.json` still works.
 - About 6 MB with nothing else to install, replacing the 150 MB, Apple-Silicon-only 0.1.x preview.
 

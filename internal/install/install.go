@@ -658,15 +658,3 @@ func Launch(ctx context.Context, v *device.Vita, titleID string) error {
 	return nil
 }
 
-// CheckVita looks at the Vita before installing: whether the app is already
-// there and whether the shader compiler is present.
-func CheckVita(ctx context.Context, v *device.Vita, titleID string) (installed, shader bool, err error) {
-	c, err := ftp.Dial(ctx, v.Addr(), 8*time.Second)
-	if err != nil {
-		return false, false, err
-	}
-	defer c.Close()
-	installed, _ = c.Exists("ux0:app/" + titleID + "/eboot.bin")
-	_, shader, _ = c.Size(release.ShaderPath)
-	return installed, shader, nil
-}

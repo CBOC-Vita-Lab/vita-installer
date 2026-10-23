@@ -50,4 +50,14 @@ func TestRealRelease(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("re-run: copied=%d skipped=%d in %s", res.Copied, res.Skipped, time.Since(start))
+	p, err := Check(context.Background(), &device.Vita{Host: "127.0.0.1", Port: v.Port()}, "", r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("already on the Vita: installed=%v inputs=%v", p.Installed, p.Inputs)
+	for id, ok := range p.Inputs {
+		if !ok {
+			t.Errorf("input %s not recognised on the Vita", id)
+		}
+	}
 }

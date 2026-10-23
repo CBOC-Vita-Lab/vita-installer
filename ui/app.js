@@ -152,6 +152,9 @@
         var folderOk = n.type === 'wii-disc' || n.type === 'gc-disc' || n.type === 'folder' || n.type === 'files';
         h += '<div class="need ' + state + '" data-drop-item="' + esc(it.id) + '" data-drop-input="' + esc(n.id) + '"><div class="st">' + mark + '</div>' +
           '<div class="nt"><div>' + esc(n.label) + '</div><span title="' + esc(n.path || '') + '">' + esc(sub) + '</span></div>';
+        if (!busy && n.state === 'skip' && n.type !== 'shader-compiler') {
+          h += '<button class="btn small ghost" data-pick-item="' + esc(it.id) + '" data-pick-input="' + esc(n.id) + '" data-kind="' + (folderOk ? 'folder' : 'file') + '">Replace</button>';
+        }
         if (!busy && n.state !== 'skip') {
           if (n.type !== 'folder') h += '<button class="btn small" data-pick-item="' + esc(it.id) + '" data-pick-input="' + esc(n.id) + '" data-kind="file">' + (n.path ? 'Change' : 'Choose') + '</button>';
           if (folderOk) h += '<button class="btn small ghost" data-pick-item="' + esc(it.id) + '" data-pick-input="' + esc(n.id) + '" data-kind="folder">Folder</button>';

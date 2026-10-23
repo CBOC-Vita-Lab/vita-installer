@@ -244,3 +244,32 @@ func TestVitaThatAcceptsOneConnection(t *testing.T) {
 		t.Fatalf("%v %+v", err, res)
 	}
 }
+
+func TestCheckFindsGameAlreadyOnVita(t *testing.T) {
+	rel, dir := makeRelease(t, true)
+	r := load(t, rel)
+	AutoFind(r)
+	vroot := filepath.Join(dir, "vita")
+	v, err := fakevita.Start(vroot, true, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer v.Close()
+	vita := &device.Vita{Host: "127.0.0.1", Port: v.Port()}
+	p, err := Check(context.Background(), vita, "", r)
+	if err != nil || p.Installed || p.Inputs["disc"] {
+		t.Fatalf("before install: %v %+v", err, p)
+	}
+	if _, err := Run(context.Background(), r, Options{Vita: vita, Cache: t.TempDir()}); err != nil {
+		t.Fatal(err)
+	}
+	p, err = Check(context.Background(), vita, "", r)
+	if err != nil || !p.Installed || !p.Inputs["disc"] || !p.Inputs["need2"] {
+		t.Fatalf("after install: %v %+v", err, p)
+	}
+	// A different game in the folder is not mistaken for this one.
+	os.WriteFile(filepath.Join(vroot, "ux0/data/mygame/game/sys/boot.bin"), []byte("RXXE01\x00\x00"), 0o644)
+	if p, _ := Check(context.Background(), vita, "", r); p.Inputs["disc"] {
+		t.Fatal("wrong game accepted")
+	}
+}

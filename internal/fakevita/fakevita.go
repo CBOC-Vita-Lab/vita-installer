@@ -259,6 +259,22 @@ func (v *Vita) session(c net.Conn) {
 			f.Close()
 			d.Close()
 			say("226 Transfer complete.")
+		case "RETR":
+			lp, ok := v.local(abs(arg))
+			f, err := os.Open(lp)
+			d := data()
+			if !ok || err != nil || d == nil {
+				if d != nil {
+					d.Close()
+				}
+				say("550 Could not open file.")
+				continue
+			}
+			say("150 Opening Image mode data transfer.")
+			io.Copy(d, f)
+			f.Close()
+			d.Close()
+			say("226 Transfer complete.")
 		case "DELE":
 			lp, ok := v.local(abs(arg))
 			if ok && os.Remove(lp) == nil {

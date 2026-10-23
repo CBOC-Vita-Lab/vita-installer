@@ -192,8 +192,16 @@ func (a *App) Scan(ctx context.Context) {
 	}
 	drives := device.Drives()
 	a.mu.Lock()
-	current := a.st.Vita
+	current, driveBefore := a.st.Vita, a.st.Drive
 	a.mu.Unlock()
+	defer func() {
+		a.mu.Lock()
+		changed := a.st.Drive != driveBefore
+		a.mu.Unlock()
+		if changed {
+			a.refreshItems()
+		}
+	}()
 	// A connected Vita only needs a quick check that it is still there.
 	if current != nil {
 		if alive(current.Host, current.Port) {
@@ -308,27 +316,24 @@ func (a *App) Connect(ctx context.Context, host, drive string) error {
 // refreshItems re-checks each release against the connected Vita.
 func (a *App) refreshItems() {
 	a.mu.Lock()
-	v := a.st.Vita
+	v, drive := a.st.Vita, a.st.Drive
 	items := append([]*Item(nil), a.st.Items...)
 	a.mu.Unlock()
 	for _, it := range items {
-		installed, shader := false, false
-		if v != nil {
-			var err error
-			installed, shader, err = install.CheckVita(context.Background(), v, it.TitleID)
-			if err != nil {
-				continue
-			}
+		p, err := install.Check(context.Background(), v, drive, it.Release)
+		if err != nil {
+			continue
 		}
 		a.update(func(s *State) {
-			it.Installed = installed
+			it.Installed = p.Installed
 			for _, in := range it.Inputs {
-				if in.Type == release.NeedShader {
-					if shader {
-						in.State, in.Message = "skip", "Already on your Vita."
-					} else if in.State == "skip" {
-						in.State, in.Message = "", ""
-					}
+				have := p.Inputs[in.ID]
+				switch {
+				case have && in.Path == "":
+					// Already on the Vita: nothing to choose, nothing to send.
+					in.State, in.Message = "skip", "Already on your Vita."
+				case !have && in.State == "skip":
+					in.State, in.Message = "", ""
 				}
 			}
 			setStatus(it)
@@ -511,6 +516,7 @@ func (a *App) Install(onlyID string) error {
 			}
 		}
 		a.update(func(s *State) { s.Job = nil })
+		a.refreshItems()
 	}()
 	return nil
 }
