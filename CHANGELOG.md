@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.2
+
+- Super Mario Galaxy and other ports: converts your game files on your computer before sending them (see 1.0.1).
+- Cleans up its temporary folder on the Vita even if the Wi-Fi connection dropped during the install.
+- `SHA256SUMS.txt` no longer lists itself, so `sha256sum -c` passes cleanly.
+
+Downloads are the same as 1.0.0, with 1.0.2 in the name.
+
 ## 1.0.1
 
 **Converts your game files for ports that need it, starting with Super Mario Galaxy.**

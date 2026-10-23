@@ -65,5 +65,5 @@ for arch in amd64 arm64; do
 done
 
 rm -rf "$OUT/tmp"
-(cd "$OUT" && { command -v sha256sum >/dev/null && sha256sum * || shasum -a 256 *; } > SHA256SUMS.txt)
+(cd "$OUT" && rm -f SHA256SUMS.txt && files=$(ls | grep -v SHA256SUMS) && { command -v sha256sum >/dev/null && sha256sum $files || shasum -a 256 $files; } > SHA256SUMS.tmp && mv SHA256SUMS.tmp SHA256SUMS.txt)
 ls -lh "$OUT"
