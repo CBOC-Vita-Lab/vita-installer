@@ -19,7 +19,7 @@ If players have to supply files (their own disc, a BIOS…), or some paths must 
 ```json
 {
   "name": "Mario Strikers Charged",
-  "vpk": "Strikers-settings-20261019.vpk",
+  "vpk": "MarioStrikersCharged.vpk",
   "vpkSha256": "43543e5bce2f162f6678bc2baacbdcbeb03a4593493c0e401a5ad6534623400a",
   "needs": [
     {
@@ -125,4 +125,6 @@ Older CBOC releases ship `cboc-release.json` instead; the installer reads that t
 
 ## Updates
 
-When a game is downloaded from GitHub, the install record also keeps the repository and release tag. With the Vita connected, the start screen shows which CBOC games are on it and offers **Update** when the repository has a newer release; a game added again shows **Already installed** or **Update** and which release it replaces. Publish each update as a new GitHub release (a new tag) for this to work.
+Publish each version as a GitHub release whose tag is the version (`v1.0`, `v1.1`…). Keep the file names the same every time, for example `MyGame.vpk` and `MyGame.zip` (the VPK with its `vita-install.json` and anything else it needs); then `…/releases/latest/download/MyGame.zip` always links to the newest one. The installer takes the ZIP, or the VPK if there is no ZIP, and never a source ZIP (a name containing `source` or `src`).
+
+With the Vita connected, the installer shows **Update** next to a game when its repository has a newer release.

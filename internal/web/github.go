@@ -2,7 +2,9 @@ package web
 
 import (
 	"context"
+	"crypto/sha1"
 	_ "embed"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +15,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -145,28 +148,47 @@ func (a *App) AddURL(ctx context.Context, raw string) error {
 		if err != nil {
 			return fmt.Errorf("could not find a release of %s/%s on GitHub", owner, repo)
 		}
-		best, score := "", 0
+		// A complete release ZIP (the app plus what it needs) beats a bare VPK;
+		// source archives are never installed.
+		type cand struct {
+			url   string
+			score int
+		}
+		var cands []cand
 		for _, as := range rel.Assets {
 			n := strings.ToLower(as.Name)
 			sc := 0
 			switch {
+			case strings.HasSuffix(n, ".zip") && (strings.Contains(n, "source") || strings.Contains(n, "src")):
 			case strings.HasSuffix(n, "-install.zip"):
+				sc = 5
+			case strings.HasSuffix(n, ".zip"):
 				sc = 4
 			case strings.HasSuffix(n, ".vpk"):
 				sc = 3
-			case strings.HasSuffix(n, ".zip") && !strings.Contains(n, "source") && !strings.Contains(n, "src"):
-				sc = 2
 			}
-			if sc > score {
-				best, score = as.URL, sc
+			if sc > 0 {
+				cands = append(cands, cand{as.URL, sc})
 			}
 		}
-		if best == "" {
+		if len(cands) == 0 {
 			return fmt.Errorf("the latest release of %s has no Vita app to download", repo)
 		}
-		raw = best
-		repoName, tagName = owner+"/"+repo, rel.Tag
+		sort.SliceStable(cands, func(i, j int) bool { return cands[i].score > cands[j].score })
+		for _, c := range cands {
+			// Try the next file only when this one holds no app, not when
+			// the download itself failed.
+			if err = a.fetch(ctx, c.url, owner+"/"+repo, rel.Tag); err == nil || errors.As(err, new(*downloadError)) {
+				return err
+			}
+		}
+		return err
 	}
+	return a.fetch(ctx, raw, repoName, tagName)
+}
+
+// fetch downloads one .vpk or .zip and adds it.
+func (a *App) fetch(ctx context.Context, raw, repoName, tagName string) error {
 	u, err := url.Parse(raw)
 	if err != nil || (u.Scheme != "https" && u.Scheme != "http") {
 		return errors.New("paste a GitHub link or a direct link to a .vpk or .zip file")
@@ -175,14 +197,21 @@ func (a *App) AddURL(ctx context.Context, raw string) error {
 	if ext := strings.ToLower(path.Ext(name)); ext != ".vpk" && ext != ".zip" {
 		return errors.New("that link is not a .vpk or .zip file")
 	}
-	dir := filepath.Join(a.cache, "downloads")
+	// Releases often keep the same file names from version to version, so
+	// each download gets its own folder.
+	h := sha1.Sum([]byte(raw))
+	dir := filepath.Join(a.cache, "downloads", hex.EncodeToString(h[:6]))
 	os.MkdirAll(dir, 0o755)
 	dest := filepath.Join(dir, name)
 	if err := a.download(ctx, raw, dest, name); err != nil {
-		return err
+		return &downloadError{err}
 	}
 	return a.addFrom(dest, repoName, tagName)
 }
+
+type downloadError struct{ err error }
+
+func (e *downloadError) Error() string { return e.err.Error() }
 
 var downloadPattern = regexp.MustCompile(`^https?://(?:www\.)?github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/releases/download/([^/?#]+)/`)
 

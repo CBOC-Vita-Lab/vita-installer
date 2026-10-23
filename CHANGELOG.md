@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.5
+
+- Games from GitHub: the complete release ZIP is preferred over a bare VPK, so releases with simple file names (`MyGame.zip`, `MyGame.vpk`) work, and each version is downloaded fresh even when its file names stay the same.
+
 ## 1.0.4
 
 - Simpler instructions on the project page.
