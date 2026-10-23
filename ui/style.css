@@ -105,6 +105,9 @@ main { max-width: 860px; margin: 0 auto; padding: 18px 20px; }
 .tile .t { flex: 1; margin-right: 12px; }
 .tile .t div { font-weight: 600; }
 .tile .t span { color: var(--muted); font-size: 12.5px; display: block; }
+.tile .t span.badge { display: inline-block; font-size: 11px; }
+.tile .t span.badge.upd { color: var(--amber); }
+.tile .t span.badge.ok { color: var(--lime); }
 
 .items { margin-top: 16px; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; animation: rise 0.25s ease-out; }
