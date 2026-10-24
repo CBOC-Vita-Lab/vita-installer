@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"crypto/sha1"
+	"crypto/sha256"
 	_ "embed"
 	"encoding/hex"
 	"encoding/json"
@@ -21,6 +22,7 @@ import (
 	"time"
 
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/install"
+	"github.com/CBOC-Vita-Lab/vita-installer/internal/release"
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/selfupdate"
 )
 
@@ -81,12 +83,9 @@ func (a *App) CheckOnline(ctx context.Context) {
 		a.update(func(s *State) { s.Catalog = cat })
 	}
 	var rel struct {
-		Tag    string `json:"tag_name"`
-		HTML   string `json:"html_url"`
-		Assets []struct {
-			Name string `json:"name"`
-			URL  string `json:"browser_download_url"`
-		} `json:"assets"`
+		Tag    string  `json:"tag_name"`
+		HTML   string  `json:"html_url"`
+		Assets []asset `json:"assets"`
 	}
 	feed := "https://api.github.com/repos/" + Repo + "/releases/latest"
 	if f := os.Getenv("CBOC_UPDATE_FEED"); f != "" { // for testing updates
@@ -97,12 +96,13 @@ func (a *App) CheckOnline(ctx context.Context) {
 	}
 	version := strings.TrimPrefix(rel.Tag, "v")
 	u := &Update{Version: version, URL: rel.HTML}
-	asset, assetURL, sumsURL := "", "", ""
+	asset, assetURL, sumsURL, digest, best := "", "", "", "", 0
 	for _, as := range rel.Assets {
-		switch {
-		case strings.HasSuffix(as.Name, selfupdate.AssetSuffix()) && selfupdate.AssetSuffix() != "":
-			asset, assetURL = as.Name, as.URL
-		case as.Name == "SHA256SUMS.txt":
+		low := strings.ToLower(as.Name)
+		if sc := selfupdate.AssetScore(as.Name); sc > best {
+			asset, assetURL, digest, best = as.Name, as.URL, as.Digest, sc
+		}
+		if strings.Contains(low, "sha256") || strings.Contains(low, "checksum") {
 			sumsURL = as.URL
 		}
 	}
@@ -112,7 +112,7 @@ func (a *App) CheckOnline(ctx context.Context) {
 		u.Manual = why
 	case selfupdate.Failed(a.cache, version):
 		u.Manual = "it could not replace itself on this computer"
-	case assetURL == "" || sumsURL == "":
+	case assetURL == "" || (sumsURL == "" && digest == ""):
 		u.Manual = "this release has no download for this computer"
 	default:
 		u.Downloading = true
@@ -124,7 +124,7 @@ func (a *App) CheckOnline(ctx context.Context) {
 	// Download in the background; it is applied with one click, or by
 	// itself the next time the installer opens.
 	last := time.Time{}
-	st, err := selfupdate.Stage(ctx, a.cache, version, asset, assetURL, sumsURL, func(done, total int64) {
+	st, err := selfupdate.Stage(ctx, a.cache, version, asset, assetURL, sumsURL, digest, func(done, total int64) {
 		if total <= 0 || time.Since(last) < 500*time.Millisecond {
 			return
 		}
@@ -207,77 +207,165 @@ func (a *App) AddURL(ctx context.Context, raw string) error {
 		if tag != "" {
 			api = "https://api.github.com/repos/" + owner + "/" + repo + "/releases/tags/" + url.PathEscape(tag)
 		}
-		var rel struct {
-			Tag    string `json:"tag_name"`
-			Assets []struct {
-				Name string `json:"name"`
-				URL  string `json:"browser_download_url"`
-				Size int64  `json:"size"`
-			} `json:"assets"`
-		}
+		var rel ghRelease
 		a.update(func(s *State) { s.Task = &Task{Text: "Looking up " + repo} })
 		err := getJSON(ctx, api, &rel)
 		a.update(func(s *State) { s.Task = nil })
 		if err != nil {
 			return fmt.Errorf("could not find a release of %s/%s on GitHub", owner, repo)
 		}
-		// A complete release ZIP (the app plus what it needs) beats a bare VPK;
-		// source archives are never installed.
-		type cand struct {
-			url   string
-			score int
-		}
-		var cands []cand
-		for _, as := range rel.Assets {
-			n := strings.ToLower(as.Name)
-			sc := 0
-			switch {
-			case strings.HasSuffix(n, ".zip") && (strings.Contains(n, "source") || strings.Contains(n, "src")):
-			case strings.HasSuffix(n, "-install.zip"):
-				sc = 5
-			case strings.HasSuffix(n, ".zip"):
-				sc = 4
-			case strings.HasSuffix(n, ".vpk"):
-				sc = 3
-			}
-			if sc > 0 {
-				cands = append(cands, cand{as.URL, sc})
-			}
-		}
-		if len(cands) == 0 {
-			return fmt.Errorf("the latest release of %s has no Vita app to download", repo)
-		}
-		sort.SliceStable(cands, func(i, j int) bool { return cands[i].score > cands[j].score })
-		for _, c := range cands {
-			// Try the next file only when this one holds no app, not when
-			// the download itself failed.
-			if err = a.fetch(ctx, c.url, owner+"/"+repo, rel.Tag); err == nil || errors.As(err, new(*downloadError)) {
-				return err
-			}
-		}
-		return err
+		return a.addRelease(ctx, owner+"/"+repo, rel)
 	}
-	return a.fetch(ctx, raw, repoName, tagName)
+	return a.fetch(ctx, asset{URL: raw}, "", repoName, tagName)
 }
 
-// fetch downloads one .vpk or .zip and adds it.
-func (a *App) fetch(ctx context.Context, raw, repoName, tagName string) error {
-	u, err := url.Parse(raw)
+type asset struct {
+	Name        string `json:"name"`
+	URL         string `json:"browser_download_url"`
+	Size        int64  `json:"size"`
+	ContentType string `json:"content_type"`
+	Digest      string `json:"digest"` // "sha256:…", when GitHub provides it
+}
+
+type ghRelease struct {
+	Tag    string  `json:"tag_name"`
+	Assets []asset `json:"assets"`
+}
+
+// addRelease picks what to download from a release by what the files are,
+// not only by their names: complete release ZIPs first, then the app with
+// its release file, then the app alone. A file is checked after download,
+// and the next one is tried only when it turned out not to hold an app.
+func (a *App) addRelease(ctx context.Context, repo string, rel ghRelease) error {
+	var archives, sourceish, apps, unknown, manifests []asset
+	for _, as := range rel.Assets {
+		n, ct := strings.ToLower(as.Name), strings.ToLower(as.ContentType)
+		ext := strings.ToLower(path.Ext(n))
+		switch {
+		case strings.Contains(n, "sha256") || strings.Contains(n, "checksum") || ext == ".txt" || ext == ".md" ||
+			ext == ".png" || ext == ".jpg" || ext == ".pdf" || ext == ".exe" || ext == ".dmg" || strings.HasSuffix(n, ".tar.gz"):
+		case ext == ".json":
+			if as.Size < 1<<20 {
+				manifests = append(manifests, as)
+			}
+		case ext == ".vpk":
+			apps = append(apps, as)
+		case ext == ".zip" || strings.Contains(ct, "zip"):
+			if strings.Contains(n, "source") || strings.Contains(n, "src") {
+				sourceish = append(sourceish, as)
+			} else {
+				archives = append(archives, as)
+			}
+		default:
+			unknown = append(unknown, as) // maybe an app under another name
+		}
+	}
+	// "-install" ZIPs first, then bigger ZIPs (more likely complete).
+	sort.SliceStable(archives, func(i, j int) bool {
+		ii, jj := strings.Contains(strings.ToLower(archives[i].Name), "install"), strings.Contains(strings.ToLower(archives[j].Name), "install")
+		if ii != jj {
+			return ii
+		}
+		return archives[i].Size > archives[j].Size
+	})
+	var err error = fmt.Errorf("the latest release of %s has no Vita app to download", repo)
+	try := func(as asset, extra *asset) bool {
+		err = a.fetch(ctx, as, rel.Tag, repo, rel.Tag, extra)
+		return err == nil || errors.As(err, new(*downloadError))
+	}
+	for _, as := range archives {
+		if try(as, nil) {
+			return err
+		}
+	}
+	// The app plus its release file, matched by checksum first.
+	if len(manifests) > 0 && len(apps)+len(unknown) > 0 {
+		for _, m := range manifests {
+			if app := a.appFor(ctx, m, append(append([]asset{}, apps...), unknown...)); app != nil {
+				if try(*app, &m) {
+					return err
+				}
+			}
+		}
+	}
+	for _, as := range append(append(apps, unknown...), sourceish...) {
+		if try(as, nil) {
+			return err
+		}
+	}
+	return err
+}
+
+// appFor reads a release file asset and returns the app asset it describes:
+// by checksum (GitHub's digest), then by name, then the only app.
+func (a *App) appFor(ctx context.Context, m asset, apps []asset) *asset {
+	req, _ := http.NewRequestWithContext(ctx, "GET", m.URL, nil)
+	req.Header.Set("User-Agent", "cboc-vita-installer")
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil
+	}
+	b, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	resp.Body.Close()
+	name, sum, _ := release.AppOf(b)
+	if name == "" && sum == "" {
+		return nil
+	}
+	for i, as := range apps {
+		if sum != "" && strings.EqualFold(strings.TrimPrefix(as.Digest, "sha256:"), sum) {
+			return &apps[i]
+		}
+	}
+	// Without matching checksums, go by name, then by being the only one
+	// (files whose checksum is known and different are never picked).
+	var maybe []int
+	for i, as := range apps {
+		if sum == "" || as.Digest == "" {
+			maybe = append(maybe, i)
+		}
+	}
+	for _, i := range maybe {
+		if strings.EqualFold(apps[i].Name, name) {
+			return &apps[i]
+		}
+	}
+	if len(maybe) == 1 {
+		return &apps[maybe[0]]
+	}
+	return nil
+}
+
+// fetch downloads one file (and the release file that goes with it, if
+// any) and adds it. What it is (an app or a release ZIP) is decided by its
+// contents once it is here.
+func (a *App) fetch(ctx context.Context, as asset, folderKey, repoName, tagName string, extra ...*asset) error {
+	u, err := url.Parse(as.URL)
 	if err != nil || (u.Scheme != "https" && u.Scheme != "http") {
 		return errors.New("paste a GitHub link or a direct link to a .vpk or .zip file")
 	}
-	name := path.Base(u.Path)
-	if ext := strings.ToLower(path.Ext(name)); ext != ".vpk" && ext != ".zip" {
-		return errors.New("that link is not a .vpk or .zip file")
+	name := as.Name
+	if name == "" {
+		name = path.Base(u.Path)
+	}
+	if name == "" || name == "/" || name == "." {
+		name = "download"
 	}
 	// Releases often keep the same file names from version to version, so
 	// each download gets its own folder.
-	h := sha1.Sum([]byte(raw))
+	h := sha1.Sum([]byte(as.URL + "|" + folderKey))
 	dir := filepath.Join(a.cache, "downloads", hex.EncodeToString(h[:6]))
 	os.MkdirAll(dir, 0o755)
-	dest := filepath.Join(dir, name)
-	if err := a.download(ctx, raw, dest, name); err != nil {
+	dest := filepath.Join(dir, filepath.Base(name))
+	if err := a.download(ctx, as.URL, dest, name, as.Digest); err != nil {
 		return &downloadError{err}
+	}
+	if len(extra) > 0 && extra[0] != nil {
+		m := extra[0]
+		mdest := filepath.Join(dir, "release-"+filepath.Base(m.Name))
+		if err := a.download(ctx, m.URL, mdest, m.Name, m.Digest); err != nil {
+			return &downloadError{err}
+		}
+		return a.addFrom(mdest, repoName, tagName)
 	}
 	return a.addFrom(dest, repoName, tagName)
 }
@@ -352,7 +440,27 @@ func (a *App) refreshLibrary() {
 	a.update(func(s *State) { s.Library = games })
 }
 
-func (a *App) download(ctx context.Context, u, dest, name string) error {
+func (a *App) download(ctx context.Context, u, dest, name, digest string) error {
+	if err := a.downloadOnce(ctx, u, dest, name); err != nil {
+		return err
+	}
+	if want := strings.TrimPrefix(strings.ToLower(digest), "sha256:"); len(want) == 64 {
+		f, err := os.Open(dest)
+		if err != nil {
+			return err
+		}
+		h := sha256.New()
+		io.Copy(h, f)
+		f.Close()
+		if hex.EncodeToString(h.Sum(nil)) != want {
+			os.Remove(dest)
+			return fmt.Errorf("%s was damaged on the way (checksum mismatch). Try again", name)
+		}
+	}
+	return nil
+}
+
+func (a *App) downloadOnce(ctx context.Context, u, dest, name string) error {
 	req, _ := http.NewRequestWithContext(ctx, "GET", u, nil)
 	req.Header.Set("User-Agent", "cboc-vita-installer")
 	client := &http.Client{Timeout: 0}

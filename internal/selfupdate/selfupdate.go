@@ -42,6 +42,63 @@ func AssetSuffix() string {
 	return ""
 }
 
+// AssetScore rates how well a release file name fits this computer (0 = not
+// at all), so a renamed download is still found: the usual name first, then
+// any name with this system's words and file type.
+func AssetScore(name string) int {
+	n := strings.ToLower(name)
+	if AssetSuffix() != "" && strings.HasSuffix(n, strings.ToLower(AssetSuffix())) {
+		return 100
+	}
+	words := func(ws ...string) bool {
+		for _, w := range ws {
+			if strings.Contains(n, w) {
+				return true
+			}
+		}
+		return false
+	}
+	switch runtime.GOOS {
+	case "darwin":
+		if !strings.HasSuffix(n, ".zip") || !words("mac", "darwin", "osx") {
+			return 0
+		}
+		return 50
+	case "windows":
+		if !strings.HasSuffix(n, ".exe") || !words("win") {
+			return 0
+		}
+		x64, x86, arm := words("x64", "amd64", "x86_64", "win64"), words("x86", "386", "win32", "32-bit", "32bit") && !words("x86_64"), words("arm64", "aarch64")
+		switch runtime.GOARCH {
+		case "amd64":
+			if x64 {
+				return 50
+			}
+			if !x86 && !arm {
+				return 20
+			}
+		case "386":
+			if x86 {
+				return 50
+			}
+		case "arm64":
+			if arm {
+				return 50
+			}
+		}
+		return 0
+	case "linux":
+		if !(strings.HasSuffix(n, ".tar.gz") || strings.HasSuffix(n, ".tgz")) || !words("linux") {
+			return 0
+		}
+		amd, arm := words("amd64", "x86_64", "x64"), words("arm64", "aarch64")
+		if (runtime.GOARCH == "amd64" && amd) || (runtime.GOARCH == "arm64" && arm) {
+			return 50
+		}
+	}
+	return 0
+}
+
 // Target is what gets replaced: the running program, or on a Mac its .app.
 func Target() (string, error) {
 	exe, err := os.Executable()
@@ -94,7 +151,9 @@ const readyFile = ".ready"
 
 // Stage downloads asset (checking it against the release's SHA256SUMS.txt)
 // and unpacks it into cache/update/<version>. A finished stage is reused.
-func Stage(ctx context.Context, cache, version, assetName, assetURL, sumsURL string, progress func(done, total int64)) (*Staged, error) {
+// want, when known (GitHub's own digest of the file), is used if the release
+// has no checksum list.
+func Stage(ctx context.Context, cache, version, assetName, assetURL, sumsURL, want string, progress func(done, total int64)) (*Staged, error) {
 	dir := filepath.Join(cache, "update", version)
 	if st := find(dir, version); st != nil {
 		return st, nil
@@ -103,16 +162,18 @@ func Stage(ctx context.Context, cache, version, assetName, assetURL, sumsURL str
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
-	sums, err := fetch(ctx, sumsURL, 1<<20, nil)
-	if err != nil {
-		return nil, fmt.Errorf("could not get the checksums: %v", err)
-	}
-	want := ""
-	sc := bufio.NewScanner(strings.NewReader(string(sums)))
-	for sc.Scan() {
-		f := strings.Fields(sc.Text())
-		if len(f) == 2 && strings.TrimPrefix(f[1], "*") == assetName {
-			want = strings.ToLower(f[0])
+	want = strings.ToLower(strings.TrimPrefix(want, "sha256:"))
+	if sumsURL != "" {
+		sums, err := fetch(ctx, sumsURL, 1<<20, nil)
+		if err != nil {
+			return nil, fmt.Errorf("could not get the checksums: %v", err)
+		}
+		sc := bufio.NewScanner(strings.NewReader(string(sums)))
+		for sc.Scan() {
+			f := strings.Fields(sc.Text())
+			if len(f) == 2 && strings.TrimPrefix(f[1], "*") == assetName {
+				want = strings.ToLower(f[0])
+			}
 		}
 	}
 	if len(want) != 64 {

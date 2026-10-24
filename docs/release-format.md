@@ -123,6 +123,15 @@ Keys are `<os>-<arch>` as Go names them (`windows-386`, `windows-arm64`, `darwin
 
 Older CBOC releases ship `cboc-release.json` instead; the installer reads that too. Infected releases get two optional HD texture slots (`texpack_2x.bin`, and `texpack_4x_mixed.bin` installed as `texpack_4x.bin`) automatically.
 
+## File names
+
+Name your files however you like. The installer goes by what a file is, not what it's called:
+
+- **An app** is any ZIP with `sce_sys/param.sfo` inside, whether it ends in `.vpk`, `.zip`, `.bin` or nothing.
+- **A release file** (`vita-install.json` or `cboc-release.json`) is recognised by its contents, even under another name.
+- **If the app's name in the release file is out of date**, the app is found by its `vpkSha256` / `package.sha256`, then by its title ID.
+- **On GitHub**, a complete release ZIP is tried first, then the app with its release file (matched by GitHub's checksum of each file), then the app alone. Source-only ZIPs are skipped once opened, and every download is checked against GitHub's checksum when there is one.
+
 ## Updates
 
 Publish each version as a GitHub release whose tag is the version (`v1.0`, `v1.1`…). Keep the file names the same every time, for example `MyGame.vpk` and `MyGame.zip` (the VPK with its `vita-install.json` and anything else it needs); then `…/releases/latest/download/MyGame.zip` always links to the newest one. The installer takes the ZIP, or the VPK if there is no ZIP, and never a source ZIP (a name containing `source` or `src`).

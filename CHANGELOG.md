@@ -1,5 +1,24 @@
 # What's New
 
+## Version 1.3 — October 23, 2026
+
+Smarter about files.
+
+**Easier**
+
+- **Any file name works.** Apps and release files are recognised by what's inside them, so a renamed download installs just the same.
+- **Always the right download.** On GitHub it picks the complete release, or the app plus its release file, matched by checksum. It skips source-code ZIPs.
+- **Checked on arrival.** Every download from GitHub is checked against GitHub's own checksum, so a damaged file is caught before it reaches your Vita.
+
+**Your games**
+
+- **VitAdhoc:** the optional games slot now only offers the file types VitAdhoc reads (.gba, .gb, .gbc).
+
+**Under the hood**
+
+- **Self-update** finds this computer's download even if its name changes, and can check it with GitHub's checksum when a release has no checksum list.
+- **A damaged app** next to its release file is never installed on its own.
+
 ## Version 1.2 — October 23, 2026
 
 The installer now keeps itself up to date.

@@ -54,26 +54,34 @@ func Load(path, work string) ([]*Release, error) {
 	if st.IsDir() {
 		return loadFolder(path, filepath.Base(path))
 	}
-	switch strings.ToLower(filepath.Ext(path)) {
-	case ".vpk":
-		return loadVPK(path)
-	case ".zip":
-		if isVPKZip(path) {
-			return loadVPK(path)
-		}
-		dir, err := unpack(path, work)
-		if err != nil {
-			return nil, err
-		}
-		rs, err := loadFolder(dir, filepath.Base(path))
-		if err != nil {
-			return nil, err
-		}
-		return rs, nil
-	case ".json":
+	if strings.EqualFold(filepath.Ext(path), ".json") {
 		return loadFolder(filepath.Dir(path), filepath.Base(filepath.Dir(path)))
 	}
-	return nil, fmt.Errorf("%s is not a Vita app. Choose a .vpk file, a release .zip or its folder", filepath.Base(path))
+	// Decide by what the file is, not by its name: a VPK is a ZIP with
+	// sce_sys/param.sfo inside; any other ZIP is a release package.
+	if !isZip(path) {
+		return nil, fmt.Errorf("%s is not a Vita app. Choose a .vpk file, a release .zip or its folder", filepath.Base(path))
+	}
+	if isVPKZip(path) {
+		return loadVPK(path)
+	}
+	dir, err := unpack(path, work)
+	if err != nil {
+		return nil, err
+	}
+	return loadFolder(dir, filepath.Base(path))
+}
+
+// isZip reports whether path starts like a ZIP file.
+func isZip(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	b := make([]byte, 4)
+	n, _ := io.ReadFull(f, b)
+	return n == 4 && string(b) == "PK\x03\x04"
 }
 
 func isVPKZip(path string) bool {
@@ -110,17 +118,7 @@ func unpack(path, work string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%s is not a valid ZIP file", filepath.Base(path))
 	}
-	hasVPK := false
-	for _, f := range z.File {
-		if strings.EqualFold(filepath.Ext(f.Name), ".vpk") {
-			hasVPK = true
-		}
-	}
 	z.Close()
-	if !hasVPK {
-		os.RemoveAll(dir)
-		return "", fmt.Errorf("%s has no Vita app (.vpk) inside", filepath.Base(path))
-	}
 	if err := vita.ExtractZip(path, dir, nil); err != nil {
 		os.RemoveAll(dir)
 		return "", err
@@ -161,7 +159,7 @@ var skipDirs = map[string]bool{".git": true, "node_modules": true, "__MACOSX": t
 
 // loadFolder finds every VPK (and manifest) up to a few levels deep.
 func loadFolder(root, source string) ([]*Release, error) {
-	var vpks, manifests []string
+	var vpks, manifests, guessed []string
 	count := 0
 	var walk func(dir string, depth int)
 	walk = func(dir string, depth int) {
@@ -183,10 +181,15 @@ func loadFolder(root, source string) ([]*Release, error) {
 			}
 			low := strings.ToLower(e.Name())
 			switch {
-			case strings.HasSuffix(low, ".vpk") && !strings.HasPrefix(low, "._"):
+			case strings.HasPrefix(low, "._"):
+			case strings.HasSuffix(low, ".vpk"):
 				vpks = append(vpks, p)
+			case depth <= 2 && mayBeVPK(low) && isZip(p) && isVPKZip(p):
+				vpks = append(vpks, p) // a VPK under another name
 			case low == ManifestName || low == "cboc-release.json":
 				manifests = append(manifests, p)
+			case depth <= 1 && strings.HasSuffix(low, ".json") && LooksLikeManifest(p):
+				guessed = append(guessed, p) // a release file under another name
 			}
 		}
 	}
@@ -199,6 +202,18 @@ func loadFolder(root, source string) ([]*Release, error) {
 		}
 		return strings.EqualFold(filepath.Base(manifests[i]), ManifestName)
 	})
+	// A renamed release file is used only where no regular one exists.
+	have := map[string]bool{}
+	for _, m := range manifests {
+		have[filepath.Dir(m)] = true
+	}
+	sort.Strings(guessed)
+	for _, g := range guessed {
+		if !have[filepath.Dir(g)] {
+			manifests = append(manifests, g)
+			have[filepath.Dir(g)] = true
+		}
+	}
 	var out []*Release
 	claimed := map[string]bool{}
 	doneDirs := map[string]bool{}
@@ -225,7 +240,7 @@ func loadFolder(root, source string) ([]*Release, error) {
 				vpk = findByName(vpks, filepath.Base(m.VPK))
 			}
 		} else {
-			for _, v := range vpks {
+			for _, v := range vpks { // the only VPK next to the manifest
 				if filepath.Dir(v) == dir {
 					if vpk != "" {
 						vpk = ""
@@ -236,6 +251,10 @@ func loadFolder(root, source string) ([]*Release, error) {
 			}
 		}
 		if vpk == "" {
+			// Renamed? Find it by its checksum, then by its title ID.
+			vpk = findVPK(vpks, claimed, m)
+		}
+		if vpk == "" {
 			if firstErr == nil {
 				firstErr = fmt.Errorf("the release's app (%s) is missing; download the complete release ZIP", m.VPK)
 			}
@@ -243,6 +262,7 @@ func loadFolder(root, source string) ([]*Release, error) {
 		}
 		r, err := fromManifest(m, dir, vpk, source)
 		if err != nil {
+			badDirs[dir] = true // never fall back to installing a damaged app without its release
 			if firstErr == nil {
 				firstErr = err
 			}
@@ -297,6 +317,45 @@ func dedupe(rs []*Release) []*Release {
 		out = append(out, best[id])
 	}
 	return out
+}
+
+// mayBeVPK reports whether a file with this name could be a renamed VPK
+// (worth a look inside): ZIPs and files with no or unknown extensions.
+func mayBeVPK(low string) bool {
+	switch filepath.Ext(low) {
+	case ".zip", "", ".bin", ".pkg", ".app", ".game":
+		return true
+	}
+	return false
+}
+
+// findVPK picks the manifest's app among vpks when its name does not match:
+// by checksum, then by title ID, then the only one left.
+func findVPK(vpks []string, claimed map[string]bool, m *Manifest) string {
+	var free []string
+	for _, v := range vpks {
+		if !claimed[v] {
+			free = append(free, v)
+		}
+	}
+	if m.VPKSHA256 != "" {
+		for _, v := range free {
+			if sum, err := sha256File(v); err == nil && strings.EqualFold(sum, m.VPKSHA256) {
+				return v
+			}
+		}
+	}
+	if m.TitleID != "" {
+		for _, v := range free {
+			if app, err := vita.OpenVPK(v); err == nil && app.TitleID == m.TitleID {
+				return v
+			}
+		}
+	}
+	if len(free) == 1 && m.VPKSHA256 == "" {
+		return free[0]
+	}
+	return ""
 }
 
 func findByName(paths []string, name string) string {

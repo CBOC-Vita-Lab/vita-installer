@@ -98,7 +98,17 @@ func readManifest(file string) (*Manifest, error) {
 	if err != nil {
 		return nil, err
 	}
-	if strings.EqualFold(path.Base(strings.ReplaceAll(file, "\\", "/")), "cboc-release.json") {
+	return ParseManifest(b)
+}
+
+// ParseManifest reads either format, told apart by its contents rather than
+// its file name.
+func ParseManifest(b []byte) (*Manifest, error) {
+	var probe map[string]json.RawMessage
+	if err := json.Unmarshal(b, &probe); err != nil {
+		return nil, fmt.Errorf("the release file is not valid JSON: %v", err)
+	}
+	if isCBOC(probe) {
 		return fromCBOC(b)
 	}
 	var m Manifest
@@ -106,6 +116,49 @@ func readManifest(file string) (*Manifest, error) {
 		return nil, fmt.Errorf("%s is not valid JSON: %v", ManifestName, err)
 	}
 	return &m, m.check()
+}
+
+func isCBOC(probe map[string]json.RawMessage) bool {
+	_, a := probe["requiredInputs"]
+	_, b := probe["package"]
+	_, c := probe["schemaVersion"]
+	return a || (b && c)
+}
+
+// LooksLikeManifest reports whether a JSON file is a release description of
+// either kind (so a renamed one is still found).
+func LooksLikeManifest(file string) bool {
+	st, err := os.Stat(file)
+	if err != nil || st.Size() > 1<<20 {
+		return false
+	}
+	b, err := os.ReadFile(file)
+	if err != nil {
+		return false
+	}
+	var probe map[string]json.RawMessage
+	if json.Unmarshal(b, &probe) != nil {
+		return false
+	}
+	if isCBOC(probe) {
+		_, inputs := probe["requiredInputs"]
+		_, dest := probe["destinations"]
+		return inputs || dest
+	}
+	_, needs := probe["needs"]
+	_, vpk := probe["vpk"]
+	_, cp := probe["copy"]
+	return needs || vpk || cp
+}
+
+// AppOf returns what a release file says about its app: file name, SHA-256
+// and title ID (any may be empty).
+func AppOf(b []byte) (name, sha256, titleID string) {
+	m, err := ParseManifest(b)
+	if err != nil {
+		return "", "", ""
+	}
+	return path.Base(m.VPK), strings.ToLower(m.VPKSHA256), m.TitleID
 }
 
 func (m *Manifest) check() error {
@@ -237,7 +290,7 @@ func fromCBOC(b []byte) (*Manifest, error) {
 		case "shader-compiler":
 			n.Type = NeedShader
 		case "roms":
-			n.Type, n.To, n.Ext = NeedFiles, data, []string{".gb", ".gbc", ".gba", ".zip"}
+			n.Type, n.To, n.Ext = NeedFiles, data, []string{".gb", ".gbc", ".gba"}
 			n.Label = "Your GB, GBC or GBA games (optional)"
 		case "gba-bios":
 			n.Type, n.To = NeedFile, "ux0:data/GBAdhoc/gba_bios.bin"
