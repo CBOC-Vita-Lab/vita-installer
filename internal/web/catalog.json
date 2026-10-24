@@ -4,5 +4,11 @@
     "repo": "CBOC-Vita-Lab/strikers-charged-vita",
     "about": "Native PS Vita port of the Wii soccer game.",
     "needs": "Your own Wii USA Rev 1 disc (ISO, RVZ or extracted folder)"
+  },
+  {
+    "name": "VitAdhoc",
+    "repo": "CBOC-Vita-Lab/vitadhoc",
+    "about": "Game Boy, Game Boy Color and Game Boy Advance for the Vita, with box art and link play.",
+    "needs": "Nothing to start. Add your own GB, GBC or GBA games and GBA BIOS if you like"
   }
 ]
