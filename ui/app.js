@@ -151,6 +151,7 @@
       (mine ? '<div class="muted small" style="width:100%;margin:10px 0 4px">Also on your Vita</div>' + mine : '');
   }
 
+  var artNames = { icon: 'bubble icon', background: 'background', logo: 'logo' };
   var typeHelp = {
     'wii-disc': 'ISO, RVZ, WBFS or a folder extracted with Dolphin',
     'gc-disc': 'ISO, RVZ or a folder extracted with Dolphin',
@@ -176,7 +177,8 @@
     else if (it.version) meta.push('v' + esc(it.version));
     if (it.installed && !it.same && it.onVita && it.onVita !== it.tag && it.status !== 'done') meta.push('replaces ' + esc(it.onVita));
     meta.push(size(itemBytes(it)));
-    var icon = app.titleId ? '<img class="icon" src="' + base + 'api/icon?id=' + esc(it.id) + '" alt="">' : '<div class="icon ph">VPK</div>';
+    var iconSrc = it.art && it.art.custom && it.art.slots && it.art.slots.icon ? 'api/artpreview?slot=icon&v=' + it.art.seq + '&id=' : 'api/icon?id=';
+    var icon = app.titleId ? '<img class="icon" src="' + base + iconSrc + esc(it.id) + '" alt="">' : '<div class="icon ph">VPK</div>';
     var busy = it.status === 'working' || it.status === 'queued';
     var h = '<article class="' + cls + '" data-item="' + esc(it.id) + '"><div class="card-head">' + icon +
       '<div class="card-title"><h2>' + esc(it.name) + badge + '</h2><div class="meta">' + meta.join(' · ') + '</div></div>' +
@@ -205,6 +207,17 @@
         h += '</div>';
       });
       h += '</div>';
+    }
+    if (app.titleId && it.art) {
+      var a = it.art, v = '&v=' + a.seq;
+      var from = {};
+      Object.keys(a.slots || {}).forEach(function (k) { from[String(a.slots[k]).split(',')[0]] = true; });
+      var desc = a.custom ? 'Your artwork (' + ['icon', 'background', 'logo'].filter(function (k) { return a.slots && a.slots[k]; }).map(function (k) { return artNames[k]; }).join(', ') +
+        ') from ' + Object.keys(from).join(' and ') + '. Kept for future updates.' : "The game's own bubble and LiveArea pictures";
+      h += '<div class="need art-row' + (a.custom ? ' ok' : '') + '"><div class="thumbs"><img src="' + base + 'api/artpreview?id=' + esc(it.id) + '&slot=icon' + v + '" alt="">' +
+        '<img class="bgthumb" src="' + base + 'api/artpreview?id=' + esc(it.id) + '&slot=background' + v + '" alt=""></div>' +
+        '<div class="nt"><div>Artwork</div><span>' + esc(desc) + '</span></div>' +
+        (busy ? '' : '<button class="btn small ghost" data-art="' + esc(it.id) + '">Change</button>') + '</div>';
     }
     if (it.held) h += '<div class="note bad">' + esc(it.held) + '</div>';
     if (it.notes && it.status !== 'done') h += '<div class="note">' + esc(it.notes) + '</div>';
@@ -322,15 +335,152 @@
     if (key !== lastItems) { lastItems = key; $('items').innerHTML = items.map(itemCard).join(''); }
     dock();
     job();
+    renderArtPreview();
     document.title = S.job && S.job.progress && S.job.progress.total > 0 && S.job.progress.phase === 'send'
       ? Math.floor(S.job.progress.done * 100 / S.job.progress.total) + '% · CBOC Vita Installer' : 'CBOC Vita Installer';
   }
+
+
+  // ---- artwork picker ----
+  var art = { item: null, slot: 'icon', source: 'file', query: '', system: '', libretro: null, games: null, game: null, images: null, busy: '', error: '' };
+  var systems = ['Sony - PlayStation Vita', 'Sony - PlayStation Portable', 'Nintendo - Wii', 'Nintendo - GameCube', 'Sony - PlayStation 2',
+    'Sony - PlayStation', 'Microsoft - Xbox 360', 'Nintendo - Nintendo DS', 'Nintendo - Nintendo 64', 'Nintendo - Game Boy Advance',
+    'Nintendo - Super Nintendo Entertainment System', 'Sega - Dreamcast'];
+  function artItem() { return (S && S.items || []).filter(function (i) { return i.id === art.item; })[0]; }
+  function openArt(id) {
+    var it = (S.items || []).filter(function (i) { return i.id === id; })[0];
+    if (!it) return;
+    if (art.item !== id) {
+      art = { item: id, slot: 'icon', source: 'file', query: it.name, system: '', libretro: null, games: null, game: null, images: null, busy: '', error: '' };
+    }
+    $('artSheet').hidden = false;
+    renderArtBody();
+    renderArtPreview();
+  }
+  var lastArtSeq = -1;
+  function renderArtPreview() {
+    var it = artItem();
+    if ($('artSheet').hidden || !it || !it.art) return;
+    $('artTitle').textContent = 'Artwork · ' + it.name;
+    if (it.art.seq !== lastArtSeq) {
+      lastArtSeq = it.art.seq;
+      var q = base + 'api/artpreview?id=' + encodeURIComponent(it.id) + '&v=' + it.art.seq + '&slot=';
+      $('artBubble').src = q + 'icon';
+      $('artBg').src = q + 'background';
+      $('artGate').src = q + 'startup';
+    }
+    var from = it.art.slots && it.art.slots[art.slot];
+    $('artCurrent').innerHTML = 'Now: ' + (from ? esc(from) + ' <button class="btn small ghost" data-artclear>Remove</button>' :
+      (art.slot === 'logo' ? 'none (the start image uses the game\'s own picture)' : 'the game\'s own picture'));
+    Array.prototype.forEach.call(document.querySelectorAll('#artSlots .tab'), function (b) { b.classList.toggle('sel', b.dataset.slot === art.slot); });
+    Array.prototype.forEach.call(document.querySelectorAll('#artSources .tab'), function (b) { b.classList.toggle('sel', b.dataset.source === art.source); });
+  }
+  function grid(cands) {
+    var list = (cands || []).filter(function (c) { return c.slot === art.slot; });
+    if (!list.length) {
+      return '<p class="muted">' + (art.slot === 'logo' ? 'No logos here. Try SteamGridDB, or use your own picture.' : 'Nothing for this slot here. Try another tab or source.') + '</p>';
+    }
+    var cls = art.slot === 'background' ? ' wide' : art.slot === 'logo' ? ' logos wide' : '';
+    return '<div class="art-grid' + cls + '">' + list.map(function (c) {
+      var label = c.source === 'steamgriddb' ? 'SteamGridDB' + (c.credit ? ' · ' + c.credit : '') : 'libretro · ' + c.kind;
+      return '<button type="button" data-artpick-url="' + esc(c.url) + '" data-artpick-label="' + esc((c.source === 'steamgriddb' ? 'SteamGridDB' : 'libretro-thumbnails') + ', ' + c.title) + '" title="' + esc(c.title) + '">' +
+        '<img loading="lazy" src="' + base + 'api/artthumb?u=' + encodeURIComponent(c.thumb) + '" alt=""><span>' + esc(label) + '</span></button>';
+    }).join('') + '</div>';
+  }
+  function renderArtBody() {
+    var b = $('artBody'), h = '';
+    var status = art.busy ? '<p class="muted">' + esc(art.busy) + '</p>' : art.error ? '<p class="note bad">' + esc(art.error) + '</p>' : '';
+    if (art.source === 'file') {
+      h = '<div class="drop-art" id="artDrop"><p>Drop a picture here (PNG or JPEG), or</p><button class="btn" type="button" data-artfile>Choose picture</button>' +
+        '<p class="muted small">It is cropped to fit: the bubble is round, the background is wide.</p></div>' + status;
+    } else if (art.source === 'libretro') {
+      h = '<form class="url" data-artform="libretro"><select id="artSystem" aria-label="System"><option value="">Best guess</option>' +
+        systems.map(function (x) { return '<option' + (x === art.system ? ' selected' : '') + ' value="' + esc(x) + '">' + esc(x.replace(/^[^-]+ - /, '')) + '</option>'; }).join('') +
+        '</select><input id="artQuery" value="' + esc(art.query) + '" aria-label="Game name"><button class="btn" type="submit">Search</button></form>' + status +
+        (art.libretro ? grid(art.libretro) : (art.busy ? '' : '<p class="muted small">Box art, title screens and screenshots from the libretro-thumbnails project. No account needed.</p>'));
+    } else {
+      if (!S.steamGrid) {
+        h = '<p>SteamGridDB has icons, wide backgrounds and logos for most games. It needs your own free API key:</p>' +
+          '<ol class="small"><li>Sign in at <button class="linkish" type="button" data-openx="https://www.steamgriddb.com/profile/preferences/api">steamgriddb.com</button> (with Steam).</li>' +
+          '<li>Go to <b>Preferences › API</b> and copy your key.</li></ol>' +
+          '<form class="url" data-artkey><input id="artKey" type="password" placeholder="Paste your API key" aria-label="SteamGridDB API key" autocomplete="off"><button class="btn primary" type="submit">Save key</button></form>' +
+          '<p class="muted small">The key stays on this computer.</p>' + status;
+      } else {
+        h = '<form class="url" data-artform="steamgriddb"><input id="artQuery" value="' + esc(art.query) + '" aria-label="Game name"><button class="btn" type="submit">Search</button></form>';
+        if (art.games) {
+          h += '<div class="games">' + art.games.slice(0, 12).map(function (g) {
+            return '<button type="button" class="tab' + (art.game && art.game.id === g.id ? ' sel' : '') + '" data-sgdbgame="' + g.id + '" data-sgdbname="' + esc(g.name) + '">' + esc(g.name) + (g.year ? ' (' + g.year + ')' : '') + '</button>';
+          }).join('') + '</div>';
+        }
+        h += status + (art.images ? grid(art.images) : '') +
+          '<p class="muted small">Pictures by the SteamGridDB community. <button class="linkish" type="button" data-artkeyclear>Change API key</button></p>';
+      }
+    }
+    b.innerHTML = h;
+  }
+  function artSearch(source, query, system) {
+    art.busy = 'Searching…'; art.error = '';
+    if (source === 'libretro') art.libretro = null;
+    if (source === 'steamgriddb') { art.games = null; art.game = null; art.images = null; }
+    if (source === 'steamgriddb-game') art.images = null;
+    renderArtBody();
+    return fetch(base + 'api/artsearch', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'cboc' },
+      body: JSON.stringify({ item: art.item, kind: source, query: query, system: system || '' }) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        art.busy = '';
+        if (j.error) { art.error = j.error; }
+        else if (source === 'libretro') art.libretro = j.candidates || [];
+        else if (source === 'steamgriddb') {
+          art.games = j.games || [];
+          if (art.games.length) { art.game = art.games[0]; return artSearch('steamgriddb-game', String(art.games[0].id), art.games[0].name); }
+        } else art.images = j.candidates || [];
+        renderArtBody();
+      }).catch(function () { art.busy = ''; art.error = 'The search did not work. Check your internet connection.'; renderArtBody(); });
+  }
+  function artSet(body) {
+    art.error = '';
+    return api('artset', body).then(function (j) { if (j && j.error) { art.error = j.error; renderArtBody(); } });
+  }
+  document.addEventListener('submit', function (e) {
+    var f = e.target;
+    if (f.dataset && f.dataset.artform) {
+      e.preventDefault();
+      art.query = $('artQuery').value.trim();
+      if (f.dataset.artform === 'libretro') { art.system = $('artSystem').value; artSearch('libretro', art.query, art.system); }
+      else artSearch('steamgriddb', art.query);
+    } else if (f.dataset && f.dataset.artkey !== undefined) {
+      e.preventDefault();
+      var k = $('artKey').value.trim();
+      if (!k) return;
+      art.busy = 'Checking the key…'; art.error = ''; renderArtBody();
+      api('artkey', { key: k }).then(function (j) {
+        art.busy = '';
+        if (j && j.error) { art.error = j.error; renderArtBody(); return; }
+        S.steamGrid = true; renderArtBody(); artSearch('steamgriddb', art.query);
+      });
+    }
+  });
 
   // ---- actions ----
   document.addEventListener('click', function (e) {
     var t = e.target.closest ? e.target.closest('button') : null;
     if (!t) return;
     var d = t.dataset;
+    if (d.art) { openArt(d.art); return; }
+    if (d.slot) { art.slot = d.slot; renderArtBody(); renderArtPreview(); return; }
+    if (d.source) {
+      art.source = d.source; art.error = ''; renderArtBody(); renderArtPreview();
+      if (d.source === 'libretro' && !art.libretro) artSearch('libretro', art.query, art.system);
+      if (d.source === 'steamgriddb' && S.steamGrid && !art.games) artSearch('steamgriddb', art.query);
+      return;
+    }
+    if (d.artpickUrl) { artSet({ item: art.item, input: art.slot, url: d.artpickUrl, label: d.artpickLabel }); return; }
+    if (d.artfile !== undefined) { api('pick', { item: art.item, input: 'art:' + art.slot, kind: 'file' }); return; }
+    if (d.artclear !== undefined) { artSet({ item: art.item, input: art.slot }); return; }
+    if (d.sgdbgame) { art.game = { id: +d.sgdbgame, name: d.sgdbname }; artSearch('steamgriddb-game', d.sgdbgame, d.sgdbname); return; }
+    if (d.artkeyclear !== undefined) { api('artkey', { key: '' }).then(function () { S.steamGrid = false; art.games = art.images = null; renderArtBody(); }); return; }
+    if (d.openx) { api('open', { url: d.openx }); return; }
     if (d.remove) api('remove', { item: d.remove });
     else if (d.pickItem) api('pick', { item: d.pickItem, input: d.pickInput, kind: d.kind });
     else if (d.launch) api('launch', { item: d.launch });
@@ -365,8 +515,10 @@
     var v = $('host').value.trim();
     if (v) api('connect', { host: v }).then(function (j) { if (j && j.ok) closeSheets(); });
   };
-  function closeSheets() { $('connSheet').hidden = true; }
+  function closeSheets() { $('connSheet').hidden = true; $('artSheet').hidden = true; }
   $('connSheet').addEventListener('click', function (e) { if (e.target === $('connSheet')) closeSheets(); });
+  $('artSheet').addEventListener('click', function (e) { if (e.target === $('artSheet')) closeSheets(); });
+  $('artReset').onclick = function () { artSet({ item: art.item, input: 'all' }); };
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSheets(); });
 
   // ---- drag and drop ----
@@ -383,7 +535,7 @@
     var row = e.target.closest ? e.target.closest('[data-drop-item]') : null;
     Array.prototype.forEach.call(document.querySelectorAll('.need.dragover'), function (n) { if (n !== row) n.classList.remove('dragover'); });
     if (row) row.classList.add('dragover');
-    overlay.firstChild.textContent = row ? 'Drop to use for this game' : 'Drop to add';
+    overlay.firstChild.textContent = !$('artSheet').hidden ? 'Drop to use as the ' + artNames[art.slot] : row ? 'Drop to use for this game' : 'Drop to add';
   });
   document.addEventListener('drop', function (e) {
     if (!hasFiles(e)) return;
@@ -391,6 +543,7 @@
     depth = 0;
     overlay.hidden = true;
     var row = e.target.closest ? e.target.closest('[data-drop-item]') : null;
+    if (!$('artSheet').hidden) row = { dataset: { dropItem: art.item, dropInput: 'art:' + art.slot } }; // a picture for the artwork
     Array.prototype.forEach.call(document.querySelectorAll('.need.dragover'), function (n) { n.classList.remove('dragover'); });
     var dt = e.dataTransfer, list = [];
     for (var i = 0; i < dt.files.length; i++) {

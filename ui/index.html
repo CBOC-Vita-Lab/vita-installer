@@ -86,6 +86,33 @@
   </div>
 </div>
 
+<div id="artSheet" class="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="artTitle">
+  <div class="sheet-card wide">
+    <div class="row between"><h2 id="artTitle">Artwork</h2><button class="x" data-close type="button" aria-label="Close">×</button></div>
+    <p class="muted small">This is how it will look on your Vita. Your choice is kept for future updates of this game.</p>
+    <div class="art-preview">
+      <div class="bubble-wrap"><img id="artBubble" class="bubble" alt="Home screen bubble"><span class="muted small">Home screen</span></div>
+      <div class="livearea-wrap"><div class="livearea"><img id="artBg" alt="LiveArea background"><img id="artGate" class="gate" alt="Start image"></div><span class="muted small">LiveArea</span></div>
+    </div>
+    <div class="tabs" id="artSlots" role="tablist">
+      <button class="tab sel" data-slot="icon" role="tab">Bubble icon</button>
+      <button class="tab" data-slot="background" role="tab">Background</button>
+      <button class="tab" data-slot="logo" role="tab">Logo</button>
+    </div>
+    <div id="artCurrent" class="muted small art-current"></div>
+    <div class="tabs sources" id="artSources" role="tablist">
+      <button class="tab sel" data-source="file" role="tab">Your picture</button>
+      <button class="tab" data-source="libretro" role="tab">libretro-thumbnails</button>
+      <button class="tab" data-source="steamgriddb" role="tab">SteamGridDB</button>
+    </div>
+    <div id="artBody" class="art-body"></div>
+    <div class="row between foot">
+      <button id="artReset" class="btn ghost small" type="button">Use the game's own artwork</button>
+      <button class="btn primary" data-close type="button">Done</button>
+    </div>
+  </div>
+</div>
+
 <div id="overlay" class="overlay" hidden><div>Drop to add</div></div>
 <script src="app.js"></script>
 </body>

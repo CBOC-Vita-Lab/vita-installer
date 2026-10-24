@@ -123,6 +123,10 @@ Keys are `<os>-<arch>` as Go names them (`windows-386`, `windows-arm64`, `darwin
 
 Older CBOC releases ship `cboc-release.json` instead; the installer reads that too. Infected releases get two optional HD texture slots (`texpack_2x.bin`, and `texpack_4x_mixed.bin` installed as `texpack_4x.bin`) automatically.
 
+## Artwork
+
+Players can replace a game's bubble icon, LiveArea background and start image with their own pictures, libretro-thumbnails or SteamGridDB art before installing. The installer only replaces the pictures the VPK already has: `sce_sys/icon0.png`, the background and `startup-image` named in `sce_sys/livearea/contents/template.xml`, and `sce_sys/pic0.png`. Other LiveArea items (buttons such as a Settings shortcut) stay as you made them.
+
 ## File names
 
 Name your files however you like. The installer goes by what a file is, not what it's called:

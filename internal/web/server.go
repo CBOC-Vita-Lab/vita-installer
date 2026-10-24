@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/CBOC-Vita-Lab/vita-installer/internal/art"
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/selfupdate"
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/sys"
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/vita"
@@ -141,7 +142,7 @@ func reply(w http.ResponseWriter, err error) {
 func (s *Server) api(w http.ResponseWriter, r *http.Request, name string) {
 	a := s.App
 	var body struct {
-		Path, Host, Drive, URL, Item, Input, Kind string
+		Path, Host, Drive, URL, Item, Input, Kind, Query, System, Label, Key string
 	}
 	if r.Method == "POST" && name != "upload" {
 		json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&body)
@@ -170,6 +171,30 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request, name string) {
 		w.Header().Set("Content-Type", "image/png")
 		w.Header().Set("Cache-Control", "private, max-age=3600")
 		w.Write(icon)
+	case "artpreview":
+		b, err := a.ArtPreview(r.URL.Query().Get("id"), r.URL.Query().Get("slot"))
+		if err != nil {
+			http.Error(w, "no picture", 404)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		w.Write(b)
+	case "artthumb":
+		b, err := art.Thumb(r.Context(), a.cache, r.URL.Query().Get("u"))
+		if err != nil {
+			http.Error(w, "no picture", 404)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		w.Header().Set("Cache-Control", "private, max-age=86400")
+		w.Write(b)
+	case "artsearch":
+		v, err := a.ArtSearch(r.Context(), body.Item, body.Kind, body.Query, body.System)
+		replyJSON(w, v, err)
+	case "artset":
+		reply(w, a.SetArt(r.Context(), body.Item, body.Input, "", body.URL, body.Label))
+	case "artkey":
+		reply(w, a.SetSteamGridKey(r.Context(), body.Key))
 	case "scan":
 		go a.Scan(context.Background())
 		reply(w, nil)
@@ -188,6 +213,9 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request, name string) {
 		if body.Input != "" {
 			prompt = "Choose the file for this game"
 		}
+		if strings.HasPrefix(body.Input, "art:") {
+			prompt = "Choose a picture (PNG or JPEG)"
+		}
 		kind := body.Kind
 		if kind == "" {
 			kind = "file"
@@ -202,7 +230,9 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request, name string) {
 			reply(w, nil)
 			return
 		}
-		if body.Input != "" {
+		if strings.HasPrefix(body.Input, "art:") {
+			reply(w, a.SetArt(r.Context(), body.Item, strings.TrimPrefix(body.Input, "art:"), p, "", ""))
+		} else if body.Input != "" {
 			reply(w, a.SetInput(body.Item, body.Input, p))
 		} else if body.Kind == "drive" {
 			reply(w, a.Connect(r.Context(), "", p))
@@ -241,7 +271,7 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request, name string) {
 		a.update(func(st *State) { st.Notice = "" })
 		reply(w, nil)
 	case "open":
-		if strings.HasPrefix(body.URL, "https://github.com/") {
+		if strings.HasPrefix(body.URL, "https://github.com/") || strings.HasPrefix(body.URL, "https://www.steamgriddb.com/") {
 			sys.OpenURL(body.URL)
 		}
 		reply(w, nil)
@@ -378,6 +408,10 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if item := q.Get("item"); item != "" {
+		if in := q.Get("input"); strings.HasPrefix(in, "art:") {
+			reply(w, s.App.SetArt(r.Context(), item, strings.TrimPrefix(in, "art:"), dest, "", ""))
+			return
+		}
 		reply(w, s.App.SetInput(item, q.Get("input"), dest))
 		return
 	}

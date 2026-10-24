@@ -14,28 +14,30 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/CBOC-Vita-Lab/vita-installer/internal/art"
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/vita"
 )
 
 // Release is one app to install.
 type Release struct {
-	ID      string    `json:"id"`
-	Name    string    `json:"name"`
-	TitleID string    `json:"titleId"`
-	Version string    `json:"version"`
-	Source  string    `json:"source"`         // file or folder name the player chose
-	Repo    string    `json:"repo,omitempty"` // GitHub owner/repo it was downloaded from
-	Tag     string    `json:"tag,omitempty"`  // and that release's tag
-	App     *vita.App `json:"app"`
-	VPK     string    `json:"-"`
-	Root    string    `json:"-"` // folder the release's relative paths start from
-	Copies  []Bundled `json:"-"`
-	Bundled int64     `json:"bundledBytes"` // size of bundled data files
-	Inputs  []*Input  `json:"inputs"`
-	Keep    []string  `json:"keep,omitempty"`
-	Notes   string    `json:"notes,omitempty"`
-	Held    string    `json:"held,omitempty"`
-	Warning string    `json:"warning,omitempty"`
+	ID      string     `json:"id"`
+	Name    string     `json:"name"`
+	TitleID string     `json:"titleId"`
+	Version string     `json:"version"`
+	Source  string     `json:"source"`         // file or folder name the player chose
+	Repo    string     `json:"repo,omitempty"` // GitHub owner/repo it was downloaded from
+	Tag     string     `json:"tag,omitempty"`  // and that release's tag
+	App     *vita.App  `json:"app"`
+	VPK     string     `json:"-"`
+	Root    string     `json:"-"` // folder the release's relative paths start from
+	Copies  []Bundled  `json:"-"`
+	Bundled int64      `json:"bundledBytes"` // size of bundled data files
+	Inputs  []*Input   `json:"inputs"`
+	Keep    []string   `json:"keep,omitempty"`
+	Notes   string     `json:"notes,omitempty"`
+	Held    string     `json:"held,omitempty"`
+	Warning string     `json:"warning,omitempty"`
+	Art     art.Choice `json:"-"` // the player's own bubble and LiveArea pictures
 }
 
 // Bundled is a file shipped in the release that is copied to the Vita.

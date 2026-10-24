@@ -29,6 +29,7 @@ type Item struct {
 	Error     string          `json:"error,omitempty"`
 	Result    *install.Result `json:"result,omitempty"`
 	Launched  bool            `json:"launched,omitempty"`
+	Art       *ArtInfo        `json:"art,omitempty"`
 }
 
 // Job is the running installation.
@@ -64,7 +65,8 @@ type State struct {
 	NoticeBad bool           `json:"noticeBad"`
 	Update    *Update        `json:"update"`
 	Catalog   []CatalogEntry `json:"catalog"`
-	Library   []LibraryGame  `json:"library"` // games this installer put on the connected Vita
+	Library   []LibraryGame  `json:"library"`   // games this installer put on the connected Vita
+	SteamGrid bool           `json:"steamGrid"` // a SteamGridDB API key is set
 	Dialogs   bool           `json:"dialogs"`
 	Seq       int64          `json:"seq"`
 }
@@ -82,6 +84,7 @@ type App struct {
 	lastHost  string
 	tags      map[string]latestTag
 	staged    *selfupdate.Staged
+	sgdbKey   string
 }
 
 // NewApp prepares state, loading saved settings.
@@ -92,11 +95,13 @@ func NewApp(version, cache, config string) *App {
 	a.st.Catalog = builtinCatalog()
 	os.MkdirAll(cache, 0o755)
 	os.MkdirAll(config, 0o755)
-	var saved struct{ LastHost string }
+	var saved struct{ LastHost, SteamGridKey string }
 	if b, err := os.ReadFile(filepath.Join(config, "settings.json")); err == nil {
 		json.Unmarshal(b, &saved)
 	}
 	a.lastHost = saved.LastHost
+	a.sgdbKey = saved.SteamGridKey
+	a.st.SteamGrid = a.sgdbKey != ""
 	go cleanOld(cache, 48*time.Hour)
 	return a
 }
@@ -116,8 +121,10 @@ func cleanOld(cache string, age time.Duration) {
 }
 
 func (a *App) saveSettings() {
-	b, _ := json.Marshal(struct{ LastHost string }{a.lastHost})
-	os.WriteFile(filepath.Join(a.config, "settings.json"), b, 0o644)
+	a.mu.Lock()
+	b, _ := json.Marshal(struct{ LastHost, SteamGridKey string }{a.lastHost, a.sgdbKey})
+	a.mu.Unlock()
+	os.WriteFile(filepath.Join(a.config, "settings.json"), b, 0o600) // holds the player's API key
 }
 
 // Snapshot returns the state as JSON.
@@ -389,7 +396,9 @@ func (a *App) addFrom(path, repo, tag string) error {
 	for _, r := range rs {
 		r.Repo, r.Tag = repo, tag
 		install.AutoFind(r)
-		added = append(added, &Item{Release: r})
+		it := &Item{Release: r}
+		a.applyArt(it) // the artwork chosen for this game before, if any
+		added = append(added, it)
 	}
 	a.update(func(s *State) {
 		for _, it := range added {

@@ -155,5 +155,8 @@ func buildHash(r *release.Release) string {
 		sum, _ := fileHash(c.Local)
 		h.Write([]byte(c.Remote + "\x00" + sum + "\n"))
 	}
+	if fp := r.Art.Fingerprint(); fp != "" {
+		h.Write([]byte("art\x00" + fp))
+	}
 	return hex.EncodeToString(h.Sum(nil))[:16]
 }

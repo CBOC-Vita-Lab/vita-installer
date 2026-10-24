@@ -1,5 +1,23 @@
 # What's New
 
+## Version 1.4 — October 23, 2026
+
+Your games, your artwork.
+
+**New: Artwork**
+
+- **Choose the look of every game.** Each game has an **Artwork** button for its home-screen bubble, LiveArea background and logo.
+- **See it first.** A live preview shows exactly how the bubble and LiveArea will look on your Vita before you install.
+- **Your own pictures.** Drop in a PNG or JPEG, or choose one. It's cropped and converted for the Vita automatically.
+- **libretro-thumbnails.** Search box art, title screens and screenshots with no account. The installer guesses the system from the game.
+- **SteamGridDB.** Icons, wide backgrounds and logos from its community, with your own free API key (kept on your computer).
+- **Kept for updates.** Your choice is remembered and put back every time the game is updated.
+
+**Under the hood**
+
+- Pictures are written as 8-bit indexed PNGs at the Vita's exact sizes: 128×128 bubble, 840×500 background, 280×158 start image, and pic0 when the game has one. Only pictures the game already has are replaced.
+- A game with new artwork counts as a new build, so it's installed again even if nothing else changed.
+
 ## Version 1.3 — October 23, 2026
 
 Smarter about files.
