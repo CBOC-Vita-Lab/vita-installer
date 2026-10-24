@@ -3,6 +3,7 @@ package install
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/prep"
@@ -77,19 +78,16 @@ func CheckInput(in *release.Input, path string) {
 		}
 		in.State, in.Message, in.Bytes = "ok", "Shader compiler found.", st.Size()
 	case release.NeedFile:
-		if st.IsDir() {
-			fail("Choose a file, not a folder.")
+		src, err := findFileSource(in, path)
+		if err != nil {
+			fail(capital(err.Error()) + ".")
 			return
 		}
-		if !extOK(path, in.Ext) {
-			fail("This file type is not accepted here.")
+		if in.MaxBytes > 0 && src.size > in.MaxBytes {
+			fail("This file is too big for this (" + human(src.size) + ", at most " + human(in.MaxBytes) + "). " + capital(in.Help) + ".")
 			return
 		}
-		if in.MaxBytes > 0 && st.Size() > in.MaxBytes {
-			fail("This file is too big for this (" + human(st.Size()) + ", at most " + human(in.MaxBytes) + "). " + capital(in.Help) + ".")
-			return
-		}
-		in.State, in.Bytes = "ok", st.Size()
+		in.State, in.Bytes, in.Message = "ok", src.size, src.what()
 	case release.NeedFolder:
 		if !st.IsDir() {
 			fail("Choose a folder.")
@@ -236,6 +234,13 @@ func plausible(in *release.Input, path string) bool {
 	case release.NeedFile:
 		if st.IsDir() {
 			return false
+		}
+		if in.Magic != "" { // known by its contents, whatever it is called
+			if m := rePart.FindStringSubmatch(name); m != nil {
+				n, _ := strconv.Atoi(m[2])
+				return n <= 1
+			}
+			return !strings.HasSuffix(name, ".vpk") && !strings.HasSuffix(name, ".iso") && st.Size() >= int64(len(in.Magic))
 		}
 		if len(in.Names) > 0 {
 			for _, n := range in.Names {

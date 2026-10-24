@@ -1,5 +1,14 @@
 # What's New
 
+## Version 1.5 — October 23, 2026
+
+HD textures for Strikers and Galaxy.
+
+- **Strikers and Galaxy HD packs.** Both games get an optional **HD textures** slot. Choose your `hdtex.pack` and it goes where the game looks for it.
+- **Any shape works.** Choose the pack itself, a ZIP with it inside, the folder it's in, or the first of its split pieces (`.part00`, `.001`). It's unpacked or joined for you. Infected's HD packs work the same way.
+- **Known by what's inside.** A renamed pack is still found, and a pack in a format the game can't read is turned away before it reaches your Vita.
+- File slots now have a **Folder** button too.
+
 ## Version 1.4 — October 23, 2026
 
 Your games, your artwork.
