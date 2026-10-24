@@ -99,6 +99,7 @@ Your choice is remembered and goes back on every time the game is updated. **Use
 
 | | |
 | --- | --- |
+| [Ideas for later](docs/ROADMAP.md) | Features we'd like to add, such as custom loading screens |
 | [Release format](docs/release-format.md) | How a Vita release tells the installer what it needs, including converting the player's files |
 | Build and test | `go test ./...`, then `scripts/build.sh 1.4` (Go 1.20, no other dependencies) |
 
