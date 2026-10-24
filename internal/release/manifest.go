@@ -46,6 +46,7 @@ type Need struct {
 	Prepare  []Step            `json:"prepare,omitempty"`  // conversion before copying (disc and folder needs)
 	Names    []string          `json:"names,omitempty"`    // file: names to look for automatically (default: the name in to)
 	MaxBytes int64             `json:"maxBytes,omitempty"` // file: refuse bigger files
+	Magic    string            `json:"magic,omitempty"`    // file: the bytes it starts with (then any name is fine)
 }
 
 // Step is one preparation step run on the player's files before they are
@@ -115,6 +116,7 @@ func ParseManifest(b []byte) (*Manifest, error) {
 	if err := json.Unmarshal(b, &m); err != nil {
 		return nil, fmt.Errorf("%s is not valid JSON: %v", ManifestName, err)
 	}
+	addHDPack(&m)
 	return &m, m.check()
 }
 
@@ -287,6 +289,9 @@ func fromCBOC(b []byte) (*Manifest, error) {
 			n.Label, n.Optional = "HD textures, Vita 4x pack (optional)", true
 			n.Names, n.MaxBytes = []string{"texpack_4x_mixed.bin"}, 160<<20
 			n.Help = "texpack_4x_mixed.bin (not the full 4x pack, which is too big for the Vita)"
+		case "strikers-hd", "galaxy-hd":
+			n = hdPack(kind)
+			n.ID = id
 		case "shader-compiler":
 			n.Type = NeedShader
 		case "roms":
@@ -323,8 +328,46 @@ func fromCBOC(b []byte) (*Manifest, error) {
 			}
 		}
 	}
+	addHDPack(m)
 	if c.ReleaseState != "" && c.ReleaseState != "ready" && m.Held == "" {
 		m.Held = "This release is not ready to install yet."
 	}
 	return m, m.check()
+}
+
+// hdPackMagic starts every HD texture pack the Wii ports read (format 1).
+const hdPackMagic = "HDTX\x01\x00\x00\x00"
+
+// hdPack is the optional HD texture pack slot for a Wii port.
+func hdPack(kind string) Need {
+	n := Need{ID: "hd", Type: NeedFile, Optional: true, Magic: hdPackMagic, Names: []string{"hdtex.pack"}, MaxBytes: 400 << 20}
+	n.Label = "HD textures (optional)"
+	n.Help = "hdtex.pack, made from your own game. A ZIP, folder or split pieces of it work too"
+	switch kind {
+	case "strikers-hd":
+		n.To = "ux0:data/mscharged/hdtex.pack"
+	case "galaxy-hd":
+		n.To = "ux0:data/smg/hdtex.pack"
+	}
+	return n
+}
+
+// addHDPack gives Strikers and Galaxy releases the HD texture slot when the
+// release does not list one itself.
+func addHDPack(m *Manifest) {
+	kind := ""
+	for _, n := range m.Needs {
+		if n.Type == NeedFile && n.Magic == hdPackMagic {
+			return
+		}
+		switch strings.ToUpper(n.GameID) {
+		case "R4QE01":
+			kind = "strikers-hd"
+		case "RMGE01":
+			kind = "galaxy-hd"
+		}
+	}
+	if kind != "" {
+		m.Needs = append(m.Needs, hdPack(kind))
+	}
 }

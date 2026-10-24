@@ -433,7 +433,28 @@ func prepareInput(ctx context.Context, in *release.Input, releaseRoot string, op
 			return nil, nil, errors.New("the game disc has no files")
 		}
 		return out, tmp, nil
-	case release.NeedPSPISO, release.NeedFile:
+	case release.NeedFile:
+		src, err := findFileSource(in, in.Path)
+		if err != nil {
+			return nil, nil, errors.New(in.Label + ": " + err.Error())
+		}
+		if src.member != "" || len(src.parts) > 0 {
+			report(Progress{Phase: "prepare", Text: "Unpacking " + in.Label, ETA: -1})
+		}
+		local, temp, err := src.local(filepath.Join(opt.Cache, "inputs"))
+		if err != nil {
+			return nil, nil, err
+		}
+		var tmp []string
+		if temp {
+			tmp = append(tmp, local)
+		}
+		st, err := os.Stat(local)
+		if err != nil {
+			return nil, tmp, err
+		}
+		return []item{{local: local, remote: in.To, size: st.Size()}}, tmp, nil
+	case release.NeedPSPISO:
 		st, err := os.Stat(in.Path)
 		if err != nil {
 			return nil, nil, err

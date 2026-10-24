@@ -121,7 +121,9 @@ For anything the built-in steps don't cover, ship a converter for each computer 
 
 Keys are `<os>-<arch>` as Go names them (`windows-386`, `windows-arm64`, `darwin-arm64`, `darwin-amd64`, `linux-arm64`…); `darwin-universal` covers both Macs. `{in}` is the player's (or the previous step's) folder, which the tool must only read; `{out}` is an empty folder it fills, which the next steps and the Vita get. The program is refused if its SHA-256 doesn't match, and the player is asked to **Allow** it before anything runs. A non-zero exit stops the install and shows the last lines the tool wrote to stderr.
 
-Older CBOC releases ship `cboc-release.json` instead; the installer reads that too. Infected releases get two optional HD texture slots (`texpack_2x.bin`, and `texpack_4x_mixed.bin` installed as `texpack_4x.bin`) automatically.
+Older CBOC releases ship `cboc-release.json` instead; the installer reads that too. Infected releases get two optional HD texture slots (`texpack_2x.bin`, and `texpack_4x_mixed.bin` installed as `texpack_4x.bin`) automatically. Strikers and Galaxy releases (any release that asks for disc `R4QE01` or `RMGE01`) get an optional HD texture slot for `hdtex.pack`, installed to `ux0:data/mscharged/hdtex.pack` or `ux0:data/smg/hdtex.pack`.
+
+A `file` need can set `magic`, the bytes the file starts with. The installer then recognises the file by its contents, whatever it is called. For every `file` need the player can choose the file itself, a ZIP that holds it, a folder that holds it, or the first of its split pieces (`.part00`, `.part01`, … or `.001`, `.002`, …); the installer unpacks or joins it before copying.
 
 ## Artwork
 

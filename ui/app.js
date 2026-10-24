@@ -192,7 +192,7 @@
         var sub = n.message || (n.path ? n.path.split(/[\\/]/).pop() : (n.help || typeHelp[n.type] || (n.optional ? 'Optional' : '')));
         if (n.optional && !n.path && n.state !== 'skip' && n.type !== 'shader-compiler') sub = 'Optional · ' + sub;
         if (n.prepare && n.prepare.length && n.state === 'ok') sub += ' It will be converted for the Vita on this computer first.';
-        var folderOk = n.type === 'wii-disc' || n.type === 'gc-disc' || n.type === 'folder' || n.type === 'files';
+        var folderOk = n.type === 'wii-disc' || n.type === 'gc-disc' || n.type === 'folder' || n.type === 'files' || n.type === 'file';
         h += '<div class="need ' + state + '" data-drop-item="' + esc(it.id) + '" data-drop-input="' + esc(n.id) + '"><div class="st">' + mark + '</div>' +
           '<div class="nt"><div>' + esc(n.label) + '</div><span title="' + esc(n.path || '') + '">' + esc(sub) + '</span></div>';
         if (!busy && n.state === 'skip' && n.type !== 'shader-compiler') {
