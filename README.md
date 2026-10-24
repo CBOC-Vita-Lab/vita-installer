@@ -10,9 +10,13 @@ Putting a game on a PS Vita used to mean FTP apps, folder hunting and a lot of g
 
 <p align="center"><b><a href="https://github.com/CBOC-Vita-Lab/vita-installer/releases/latest">Download the latest version</a></b> · <a href="#how-to-use-it">How to use it</a> · <a href="CHANGELOG.md">What's new</a> · <a href="#help">Help</a></p>
 
-## New In Version 1.2
+## New In Version 1.3
 
-**It keeps itself up to date.** When a new version is out, the installer downloads it in the background and checks it's genuine. Click **Update now**, or just open the installer next time and you're on the new version. Your page even reconnects by itself.
+**Smarter about files.** Downloads are recognised by what's inside them, so renamed files install just the same, and every download from GitHub is checked before it goes to your Vita.
+
+## Version 1.2: It Keeps Itself Up To Date
+
+**No more manual updates.** When a new version is out, the installer downloads it in the background and checks it's genuine. Click **Update now**, or just open the installer next time and you're on the new version. Your page even reconnects by itself.
 
 ## Version 1.1 Highlights
 
@@ -68,9 +72,9 @@ Updating a game? Open the installer with your Vita connected and press **Update*
 
 | File | What it is |
 | --- | --- |
-| `CBOC-Vita-Installer-1.2-mac.zip` | The Mac app, for Intel and Apple Silicon |
-| `CBOC-Vita-Installer-1.2-windows-x64.exe` / `-x86.exe` / `-arm64.exe` | Windows: most PCs, older or 32-bit PCs, and ARM PCs |
-| `CBOC-Vita-Installer-1.2-linux-amd64.tar.gz` / `-arm64.tar.gz` | Linux |
+| `CBOC-Vita-Installer-1.3-mac.zip` | The Mac app, for Intel and Apple Silicon |
+| `CBOC-Vita-Installer-1.3-windows-x64.exe` / `-x86.exe` / `-arm64.exe` | Windows: most PCs, older or 32-bit PCs, and ARM PCs |
+| `CBOC-Vita-Installer-1.3-linux-amd64.tar.gz` / `-arm64.tar.gz` | Linux |
 | `SHA256SUMS.txt` | Checksums, if you want to check your download |
 
 ## For Developers
@@ -78,7 +82,7 @@ Updating a game? Open the installer with your Vita connected and press **Update*
 | | |
 | --- | --- |
 | [Release format](docs/release-format.md) | How a Vita release tells the installer what it needs, including converting the player's files |
-| Build and test | `go test ./...`, then `scripts/build.sh 1.2` (Go 1.20, no other dependencies) |
+| Build and test | `go test ./...`, then `scripts/build.sh 1.3` (Go 1.20, no other dependencies) |
 
 The app is one Go program with a plain HTML page in `ui/`. The code is in `internal/`.
 
