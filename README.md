@@ -10,26 +10,23 @@ Putting a game on a PS Vita used to mean FTP apps, folder hunting and a lot of g
 
 <p align="center"><b><a href="https://github.com/CBOC-Vita-Lab/vita-installer/releases/latest">Download the latest version</a></b> · <a href="#how-to-use-it">How to use it</a> · <a href="CHANGELOG.md">What's new</a> · <a href="#help">Help</a></p>
 
-## New In Version 1.3
+## New In Version 1.4
 
-**Smarter about files.** Downloads are recognised by what's inside them, so renamed files install just the same, and every download from GitHub is checked before it goes to your Vita.
+**Make every game look the way you want.** Each game now has an **Artwork** button. Pick a new home-screen bubble, LiveArea background and logo, and see exactly how it will look on your Vita before you install.
 
-## Version 1.2: It Keeps Itself Up To Date
+- **Your own pictures.** Drop in any PNG or JPEG. It's cropped and converted for the Vita automatically.
+- **libretro-thumbnails.** Box art, title screens and screenshots for thousands of games. No account needed.
+- **SteamGridDB.** Icons, wide backgrounds and logos made by its community. Just paste your own free API key once.
+- **Kept for updates.** Your artwork is remembered and goes back on every time you update the game.
 
-**No more manual updates.** When a new version is out, the installer downloads it in the background and checks it's genuine. Click **Update now**, or just open the installer next time and you're on the new version. Your page even reconnects by itself.
+## Recent Highlights
 
-## Version 1.1 Highlights
-
-The installer was rebuilt from the ground up: smaller, faster, and it runs on almost any computer.
-
-- **Runs almost everywhere.** Intel and Apple Silicon Macs back to macOS 10.13, Windows 7 to 11 (including 32-bit and ARM) and Linux. The old version only ran on Apple Silicon Macs.
-- **A fraction of the size.** About 7 MB instead of 150 MB, with nothing else to install.
-- **Faster transfers.** It sends several files at once, skips what your Vita already has, and picks up by itself if the Wi-Fi drops.
-- **Hands-free installs.** Over Wi-Fi, nothing to press on the Vita. With Vita Companion it can even launch the game for you.
-- **Bring your own game.** Wii, GameCube and PSP games as disc images or extracted folders. It checks you have the right version and puts everything where the port expects it.
-- **Super Mario Galaxy ready.** It converts your own Galaxy disc for the Vita on your computer, checks every file, and makes the movies about half the size.
-- **Smart updates.** Connect your Vita and it shows **Update** when a new version is out. Only what changed is sent, and your saves are never touched.
-- **Infected HD textures.** Optional slots for the HD texture packs you made from your own disc.
+- **Any file name works** (1.3): downloads are recognised by what's inside them, and every GitHub download is checked before it reaches your Vita.
+- **Keeps itself up to date** (1.2): new versions download in the background and switch over with one click.
+- **Runs almost everywhere** (1.1): Intel and Apple Silicon Macs back to macOS 10.13, Windows 7 to 11 (including 32-bit and ARM) and Linux, in a 7 MB download.
+- **Faster, hands-free installs:** several files at once, nothing to press on the Vita, and it picks up after a Wi-Fi drop.
+- **Bring your own game:** Wii, GameCube and PSP games, checked and converted for the Vita when needed (Super Mario Galaxy included).
+- **Smart updates:** shows **Update** when a game has a new version and sends only what changed. Your saves are never touched.
 
 ## What To Expect
 
@@ -50,7 +47,7 @@ The installer was rebuilt from the ground up: smaller, faster, and it runs on al
 1. **Download** the file for your computer from the [latest release](https://github.com/CBOC-Vita-Lab/vita-installer/releases/latest) and open it. It opens in your web browser.
 2. **On your Vita, open VitaShell and press SELECT.** The installer finds it by itself.
 3. **Pick a game.** Click **Get** next to a CBOC game, drop in a `.vpk` or `.zip`, or paste a GitHub link.
-4. **Press Install.** Add your own game file first if it asks for one.
+4. **Press Install.** Add your own game file first if it asks for one. Want different artwork? Press **Artwork** on the game first.
 
 Updating a game? Open the installer with your Vita connected and press **Update**. The installer keeps itself up to date too.
 
@@ -72,9 +69,9 @@ Updating a game? Open the installer with your Vita connected and press **Update*
 
 | File | What it is |
 | --- | --- |
-| `CBOC-Vita-Installer-1.3-mac.zip` | The Mac app, for Intel and Apple Silicon |
-| `CBOC-Vita-Installer-1.3-windows-x64.exe` / `-x86.exe` / `-arm64.exe` | Windows: most PCs, older or 32-bit PCs, and ARM PCs |
-| `CBOC-Vita-Installer-1.3-linux-amd64.tar.gz` / `-arm64.tar.gz` | Linux |
+| `CBOC-Vita-Installer-1.4-mac.zip` | The Mac app, for Intel and Apple Silicon |
+| `CBOC-Vita-Installer-1.4-windows-x64.exe` / `-x86.exe` / `-arm64.exe` | Windows: most PCs, older or 32-bit PCs, and ARM PCs |
+| `CBOC-Vita-Installer-1.4-linux-amd64.tar.gz` / `-arm64.tar.gz` | Linux |
 | `SHA256SUMS.txt` | Checksums, if you want to check your download |
 
 ## For Developers
@@ -82,7 +79,7 @@ Updating a game? Open the installer with your Vita connected and press **Update*
 | | |
 | --- | --- |
 | [Release format](docs/release-format.md) | How a Vita release tells the installer what it needs, including converting the player's files |
-| Build and test | `go test ./...`, then `scripts/build.sh 1.3` (Go 1.20, no other dependencies) |
+| Build and test | `go test ./...`, then `scripts/build.sh 1.4` (Go 1.20, no other dependencies) |
 
 The app is one Go program with a plain HTML page in `ui/`. The code is in `internal/`.
 

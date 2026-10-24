@@ -16,6 +16,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/CBOC-Vita-Lab/vita-installer/internal/art"
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/device"
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/ftp"
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/prep"
@@ -138,15 +139,31 @@ func Run(ctx context.Context, r *release.Release, opt Options) (*Result, error) 
 	}
 	items = kept
 
-	// 3. The app itself.
+	// 3. The app itself, with the player's own artwork if they chose some.
+	vpk, vpkSize := r.VPK, r.App.Size
+	if !r.Art.Empty() {
+		report(Progress{Phase: "prepare", Text: "Adding your artwork", ETA: -1})
+		out := filepath.Join(opt.Cache, "apps", r.TitleID+"-art-"+shortHash(r.VPK+r.Art.Fingerprint())+".vpk")
+		os.MkdirAll(filepath.Dir(out), 0o755)
+		if _, err := os.Stat(out); err != nil {
+			if err := art.Build(r.VPK, out, r.Art); err != nil {
+				return nil, fmt.Errorf("your artwork could not be added: %v", err)
+			}
+		}
+		cleanup = append(cleanup, out)
+		vpk = out
+		if st, err := os.Stat(out); err == nil {
+			vpkSize = st.Size()
+		}
+	}
 	mode := "manual"
 	var appItems []item
 	appRemote := ""
 	switch {
 	case opt.Vita != nil && opt.Vita.Companion:
 		mode = "companion"
-		dir := filepath.Join(opt.Cache, "apps", r.TitleID+"-"+shortHash(r.VPK))
-		if err := unpackVPK(ctx, r.VPK, dir, report); err != nil {
+		dir := filepath.Join(opt.Cache, "apps", r.TitleID+"-"+shortHash(vpk))
+		if err := unpackVPK(ctx, vpk, dir, report); err != nil {
 			return nil, err
 		}
 		cleanup = append(cleanup, dir)
@@ -161,10 +178,10 @@ func Run(ctx context.Context, r *release.Release, opt Options) (*Result, error) 
 	case opt.Vita != nil:
 		mode = "prom"
 		appRemote = Staging + "/" + r.TitleID + ".vpk"
-		appItems = []item{{local: r.VPK, remote: appRemote, size: r.App.Size, app: true}}
+		appItems = []item{{local: vpk, remote: appRemote, size: vpkSize, app: true}}
 	default:
 		appRemote = "ux0:VPK/" + safeName(r.Name, r.TitleID) + ".vpk"
-		appItems = []item{{local: r.VPK, remote: appRemote, size: r.App.Size, app: true}}
+		appItems = []item{{local: vpk, remote: appRemote, size: vpkSize, app: true}}
 	}
 
 	// 4. Skip what the Vita already has. Files the release ships are only
