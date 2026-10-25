@@ -10,15 +10,13 @@ Putting a game on a PS Vita used to mean FTP apps, folder hunting and a lot of g
 
 <p align="center"><b><a href="https://github.com/CBOC-Vita-Lab/vita-installer/releases/latest">Download the latest version</a></b> · <a href="#how-to-use-it">How to use it</a> · <a href="CHANGELOG.md">What's new</a> · <a href="#help">Help</a></p>
 
-## New In Version 1.5
+## New In Version 1.6
 
-**HD textures for Mario Strikers Charged and Super Mario Galaxy.** Both games now have an optional **HD textures** slot. Choose your `hdtex.pack` and the installer puts it exactly where the game looks for it.
-
-- **Any shape works.** The pack itself, a ZIP with it inside, the folder it's in, or the first of its split pieces. It's unpacked or joined for you. Infected's HD packs work the same way.
-- **Known by what's inside.** A renamed pack is still found, and one the game can't read is turned away before it reaches your Vita.
+**Clearer when something goes wrong.** If an install stops part-way, the reason now stays on the game until you try again, instead of disappearing.
 
 ## Recent Highlights
 
+- **HD textures for Strikers and Galaxy** (1.5): choose your `hdtex.pack` as the file, a ZIP, a folder or split pieces.
 - **Custom artwork** (1.4): pick a new bubble, LiveArea background and logo from your own pictures, libretro-thumbnails or SteamGridDB, with a live preview first.
 - **Any file name works** (1.3): downloads are recognised by what's inside them, and every GitHub download is checked before it reaches your Vita.
 - **Keeps itself up to date** (1.2): new versions download in the background and switch over with one click.
@@ -89,9 +87,9 @@ Your choice is remembered and goes back on every time the game is updated. **Use
 
 | File | What it is |
 | --- | --- |
-| `CBOC-Vita-Installer-1.5-mac.zip` | The Mac app, for Intel and Apple Silicon |
-| `CBOC-Vita-Installer-1.5-windows-x64.exe` / `-x86.exe` / `-arm64.exe` | Windows: most PCs, older or 32-bit PCs, and ARM PCs |
-| `CBOC-Vita-Installer-1.5-linux-amd64.tar.gz` / `-arm64.tar.gz` | Linux |
+| `CBOC-Vita-Installer-1.6-mac.zip` | The Mac app, for Intel and Apple Silicon |
+| `CBOC-Vita-Installer-1.6-windows-x64.exe` / `-x86.exe` / `-arm64.exe` | Windows: most PCs, older or 32-bit PCs, and ARM PCs |
+| `CBOC-Vita-Installer-1.6-linux-amd64.tar.gz` / `-arm64.tar.gz` | Linux |
 | `SHA256SUMS.txt` | Checksums, if you want to check your download |
 
 ## For Developers
@@ -100,7 +98,7 @@ Your choice is remembered and goes back on every time the game is updated. **Use
 | --- | --- |
 | [Ideas for later](docs/ROADMAP.md) | Features we'd like to add, such as custom loading screens |
 | [Release format](docs/release-format.md) | How a Vita release tells the installer what it needs, including converting the player's files |
-| Build and test | `go test ./...`, then `scripts/build.sh 1.5` (Go 1.20, no other dependencies) |
+| Build and test | `go test ./...`, then `scripts/build.sh 1.6` (Go 1.20, no other dependencies) |
 
 The app is one Go program with a plain HTML page in `ui/`. The code is in `internal/`.
 

@@ -364,8 +364,8 @@ func setStatus(it *Item) {
 	if it.Status == "working" || it.Status == "queued" {
 		return
 	}
-	if it.Status == "done" {
-		return
+	if it.Status == "done" || (it.Status == "failed" && it.Error != "") {
+		return // keep the reason a failed install shows until the player acts
 	}
 	it.Status = "ready"
 	if it.Held != "" {
