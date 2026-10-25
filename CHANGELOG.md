@@ -1,5 +1,11 @@
 # What's New
 
+## Version 1.6 — October 24, 2026
+
+Clearer when something goes wrong.
+
+- **Errors stay on screen.** If an install stopped part-way, the reason used to disappear a moment later. It now stays on the game until you press Install again, so you can see (and tell us) exactly what happened.
+
 ## Version 1.5 — October 23, 2026
 
 HD textures for Strikers and Galaxy.
