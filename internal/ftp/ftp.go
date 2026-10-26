@@ -145,6 +145,20 @@ func (c *Conn) CmdWait(cmd string, wait time.Duration) (int, string, error) {
 	return c.Cmd(cmd)
 }
 
+// expectDone runs a command that finishes at once and accepts any 2xx
+// reply: some Vita FTP servers answer with their own code, such as
+// "226 Directory created." to MKD instead of 257.
+func (c *Conn) expectDone(cmd string) error {
+	code, msg, err := c.Cmd(cmd)
+	if err != nil {
+		return err
+	}
+	if code >= 200 && code < 300 {
+		return nil
+	}
+	return &Error{code, msg}
+}
+
 func (c *Conn) expect(cmd string, ok ...int) error {
 	code, msg, err := c.Cmd(cmd)
 	if err != nil {
@@ -199,11 +213,11 @@ func Path(vitaPath string) string {
 }
 
 // Cwd changes directory.
-func (c *Conn) Cwd(dir string) error { return c.expect("CWD "+Path(dir), 250, 200) }
+func (c *Conn) Cwd(dir string) error { return c.expectDone("CWD " + Path(dir)) }
 
 // Mkdir creates one directory. An existing directory is not an error.
 func (c *Conn) Mkdir(dir string) error {
-	err := c.expect("MKD "+Path(dir), 257, 250, 200)
+	err := c.expectDone("MKD " + Path(dir))
 	if err != nil && IsNotFound(err) {
 		if c.Cwd(dir) == nil {
 			return nil
@@ -213,17 +227,17 @@ func (c *Conn) Mkdir(dir string) error {
 }
 
 // Delete removes a file.
-func (c *Conn) Delete(path string) error { return c.expect("DELE "+Path(path), 250, 200) }
+func (c *Conn) Delete(path string) error { return c.expectDone("DELE " + Path(path)) }
 
 // Rmdir removes an empty directory.
-func (c *Conn) Rmdir(path string) error { return c.expect("RMD "+Path(path), 250, 200) }
+func (c *Conn) Rmdir(path string) error { return c.expectDone("RMD " + Path(path)) }
 
 // Rename moves a file or directory.
 func (c *Conn) Rename(from, to string) error {
 	if err := c.expect("RNFR "+Path(from), 350); err != nil {
 		return err
 	}
-	return c.expect("RNTO "+Path(to), 250, 200)
+	return c.expectDone("RNTO " + Path(to))
 }
 
 // List returns the entries in dir. A missing directory gives IsNotFound.
