@@ -1,5 +1,11 @@
 # What's New
 
+## Version 1.7 — October 25, 2026
+
+Works with more Vita setups.
+
+- **Fixes installs that stopped right after creating a folder.** Some Vita FTP setups (seen with an sd2vita and a Vita 1001 on firmware 3.60) answer "folder created" in their own way, and the installer mistook that for a failure. Any success reply is now accepted when creating, removing or renaming files and folders.
+
 ## Version 1.6 — October 24, 2026
 
 Clearer when something goes wrong.

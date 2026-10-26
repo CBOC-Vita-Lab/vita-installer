@@ -66,6 +66,29 @@ func load(t *testing.T, rel string) *release.Release {
 	return rs[0]
 }
 
+// Some Vita FTP servers answer MKD with "226 Directory created." instead of 257.
+func TestInstallWithOddMkdReply(t *testing.T) {
+	rel, dir := makeRelease(t, true)
+	r := load(t, rel)
+	AutoFind(r)
+	vroot := filepath.Join(dir, "vita")
+	v, err := fakevita.Start(vroot, true, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer v.Close()
+	v.OddMkd = true
+	vita := &device.Vita{Host: "127.0.0.1", Port: v.Port()}
+	res, err := Run(context.Background(), r, Options{Vita: vita, Cache: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.Installed {
+		t.Fatalf("not installed: %+v", res)
+	}
+	mustFile(t, vroot, "ux0/data/mygame/game/files/stage/level 1.arc")
+}
+
 func TestInstallOverVitaShell(t *testing.T) {
 	rel, dir := makeRelease(t, true)
 	r := load(t, rel)

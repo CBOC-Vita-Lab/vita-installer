@@ -10,9 +10,9 @@ Putting a game on a PS Vita used to mean FTP apps, folder hunting and a lot of g
 
 <p align="center"><b><a href="https://github.com/CBOC-Vita-Lab/vita-installer/releases/latest">Download the latest version</a></b> · <a href="#how-to-use-it">How to use it</a> · <a href="CHANGELOG.md">What's new</a> · <a href="#help">Help</a></p>
 
-## New In Version 1.6
+## New In Version 1.7
 
-**Clearer when something goes wrong.** If an install stops part-way, the reason now stays on the game until you try again, instead of disappearing.
+**Works with more Vita setups.** Installs no longer stop right after creating the first folder on Vitas whose FTP server words its replies differently (seen with an sd2vita on firmware 3.60). If an install does stop, the reason stays on the game until you try again.
 
 ## Recent Highlights
 
@@ -87,9 +87,9 @@ Your choice is remembered and goes back on every time the game is updated. **Use
 
 | File | What it is |
 | --- | --- |
-| `CBOC-Vita-Installer-1.6-mac.zip` | The Mac app, for Intel and Apple Silicon |
-| `CBOC-Vita-Installer-1.6-windows-x64.exe` / `-x86.exe` / `-arm64.exe` | Windows: most PCs, older or 32-bit PCs, and ARM PCs |
-| `CBOC-Vita-Installer-1.6-linux-amd64.tar.gz` / `-arm64.tar.gz` | Linux |
+| `CBOC-Vita-Installer-1.7-mac.zip` | The Mac app, for Intel and Apple Silicon |
+| `CBOC-Vita-Installer-1.7-windows-x64.exe` / `-x86.exe` / `-arm64.exe` | Windows: most PCs, older or 32-bit PCs, and ARM PCs |
+| `CBOC-Vita-Installer-1.7-linux-amd64.tar.gz` / `-arm64.tar.gz` | Linux |
 | `SHA256SUMS.txt` | Checksums, if you want to check your download |
 
 ## For Developers
@@ -98,7 +98,7 @@ Your choice is remembered and goes back on every time the game is updated. **Use
 | --- | --- |
 | [Ideas for later](docs/ROADMAP.md) | Features we'd like to add, such as custom loading screens |
 | [Release format](docs/release-format.md) | How a Vita release tells the installer what it needs, including converting the player's files |
-| Build and test | `go test ./...`, then `scripts/build.sh 1.6` (Go 1.20, no other dependencies) |
+| Build and test | `go test ./...`, then `scripts/build.sh 1.7` (Go 1.20, no other dependencies) |
 
 The app is one Go program with a plain HTML page in `ui/`. The code is in `internal/`.
 

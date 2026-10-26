@@ -38,6 +38,8 @@ type Vita struct {
 	Limit int32
 	// FailStoreAfter makes the n-th STOR drop the connection mid-file (once).
 	FailStoreAfter int32
+	// OddMkd answers MKD with "226 Directory created." like some Vita FTP servers.
+	OddMkd bool
 }
 
 // Start runs a fake Vita. companion adds the 1338-style command port.
@@ -219,7 +221,11 @@ func (v *Vita) session(c net.Conn) {
 			if os.Mkdir(lp, 0o755) != nil {
 				say("550 Could not create the directory.")
 			} else {
-				say("257 \"%s\" created.", arg)
+				if v.OddMkd {
+					say("226 Directory created.")
+				} else {
+					say("257 \"%s\" created.", arg)
+				}
 			}
 		case "STOR":
 			lp, ok := v.local(abs(arg))
