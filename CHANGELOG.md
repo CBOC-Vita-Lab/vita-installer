@@ -1,5 +1,11 @@
 # What's New
 
+## Version 1.8 — October 30, 2026
+
+Bowser moves the way he should.
+
+- **Fixes Bowser twisting and spinning in Super Mario Galaxy.** Eight of the game's longest animations, including Bowser's three battle intros, were converted with part of their data the wrong way round, so his model twisted and spun while he talked. They're now converted correctly. Already installed? Install Galaxy again with this version and only the four corrected files are sent. (The upcoming Galaxy 1.2 also repairs them on its own.)
+
 ## Version 1.7 — October 25, 2026
 
 Works with more Vita setups.

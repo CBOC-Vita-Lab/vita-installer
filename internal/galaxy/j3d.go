@@ -314,9 +314,20 @@ func swapModel(b []byte) {
 
 // ---- animations ----
 
+// ank1CountLimit and ank1Marker: a key count of 0x8000 or more is unsigned (galaxy-vita 1.2). Read as signed it came
+// out negative and that array stayed big-endian (Bowser's battle-start cutscenes, among others, twisted and spun).
+// Such a block gets the marker in its header padding, so the game knows it needs no repair at load.
+const ank1CountLimit = 0x8000
+
+var ank1Marker = []byte("UCNT")
+
 func ank1(b []byte, o, end int) {
-	nS, nR, nT := s16(b, o+0x0E), s16(b, o+0x10), s16(b, o+0x12)
+	nS, nR, nT := u16(b, o+0x0E), u16(b, o+0x10), u16(b, o+0x12)
 	tbl, sc, rot, tr := u32(b, o+0x14), u32(b, o+0x18), u32(b, o+0x1C), u32(b, o+0x20)
+	if (nS >= ank1CountLimit || nR >= ank1CountLimit || nT >= ank1CountLimit) && tbl >= 0x28 {
+		need(b, o+0x24, 4)
+		copy(b[o+0x24:o+0x28], ank1Marker)
+	}
 	if tbl != 0 {
 		stop := end
 		if sc != 0 {
