@@ -42,10 +42,12 @@ Every field is optional.
 | Field | Meaning |
 | --- | --- |
 | `name` | Name to show (default: the VPK's title) |
-| `vpk` | VPK file, relative to this file (default: the only VPK in the folder) |
+| `vpk` | VPK file, relative to this file (default: the only VPK in the folder; not needed when `build` makes the app) |
 | `vpkSha256` | Refuse a damaged or incomplete download |
 | `copy` | `[{"from": "assets", "to": "ux0:data/mygame"}]` replaces the default `data/`/`ux0/` rules |
+| `titleId` | The app's title ID. Required when the app is made by `build`, checked against the VPK otherwise |
 | `needs` | Files the player supplies (below) |
+| `build` | Makes the app on the player's computer from one of their files ([below](#building-the-app-on-the-players-computer-build)) |
 | `keep` | Vita paths the release's own files never overwrite, such as saves and settings (files the player chooses for a need still go where the need says) |
 | `notes` | One short message shown before installing |
 | `held` | If set, the release is shown but cannot be installed; the text says why |
@@ -125,9 +127,74 @@ Older CBOC releases ship `cboc-release.json` instead; the installer reads that t
 
 A `file` need can set `magic`, the bytes the file starts with. The installer then recognises the file by its contents, whatever it is called. For every `file` need the player can choose the file itself, a ZIP that holds it, a folder that holds it, or the first of its split pieces (`.part00`, `.part01`, … or `.001`, `.002`, …); the installer unpacks or joins it before copying.
 
+## Building the app on the player's computer (`build`)
+
+Some ports can't ship the game's own code or data, so nothing derived from the game may be published. With `build`, the release ships a **builder kit** instead of an app. The installer runs it on the player's computer, on the player's own disc, and installs what it makes. The player gets no terminal, no SDK and no scripts, and nothing leaves their computer.
+
+```json
+{
+  "name": "Infected",
+  "titleId": "INFC00001",
+  "build": {
+    "from": "disc",
+    "kit": {
+      "windows-amd64": { "file": "Infected-Vita-builder-windows.zip", "sha256": "…64 hex digits…", "size": 312000000 },
+      "darwin-amd64":  { "file": "Infected-Vita-builder-mac.zip",     "sha256": "…", "size": 0 },
+      "darwin-arm64":  { "file": "Infected-Vita-builder-mac.zip",     "sha256": "…", "size": 0 },
+      "linux-amd64":   { "file": "Infected-Vita-builder-linux.zip",   "sha256": "…", "size": 0 }
+    },
+    "run": "infected-build",
+    "args": ["--progress", "--out", "{out}", "{in}"],
+    "app": "infected.vpk",
+    "label": "Building Infected from your disc",
+    "minutes": 10
+  },
+  "needs": [
+    { "id": "disc", "type": "psp-iso", "gameId": "ULUS-10054", "to": "ux0:data/infected/Infected.iso",
+      "label": "Your Infected UMD backup (PSP, USA, ISO)", "prepare": [{ "step": "build" }] },
+    { "id": "shader", "type": "shader-compiler", "optional": true }
+  ]
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `from` | The `id` of the need whose file is `{in}`: a `psp-iso`, `wii-disc`, `gc-disc`, `file` or `folder` need that is not optional. That need is still copied to the Vita as usual |
+| `kit` | One kit archive per kind of computer, named `<os>-<arch>` as Go names them (`windows-amd64`, `windows-386`, `darwin-arm64`, `linux-arm64`…). Each has the `file` name in the same GitHub release, its `sha256`, and optionally its `size`. A Mac without an entry of its own uses the other Mac's (or `darwin-universal`); there is no other fallback, and a computer with no entry is told the game can't be built there yet |
+| `run` | The program inside the kit (a relative path; `.exe` is added on Windows) |
+| `args` | Its arguments. `{in}` is the player's file, `{out}` an empty folder for the result and `{work}` an empty scratch folder. Must contain `{in}` and `{out}`. Default: `["{in}", "{out}"]` |
+| `app` | The name of the VPK the program writes into `{out}`. The app in it must have the release's `titleId` |
+| `label` | Shown while the build starts (default: "Building NAME from your disc") |
+| `minutes` | About how long it takes, shown to the player before they start |
+
+**The kit** is a ZIP per kind of computer, a file of the same release. The program, its tools and data are all inside; the installer unpacks it as it is, restoring the Unix permissions the ZIP stores. It is also the folder the program runs in.
+
+**The program** reads `{in}`, writes the VPK to `{out}/<app>` and exits with 0. On failure it exits non-zero and writes **one plain-English line** to stderr, which is shown to the player as it is (for example "This is not the US version of Infected (ULUS-10054, 1.02)."). With `--progress` it also prints these lines on stdout; any other line is ignored:
+
+```
+@step Compiling (this is the long part)      a new phase starts
+@progress 120 540                            progress in the current phase (whole numbers)
+@done /full/path/to/infected.vpk             the last line when it worked
+```
+
+The installer shows the step text and a progress bar with the time left, and the program's temporary files are kept in the installer's cache (`TMPDIR`/`TMP`/`TEMP` point there) so they are cleaned up with it. Stopping the install stops the program and everything it started.
+
+**What the player sees:**
+
+- Before installing, the game says it is built on their computer from their own disc, and about how long it takes.
+- They must press **Allow** first, like for a `tool` step. The text says that the game is built on this computer from their own disc, about how many minutes it takes, that it needs about 2 GB of free disk space, and that nothing is uploaded.
+- Only then is the kit for their computer downloaded from the release (a progress bar, "Downloading the build tools"), checked against its `sha256` (a mismatch is refused and nothing is unpacked), unpacked once and kept. Browsing a release or adding it to the list downloads no kit. A release folder or ZIP that already holds the kit file next to `vita-install.json` is used instead, so a release works offline.
+- The installer checks for about 2.5 GB of free space before it starts.
+- The finished VPK is kept in the installer's cache, keyed by the kit, the player's file (path, size and date) and the arguments. A retry after a failed install, or a reinstall, doesn't build again; a different disc file or a new kit does. Older builds of the same game are removed.
+- The built VPK then goes through the normal install exactly like a shipped one: artwork, PROM/Companion/USB install, the receipt, and update detection (the app on the Vita counts as this release's when the kit, program and arguments are the same).
+- The disc is asked for again on every install, even when a copy is on the Vita, because the build needs it on the computer.
+- Artwork can be chosen for a built game once it has been built the first time (before that there are no pictures to preview). It is applied to every later build.
+
+`vpk` may be given as well (for example a working app for older installers); a release with `build` always builds. The `{"step": "build"}` on the `from` need is optional: installers older than 1.8 refuse a release with an unknown step and say "a newer installer may be required", while without it they only see a release with no app. Either way, an older installer that is given the release by its GitHub link tries every ZIP of the release as a possible app, so it downloads the kits before reporting that no app was found; it can't be made to skip them.
+
 ## Artwork
 
-Players can replace a game's bubble icon, LiveArea background and start image with their own pictures, libretro-thumbnails or SteamGridDB art before installing. The installer only replaces the pictures the VPK already has: `sce_sys/icon0.png`, the background and `startup-image` named in `sce_sys/livearea/contents/template.xml`, and `sce_sys/pic0.png`. Other LiveArea items (buttons such as a Settings shortcut) stay as you made them.
+Players can replace a game's bubble icon, LiveArea background and start image with their own pictures, libretro-thumbnails or SteamGridDB art before installing. For a game made by `build` the pictures are known once it has been built. The installer only replaces the pictures the VPK already has: `sce_sys/icon0.png`, the background and `startup-image` named in `sce_sys/livearea/contents/template.xml`, and `sce_sys/pic0.png`. Other LiveArea items (buttons such as a Settings shortcut) stay as you made them.
 
 ## File names
 

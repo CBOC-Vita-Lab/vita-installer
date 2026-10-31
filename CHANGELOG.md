@@ -1,5 +1,18 @@
 # What's New
 
+## Version 1.8 — October 31, 2026
+
+Infected installs straight from your disc.
+
+- **Games built from your own disc.** Some games can't be shared ready-made, so the installer now builds them on your computer. Choose your own disc, press **Install**, and it builds the game for your Vita and installs it. No terminal, no tools to set up. The first build takes about 10 minutes (the game says how long before you start) and needs about 2 GB of free disk space.
+- **You decide first.** The installer asks you to **Allow** it, and says what it will do. Nothing from your disc is uploaded; everything stays on your computer and your Vita.
+- **Downloaded only when needed.** The build tools are fetched when you start the build, checked for damage, and kept for next time. Just looking at a game downloads nothing big.
+- **Only built once.** If an install is interrupted, or you install again, the finished game is reused. You can press **Stop** during a build.
+- **Clear messages.** A wrong disc version or too little free space shows a plain explanation on the game.
+- **Artwork** for a built game can be chosen once it has been built for the first time.
+
+For port authors: releases can now build their app on the player's computer. See [Release format](docs/release-format.md).
+
 ## Version 1.7 — October 25, 2026
 
 Works with more Vita setups.

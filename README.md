@@ -10,19 +10,20 @@ Putting a game on a PS Vita used to mean FTP apps, folder hunting and a lot of g
 
 <p align="center"><b><a href="https://github.com/CBOC-Vita-Lab/vita-installer/releases/latest">Download the latest version</a></b> · <a href="#how-to-use-it">How to use it</a> · <a href="CHANGELOG.md">What's new</a> · <a href="#help">Help</a></p>
 
-## New In Version 1.7
+## New In Version 1.8
 
-**Works with more Vita setups.** Installs no longer stop right after creating the first folder on Vitas whose FTP server words its replies differently (seen with an sd2vita on firmware 3.60). If an install does stop, the reason stays on the game until you try again.
+**Games built from your own disc.** Choose your disc, press **Install**, and the installer builds the game on your computer, then installs it on your Vita. Infected works this way. It asks you to allow it first, takes about 10 minutes the first time, and nothing is uploaded.
 
 ## Recent Highlights
 
+- **More Vita setups** (1.7): installs no longer stop right after creating the first folder on Vitas whose FTP server words its replies differently.
 - **HD textures for Strikers and Galaxy** (1.5): choose your `hdtex.pack` as the file, a ZIP, a folder or split pieces.
 - **Custom artwork** (1.4): pick a new bubble, LiveArea background and logo from your own pictures, libretro-thumbnails or SteamGridDB, with a live preview first.
 - **Any file name works** (1.3): downloads are recognised by what's inside them, and every GitHub download is checked before it reaches your Vita.
 - **Keeps itself up to date** (1.2): new versions download in the background and switch over with one click.
 - **Runs almost everywhere** (1.1): Intel and Apple Silicon Macs back to macOS 10.13, Windows 7 to 11 (including 32-bit and ARM) and Linux, in a 7 MB download.
 - **Faster, hands-free installs:** several files at once, nothing to press on the Vita, and it picks up after a Wi-Fi drop.
-- **Bring your own game:** Wii, GameCube and PSP games, checked and converted for the Vita when needed (Super Mario Galaxy included). Homebrew like VitAdhoc gets slots for your own games and BIOS. Infected, Strikers and Galaxy take your own HD texture packs, as the file, a ZIP, a folder or split pieces.
+- **Bring your own game:** Wii, GameCube and PSP games, checked and converted for the Vita when needed (Super Mario Galaxy included), or built on your computer from your disc (Infected). Homebrew like VitAdhoc gets slots for your own games and BIOS. Infected, Strikers and Galaxy take your own HD texture packs, as the file, a ZIP, a folder or split pieces.
 - **Smart updates:** shows **Update** when a game has a new version and sends only what changed. Your saves are never touched.
 
 ## What To Expect
@@ -35,6 +36,7 @@ Putting a game on a PS Vita used to mean FTP apps, folder hunting and a lot of g
 | **Game updates** | Usually seconds, because only changed files are sent |
 | **Installer updates** | Automatic: downloaded in the background, switched over with one click or the next time you open it |
 | **Super Mario Galaxy** | About 2–3 minutes to convert your disc on a recent computer, once |
+| **Games built from your disc** | About 10 minutes to build the game on your computer the first time (Infected), and about 2 GB of free disk space while it works. The finished game is reused afterwards |
 | **Artwork** | Optional. Your own pictures, libretro-thumbnails, or SteamGridDB with your free API key |
 | **Your files** | Nothing is uploaded anywhere. Everything stays between your computer and your Vita |
 
@@ -80,6 +82,8 @@ Your choice is remembered and goes back on every time the game is updated. **Use
 **I want it faster.** Use USB: in VitaShell press **START**, set **SELECT button** to **USB**, plug in the cable and press **SELECT**. When it's done, press **X** on the game in VitaShell's `ux0:VPK` folder.
 
 **The transfer stopped.** Press **Install** again. It picks up where it left off.
+
+**A game that is built from my disc stopped.** The message on the game says why, usually the wrong version of the disc or too little free space (about 2.5 GB is needed). Fix that and press **Install** again. The build tools are only downloaded once.
 
 **My Mac or PC is older and it asks for an extracted folder.** Unpacking disc images needs macOS 12 or Windows 10. On older systems, extract the disc in Dolphin first (right-click the game > **Properties** > **Filesystem** > **Extract Entire Disc**) and choose that folder.
 
