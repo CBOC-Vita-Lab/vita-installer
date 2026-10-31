@@ -176,7 +176,7 @@ func TestLoadBuildOnlyRelease(t *testing.T) {
 	if consent == nil || consent.Type != NeedConsent || consent.Satisfied() {
 		t.Fatalf("no consent to ask for: %+v", consent)
 	}
-	for _, want := range []string{"on this computer", "from your own disc", "10 minutes", "2 GB", "Nothing is uploaded"} {
+	for _, want := range []string{"on this computer", "from your own disc", "10 minutes", "1 GB", "Nothing is uploaded"} {
 		if !strings.Contains(consent.Label+" "+consent.Help, want) {
 			t.Errorf("consent text does not say %q: %q / %q", want, consent.Label, consent.Help)
 		}

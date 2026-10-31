@@ -218,7 +218,7 @@ func (b *Build) consentHelp() string {
 	var sb strings.Builder
 	sb.WriteString("The game is built on this computer from your own disc. ")
 	if _, k, ok := b.KitFor(runtime.GOOS, runtime.GOARCH); ok && k.Size > 0 {
-		sb.WriteString(fmt.Sprintf("First it downloads the build tools (about %d MB). ", (k.Size+(1<<20)-1)>>20))
+		sb.WriteString(fmt.Sprintf("It uses build tools of about %d MB, downloaded once. ", (k.Size+(1<<20)-1)>>20))
 	}
 	if b.Minutes > 0 {
 		sb.WriteString(fmt.Sprintf("It takes about %d minute", b.Minutes))
@@ -229,7 +229,7 @@ func (b *Build) consentHelp() string {
 	} else {
 		sb.WriteString("It takes a few minutes the first time")
 	}
-	sb.WriteString(" and needs about 2 GB of free disk space. Nothing is uploaded.")
+	sb.WriteString(" and needs about 1 GB of free disk space. Nothing is uploaded.")
 	return sb.String()
 }
 

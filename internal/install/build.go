@@ -32,7 +32,7 @@ func FakeFreeSpace(free int64) (restore func()) {
 }
 
 // buildSpace is the room a build needs on this computer while it works.
-const buildSpace = 2560 << 20
+const buildSpace = 1 << 30
 
 // buildApp makes the release's app on this computer from the player's file
 // (the need named by Build.From) and returns it. The result is kept in the

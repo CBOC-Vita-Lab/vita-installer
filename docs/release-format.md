@@ -184,7 +184,7 @@ The installer shows the step text and a progress bar with the time left, and the
 **What the player sees:**
 
 - Before installing, the game says it is built on their computer from their own disc, and about how long it takes.
-- They must press **Allow** first, like for a `tool` step. The text says that the game is built on this computer from their own disc, about how many minutes it takes, that it needs about 2 GB of free disk space, and that nothing is uploaded.
+- They must press **Allow** first, like for a `tool` step. The text says that the game is built on this computer from their own disc, about how many minutes it takes, that it needs about 1 GB of free disk space, and that nothing is uploaded.
 - Only then is the kit for their computer downloaded from the release (a progress bar, "Downloading the build tools"), checked against its `sha256` (a mismatch is refused and nothing is unpacked), unpacked once and kept. Browsing a release or adding it to the list downloads no kit. A release folder or ZIP that already holds the kit file next to `vita-install.json` is used instead, so a release works offline.
 - The installer checks for about 2.5 GB of free space before it starts.
 - The finished VPK is kept in the installer's cache, keyed by the kit, the player's file (path, size and date) and the arguments. A retry after a failed install, or a reinstall, doesn't build again; a different disc file or a new kit does. Older builds of the same game are removed.

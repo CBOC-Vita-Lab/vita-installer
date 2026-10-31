@@ -36,7 +36,7 @@ Putting a game on a PS Vita used to mean FTP apps, folder hunting and a lot of g
 | **Game updates** | Usually seconds, because only changed files are sent |
 | **Installer updates** | Automatic: downloaded in the background, switched over with one click or the next time you open it |
 | **Super Mario Galaxy** | About 2–3 minutes to convert your disc on a recent computer, once |
-| **Games built from your disc** | About 10 minutes to build the game on your computer the first time (Infected), and about 2 GB of free disk space while it works. The finished game is reused afterwards |
+| **Games built from your disc** | About 10 minutes to build the game on your computer the first time (Infected), and about 1 GB of free disk space while it works. The finished game is reused afterwards |
 | **Artwork** | Optional. Your own pictures, libretro-thumbnails, or SteamGridDB with your free API key |
 | **Your files** | Nothing is uploaded anywhere. Everything stays between your computer and your Vita |
 
