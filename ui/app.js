@@ -183,6 +183,11 @@
     var h = '<article class="' + cls + '" data-item="' + esc(it.id) + '"><div class="card-head">' + icon +
       '<div class="card-title"><h2>' + esc(it.name) + badge + '</h2><div class="meta">' + meta.join(' · ') + '</div></div>' +
       (busy ? '' : '<button class="x" data-remove="' + esc(it.id) + '" aria-label="Remove ' + esc(it.name) + '">×</button>') + '</div>';
+    if (it.build && it.status !== 'done') {
+      var mins = it.build.minutes;
+      h += '<div class="note">Built on your computer from your own disc' +
+        (mins > 0 ? ' \u2014 about ' + mins + ' minute' + (mins === 1 ? '' : 's') + ' the first time' : '') + '.</div>';
+    }
     var inputs = it.inputs || [];
     if (inputs.length) {
       h += '<div class="needs">';
@@ -208,7 +213,7 @@
       });
       h += '</div>';
     }
-    if (app.titleId && it.art) {
+    if (app.titleId && it.art && it.art.preview) {
       var a = it.art, v = '&v=' + a.seq;
       var from = {};
       Object.keys(a.slots || {}).forEach(function (k) { from[String(a.slots[k]).split(',')[0]] = true; });
@@ -270,7 +275,8 @@
     var p = j.progress || {};
     var it = (S.items || []).filter(function (i) { return i.id === j.itemId; })[0];
     $('jobTitle').textContent = j.name || 'Preparing';
-    $('jobStep').textContent = j.count > 1 ? 'Game ' + (j.index + 1) + ' of ' + j.count : (it && it.installed ? 'Updating' : 'Installing');
+    $('jobStep').textContent = j.count > 1 ? 'Game ' + (j.index + 1) + ' of ' + j.count :
+      it && it.build && p.phase === 'prepare' ? 'Building on this computer' : (it && it.installed ? 'Updating' : 'Installing');
     var icon = $('jobIcon');
     var src = it && it.app && it.app.titleId ? base + 'api/icon?id=' + it.id : '';
     if (icon.getAttribute('data-src') !== src) {
@@ -292,7 +298,7 @@
     $('jobEta').textContent = p.eta > 0 ? dur(p.eta) + ' left' : '';
     var f = '';
     if (p.phase === 'send') f = p.files + ' of ' + p.filesTotal + ' files · ' + size(p.done) + ' of ' + size(p.total) + (p.current ? ' · ' + p.current : '');
-    else if (p.unit && p.total > 0) f = p.done + ' of ' + p.total + ' ' + p.unit;
+    else if (p.unit && p.total > 0) f = p.done + ' of ' + p.total + (p.unit === 'count' ? '' : ' ' + p.unit);
     else if (p.done > 0) f = size(p.done) + (p.total > 0 ? ' of ' + size(p.total) : '');
     $('jobFile').textContent = f;
   }

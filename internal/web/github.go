@@ -260,6 +260,34 @@ func (a *App) addRelease(ctx context.Context, repo string, rel ghRelease) error 
 			unknown = append(unknown, as) // maybe an app under another name
 		}
 	}
+	// Release files that build their app say which ZIPs are the build tools.
+	// Those are big and are downloaded only when the build runs, never here.
+	bodies := map[string][]byte{}
+	kits := map[string]bool{}
+	var builders []asset // build-only release files (no app of their own)
+	for _, m := range manifests {
+		b := a.readSmall(ctx, m)
+		bodies[m.URL] = b
+		if mf, err := release.ParseManifest(b); err == nil && mf.Build != nil {
+			for _, k := range mf.Build.Kit {
+				kits[k.File] = true
+			}
+			if mf.VPK == "" {
+				builders = append(builders, m)
+			}
+		}
+	}
+	skipKits := func(list []asset) []asset {
+		var out []asset
+		for _, as := range list {
+			if !kits[as.Name] && !kitName.MatchString(as.Name) {
+				out = append(out, as)
+			}
+		}
+		return out
+	}
+	archives, sourceish = skipKits(archives), skipKits(sourceish)
+
 	// "-install" ZIPs first, then bigger ZIPs (more likely complete).
 	sort.SliceStable(archives, func(i, j int) bool {
 		ii, jj := strings.Contains(strings.ToLower(archives[i].Name), "install"), strings.Contains(strings.ToLower(archives[j].Name), "install")
@@ -278,10 +306,16 @@ func (a *App) addRelease(ctx context.Context, repo string, rel ghRelease) error 
 			return err
 		}
 	}
+	// A release file that builds the app on the player's computer needs no app.
+	for _, m := range builders {
+		if try(m, nil) {
+			return err
+		}
+	}
 	// The app plus its release file, matched by checksum first.
 	if len(manifests) > 0 && len(apps)+len(unknown) > 0 {
 		for _, m := range manifests {
-			if app := a.appFor(ctx, m, append(append([]asset{}, apps...), unknown...)); app != nil {
+			if app := a.appFor(bodies[m.URL], append(append([]asset{}, apps...), unknown...)); app != nil {
 				if try(*app, &m) {
 					return err
 				}
@@ -296,9 +330,12 @@ func (a *App) addRelease(ctx context.Context, repo string, rel ghRelease) error 
 	return err
 }
 
-// appFor reads a release file asset and returns the app asset it describes:
-// by checksum (GitHub's digest), then by name, then the only app.
-func (a *App) appFor(ctx context.Context, m asset, apps []asset) *asset {
+// kitName matches the build tools a release ships for each kind of computer
+// (for example Infected-Vita-builder-windows.zip).
+var kitName = regexp.MustCompile(`(?i)-builder-(windows|win|mac|macos|darwin|linux)[^/]*\.zip$`)
+
+// readSmall downloads a small release file (a release's description).
+func (a *App) readSmall(ctx context.Context, m asset) []byte {
 	req, _ := http.NewRequestWithContext(ctx, "GET", m.URL, nil)
 	req.Header.Set("User-Agent", "cboc-vita-installer")
 	resp, err := httpClient.Do(req)
@@ -307,6 +344,12 @@ func (a *App) appFor(ctx context.Context, m asset, apps []asset) *asset {
 	}
 	b, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	resp.Body.Close()
+	return b
+}
+
+// appFor reads a release file and returns the app asset it describes:
+// by checksum (GitHub's digest), then by name, then the only app.
+func (a *App) appFor(b []byte, apps []asset) *asset {
 	name, sum, _ := release.AppOf(b)
 	if name == "" && sum == "" {
 		return nil

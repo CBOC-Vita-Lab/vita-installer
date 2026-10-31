@@ -20,9 +20,10 @@ import (
 
 // ArtInfo is what the page shows about an item's artwork.
 type ArtInfo struct {
-	Custom bool              `json:"custom"`
-	Slots  map[string]string `json:"slots,omitempty"` // slot -> where it came from
-	Seq    int               `json:"seq"`             // changes when the pictures change
+	Custom  bool              `json:"custom"`
+	Slots   map[string]string `json:"slots,omitempty"` // slot -> where it came from
+	Seq     int               `json:"seq"`             // changes when the pictures change
+	Preview bool              `json:"preview"`         // the game's own pictures are known (not before a game that is built on this computer has been built)
 }
 
 // savedArt is a game's artwork choice, kept for later installs and updates.
@@ -76,7 +77,7 @@ func slotPtr(c *art.Choice, slot string) *string {
 func (a *App) applyArt(it *Item) {
 	s := a.loadArt(it.TitleID)
 	it.Release.Art = s.Choice
-	info := &ArtInfo{Custom: !s.Choice.Empty(), Slots: map[string]string{}, Seq: int(time.Now().UnixNano() % 1e9)}
+	info := &ArtInfo{Custom: !s.Choice.Empty(), Slots: map[string]string{}, Seq: int(time.Now().UnixNano() % 1e9), Preview: it.Release.VPK != ""}
 	for _, slot := range artSlots {
 		if p := slotPtr(&s.Choice, slot); p != nil && *p != "" {
 			info.Slots[slot] = s.Labels[slot]
@@ -196,6 +197,9 @@ func (a *App) ArtPreview(itemID, slot string) ([]byte, error) {
 	a.mu.Unlock()
 	if it == nil {
 		return nil, errors.New("no such game")
+	}
+	if vpk == "" {
+		return nil, errors.New("this game has not been built yet")
 	}
 	zr, err := zip.OpenReader(vpk)
 	if err != nil {

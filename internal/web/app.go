@@ -348,6 +348,12 @@ func (a *App) refreshItems() {
 			for _, in := range it.Inputs {
 				have := p.Inputs[in.ID]
 				switch {
+				case it.Build != nil && it.Build.From == in.ID:
+					// The disc a game is built from is needed on this computer
+					// every time, even when a copy is already on the Vita.
+					if in.State == "skip" {
+						in.State, in.Message = "", ""
+					}
 				case have && in.Path == "":
 					// Already on the Vita: nothing to choose, nothing to send.
 					in.State, in.Message = "skip", "Already on your Vita."
@@ -531,6 +537,11 @@ func (a *App) Install(onlyID string) error {
 				} else {
 					it.Status, it.Result = "done", res
 					it.Installed = res.Installed || it.Installed
+					if res.Built != nil {
+						// Now the app is known: its icon and artwork can be shown.
+						it.Release.VPK, it.Release.App = res.Built.Path, res.Built
+						a.applyArt(it)
+					}
 				}
 			})
 			if ctx.Err() != nil {

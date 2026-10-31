@@ -72,3 +72,26 @@ func MakeVPK(path, titleID, title string, extra map[string][]byte) error {
 	}
 	return f.Close()
 }
+
+// PSPISO builds a tiny PSP disc image that identifies as gameID (for example
+// ULUS-10054). marker is extra text at the end, for tests to recognise a disc.
+func PSPISO(gameID, marker string) []byte {
+	const s = 2048
+	img := make([]byte, 24*s)
+	pvd := img[16*s:]
+	pvd[0] = 1
+	copy(pvd[1:], "CD001")
+	root := pvd[156:]
+	root[0] = 34
+	binary.LittleEndian.PutUint32(root[2:], 20)
+	binary.LittleEndian.PutUint32(root[10:], s)
+	rec := img[20*s:]
+	name := "UMD_DATA.BIN;1"
+	rec[0] = byte(33 + len(name) + 1)
+	binary.LittleEndian.PutUint32(rec[2:], 22)
+	rec[32] = byte(len(name))
+	copy(rec[33:], name)
+	copy(img[22*s:], gameID+"|0000000000000001|0001|G")
+	copy(img[23*s:], marker)
+	return img
+}

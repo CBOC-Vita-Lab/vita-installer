@@ -148,7 +148,11 @@ func newReceipt(r *release.Release) *Receipt {
 // buildHash fingerprints a release: its VPK and the files it ships.
 func buildHash(r *release.Release) string {
 	h := sha1.New()
-	if sum, err := fileHash(r.VPK); err == nil {
+	if r.Build != nil {
+		// The app is made on the player's computer: it is the same app when it
+		// comes from the same recipe, whichever computer built it.
+		h.Write([]byte("build\x00" + r.Build.Fingerprint()))
+	} else if sum, err := fileHash(r.VPK); err == nil {
 		h.Write([]byte(sum))
 	}
 	for _, c := range r.Copies {

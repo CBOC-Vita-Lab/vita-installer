@@ -52,13 +52,14 @@ type Options struct {
 
 // Result says what happened.
 type Result struct {
-	Installed bool     `json:"installed"` // the app was installed on the Vita
-	Copied    int      `json:"copied"`
-	Skipped   int      `json:"skipped"` // files already on the Vita
-	Bytes     int64    `json:"bytes"`
-	Seconds   float64  `json:"seconds"`
-	Steps     []string `json:"steps,omitempty"` // anything the player still has to do on the Vita
-	CanLaunch bool     `json:"canLaunch"`
+	Installed bool      `json:"installed"` // the app was installed on the Vita
+	Copied    int       `json:"copied"`
+	Skipped   int       `json:"skipped"` // files already on the Vita
+	Bytes     int64     `json:"bytes"`
+	Seconds   float64   `json:"seconds"`
+	Steps     []string  `json:"steps,omitempty"` // anything the player still has to do on the Vita
+	CanLaunch bool      `json:"canLaunch"`
+	Built     *vita.App `json:"-"` // the app made on this computer, if the release builds it
 }
 
 type item struct {
@@ -139,7 +140,19 @@ func Run(ctx context.Context, r *release.Release, opt Options) (*Result, error) 
 	}
 	items = kept
 
-	// 3. The app itself, with the player's own artwork if they chose some.
+	// 3. The app itself: built on this computer from the player's disc when
+	// the release says so, then handed on exactly like a shipped VPK.
+	var built *vita.App
+	if r.Build != nil {
+		var err error
+		if built, err = buildApp(ctx, r, opt, report); err != nil {
+			return nil, err
+		}
+		rr := *r
+		rr.VPK, rr.App = built.Path, built
+		r = &rr
+	}
+	// ... with the player's own artwork if they chose some.
 	vpk, vpkSize := r.VPK, r.App.Size
 	if !r.Art.Empty() {
 		report(Progress{Phase: "prepare", Text: "Adding your artwork", ETA: -1})
@@ -239,7 +252,7 @@ func Run(ctx context.Context, r *release.Release, opt Options) (*Result, error) 
 	}
 
 	// 5. Send.
-	res := &Result{Skipped: skipped}
+	res := &Result{Skipped: skipped, Built: built}
 	if err := send(ctx, t, todo, report); err != nil {
 		return nil, err
 	}
