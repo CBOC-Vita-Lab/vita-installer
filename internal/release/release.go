@@ -37,8 +37,13 @@ type Release struct {
 	Notes   string     `json:"notes,omitempty"`
 	Held    string     `json:"held,omitempty"`
 	Warning string     `json:"warning,omitempty"`
-	Art     art.Choice `json:"-"` // the player's own bubble and LiveArea pictures
+	Art     art.Choice `json:"-"`               // the player's own bubble and LiveArea pictures
+	Build   *Build     `json:"build,omitempty"` // the app is built on the player's computer (VPK is empty until then)
 }
+
+// BuildConsentID is the ID of the permission the player gives before a
+// release builds its app on their computer.
+const BuildConsentID = "allow-build"
 
 // Bundled is a file shipped in the release that is copied to the Vita.
 type Bundled struct {
@@ -241,7 +246,7 @@ func loadFolder(root, source string) ([]*Release, error) {
 			if _, err := os.Stat(vpk); err != nil {
 				vpk = findByName(vpks, filepath.Base(m.VPK))
 			}
-		} else {
+		} else if m.Build == nil {
 			for _, v := range vpks { // the only VPK next to the manifest
 				if filepath.Dir(v) == dir {
 					if vpk != "" {
@@ -252,11 +257,11 @@ func loadFolder(root, source string) ([]*Release, error) {
 				}
 			}
 		}
-		if vpk == "" {
+		if vpk == "" && (m.Build == nil || m.VPK != "") {
 			// Renamed? Find it by its checksum, then by its title ID.
 			vpk = findVPK(vpks, claimed, m)
 		}
-		if vpk == "" {
+		if vpk == "" && m.Build == nil {
 			if firstErr == nil {
 				firstErr = fmt.Errorf("the release's app (%s) is missing; download the complete release ZIP", m.VPK)
 			}
@@ -270,7 +275,9 @@ func loadFolder(root, source string) ([]*Release, error) {
 			}
 			continue
 		}
-		claimed[vpk] = true
+		if vpk != "" {
+			claimed[vpk] = true
+		}
 		out = append(out, r)
 	}
 	for _, v := range vpks {
@@ -370,25 +377,38 @@ func findByName(paths []string, name string) string {
 }
 
 func fromManifest(m *Manifest, dir, vpk, source string) (*Release, error) {
-	if m.VPKSHA256 != "" {
-		if sum, err := sha256File(vpk); err != nil {
-			return nil, err
-		} else if !strings.EqualFold(sum, m.VPKSHA256) {
-			return nil, fmt.Errorf("%s is damaged or incomplete (checksum mismatch); download it again", filepath.Base(vpk))
+	var app *vita.App
+	id := idFor(vpk)
+	if vpk != "" {
+		if m.VPKSHA256 != "" {
+			if sum, err := sha256File(vpk); err != nil {
+				return nil, err
+			} else if !strings.EqualFold(sum, m.VPKSHA256) {
+				return nil, fmt.Errorf("%s is damaged or incomplete (checksum mismatch); download it again", filepath.Base(vpk))
+			}
 		}
-	}
-	app, err := vita.OpenVPK(vpk)
-	if err != nil {
-		return nil, err
-	}
-	if m.TitleID != "" && m.TitleID != app.TitleID {
-		return nil, fmt.Errorf("%s is %s, but its release says %s", filepath.Base(vpk), app.TitleID, m.TitleID)
+		var err error
+		if app, err = vita.OpenVPK(vpk); err != nil {
+			return nil, err
+		}
+		if m.TitleID != "" && m.TitleID != app.TitleID {
+			return nil, fmt.Errorf("%s is %s, but its release says %s", filepath.Base(vpk), app.TitleID, m.TitleID)
+		}
+	} else {
+		// Built on the player's computer: all that is known before the build
+		// is what the release file says.
+		title := m.Name
+		if title == "" {
+			title = m.TitleID
+		}
+		app = &vita.App{TitleID: m.TitleID, Title: title}
+		id = idFor(filepath.Join(dir, ManifestName) + "|" + m.TitleID)
 	}
 	name := m.Name
 	if name == "" {
 		name = app.Title
 	}
-	r := &Release{ID: idFor(vpk), Name: name, TitleID: app.TitleID, Version: app.Version, Source: source, App: app, VPK: vpk, Root: dir, Keep: m.Keep, Notes: m.Notes, Held: m.Held}
+	r := &Release{ID: id, Name: name, TitleID: app.TitleID, Version: app.Version, Source: source, App: app, VPK: vpk, Root: dir, Keep: m.Keep, Notes: m.Notes, Held: m.Held, Build: m.Build}
 	if m.Copy == nil {
 		r.Copies = defaultCopies(dir)
 	} else {
@@ -400,6 +420,11 @@ func fromManifest(m *Manifest, dir, vpk, source string) (*Release, error) {
 	for _, n := range m.Needs {
 		r.Inputs = append(r.Inputs, &Input{Need: n})
 		tool = tool || n.RunsTool()
+	}
+	if m.Build != nil {
+		r.Inputs = append(r.Inputs, &Input{Need: Need{ID: BuildConsentID, Type: NeedConsent,
+			Label: "Allow building the game on this computer from your own disc",
+			Help:  m.Build.consentHelp()}, Auto: true})
 	}
 	if tool {
 		r.Inputs = append(r.Inputs, &Input{Need: Need{ID: "allow-tool", Type: NeedConsent,

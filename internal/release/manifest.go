@@ -1,11 +1,19 @@
 package release
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path"
+	"regexp"
+	"runtime"
+	"sort"
 	"strings"
+
+	"github.com/CBOC-Vita-Lab/vita-installer/internal/vita"
 )
 
 // ManifestName is the optional file a release can ship next to its VPK to
@@ -23,6 +31,7 @@ type Manifest struct {
 	Keep      []string `json:"keep,omitempty"`      // Vita paths never written (saves, settings)
 	Notes     string   `json:"notes,omitempty"`     // shown before installing
 	Held      string   `json:"held,omitempty"`      // if set, the release cannot be installed yet; the text says why
+	Build     *Build   `json:"build,omitempty"`     // build the app on the player's computer from one of their files
 }
 
 // Copy maps a bundled file or folder to a Vita path.
@@ -66,8 +75,192 @@ type Step struct {
 	Label   string            `json:"label,omitempty"`   // shown while the step runs
 }
 
-// Steps the installer knows.
-var knownSteps = map[string]bool{"galaxy": true, "galaxy-cook": true, "yaz0": true, "thp-le": true, "thp": true, "buckets": true, "verify": true, "tool": true}
+// Steps the installer knows. "build" does nothing by itself: put it on the
+// need a Build is made from, so installers that predate builds refuse the
+// release with "a newer installer may be required".
+var knownSteps = map[string]bool{"galaxy": true, "galaxy-cook": true, "yaz0": true, "thp-le": true, "thp": true, "buckets": true, "verify": true, "tool": true, "build": true}
+
+// Build makes the app on the player's computer from one of their files (a
+// game disc), with a program that ships in a "kit" archive of the same
+// GitHub release. Nothing made from the game is ever published.
+type Build struct {
+	From    string             `json:"from"`              // ID of the need whose file is {in}
+	Kit     map[string]KitFile `json:"kit"`               // "<os>-<arch>" -> the kit archive for that computer
+	Run     string             `json:"run"`               // program inside the kit
+	Args    []string           `json:"args,omitempty"`    // {in}, {out} (an empty folder for the VPK) and {work} (a scratch folder) are replaced
+	App     string             `json:"app"`               // name of the VPK the program writes into {out}
+	Label   string             `json:"label,omitempty"`   // shown while the build starts
+	Minutes int                `json:"minutes,omitempty"` // about how long it takes, for the player
+}
+
+// KitFile is one kit archive, shipped as a file of the release.
+type KitFile struct {
+	File   string `json:"file"`
+	SHA256 string `json:"sha256"`
+	Size   int64  `json:"size,omitempty"`
+}
+
+var kitKeyPattern = regexp.MustCompile(`^(windows|darwin|linux)-[a-z0-9]+$`)
+
+// KitFor picks the kit for a computer. A Mac uses the other Mac kit when its
+// own is missing (Intel programs run on Apple Silicon and the other way round).
+func (b *Build) KitFor(goos, goarch string) (string, KitFile, bool) {
+	keys := []string{goos + "-" + goarch}
+	switch goos {
+	case "darwin":
+		keys = append(keys, "darwin-universal", "darwin-arm64", "darwin-amd64")
+	}
+	for _, k := range keys {
+		if f, ok := b.Kit[k]; ok {
+			return k, f, true
+		}
+	}
+	return goos + "-" + goarch, KitFile{}, false
+}
+
+// Fingerprint identifies the recipe (not the player's file), the same on every
+// computer, so the installer can tell whether the app on the Vita came from
+// this release.
+func (b *Build) Fingerprint() string {
+	var keys []string
+	for k := range b.Kit {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var sb strings.Builder
+	for _, k := range keys {
+		sb.WriteString(k + "=" + strings.ToLower(b.Kit[k].SHA256) + "\n")
+	}
+	sb.WriteString(b.Run + "\n" + strings.Join(b.Args, "\x00") + "\n" + b.App)
+	sum := sha256.Sum256([]byte(sb.String()))
+	return hex.EncodeToString(sum[:8])
+}
+
+// parseBuild reads the build section strictly: a setting this installer does
+// not know means the release needs a newer one.
+func parseBuild(raw json.RawMessage) (*Build, error) {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.DisallowUnknownFields()
+	var b Build
+	if err := dec.Decode(&b); err != nil {
+		if strings.Contains(err.Error(), "unknown field") {
+			return nil, fmt.Errorf("the release's build settings use something this installer does not know (%v); a newer installer may be required", err)
+		}
+		return nil, fmt.Errorf("the release's build settings are not valid: %v", err)
+	}
+	return &b, nil
+}
+
+// buildFromTypes are the needs a build can start from.
+var buildFromTypes = map[string]bool{NeedPSPISO: true, NeedWiiDisc: true, NeedGCDisc: true, NeedFile: true, NeedFolder: true}
+
+func (b *Build) check(needs []Need) error {
+	var from *Need
+	for i := range needs {
+		if needs[i].ID == b.From {
+			from = &needs[i]
+		}
+	}
+	switch {
+	case b.From == "":
+		return fmt.Errorf("build needs a \"from\": the need it is built from")
+	case from == nil:
+		return fmt.Errorf("build.from %q is not one of the release's needs", b.From)
+	case from.Optional:
+		return fmt.Errorf("build.from %q must be a need the player always supplies, not an optional one", b.From)
+	case !buildFromTypes[from.Type]:
+		return fmt.Errorf("build.from %q is a %s need, which a build cannot start from", b.From, from.Type)
+	}
+	if len(b.Kit) == 0 {
+		return fmt.Errorf("build needs a kit for at least one kind of computer")
+	}
+	for k, f := range b.Kit {
+		if !kitKeyPattern.MatchString(k) {
+			return fmt.Errorf("build kit %q is not an <os>-<arch> name such as windows-amd64", k)
+		}
+		if !safeFileName(f.File) {
+			return fmt.Errorf("build kit %s needs a plain file name", k)
+		}
+		if !isHex64(f.SHA256) {
+			return fmt.Errorf("build kit %s needs a 64-digit SHA-256", k)
+		}
+		if f.Size < 0 {
+			return fmt.Errorf("build kit %s has an invalid size", k)
+		}
+	}
+	if !safeRelPath(b.Run) {
+		return fmt.Errorf("build.run needs a safe relative path inside the kit")
+	}
+	if len(b.Args) > 0 {
+		in, out := false, false
+		for _, a := range b.Args {
+			if strings.ContainsRune(a, 0) {
+				return fmt.Errorf("build.args has an invalid argument")
+			}
+			in = in || strings.Contains(a, "{in}")
+			out = out || strings.Contains(a, "{out}")
+		}
+		if !in || !out {
+			return fmt.Errorf("build.args must contain {in} and {out}")
+		}
+	}
+	if !safeFileName(b.App) {
+		return fmt.Errorf("build.app needs a plain file name, such as game.vpk")
+	}
+	if b.Minutes < 0 || b.Minutes > 1440 {
+		return fmt.Errorf("build.minutes is not a sensible number")
+	}
+	return nil
+}
+
+// consentHelp is what the player is told before the build may run.
+func (b *Build) consentHelp() string {
+	var sb strings.Builder
+	sb.WriteString("The game is built on this computer from your own disc. ")
+	if _, k, ok := b.KitFor(runtime.GOOS, runtime.GOARCH); ok && k.Size > 0 {
+		sb.WriteString(fmt.Sprintf("First it downloads the build tools (about %d MB). ", (k.Size+(1<<20)-1)>>20))
+	}
+	if b.Minutes > 0 {
+		sb.WriteString(fmt.Sprintf("It takes about %d minute", b.Minutes))
+		if b.Minutes != 1 {
+			sb.WriteString("s")
+		}
+		sb.WriteString(" the first time")
+	} else {
+		sb.WriteString("It takes a few minutes the first time")
+	}
+	sb.WriteString(" and needs about 2 GB of free disk space. Nothing is uploaded.")
+	return sb.String()
+}
+
+func safeFileName(n string) bool {
+	return n != "" && n != "." && n != ".." && !strings.ContainsAny(n, "/\\:\x00")
+}
+
+// safeRelPath accepts a relative path inside a folder, with "/" separators.
+func safeRelPath(p string) bool {
+	if p == "" || strings.HasPrefix(p, "/") || strings.ContainsAny(p, "\\:\x00") {
+		return false
+	}
+	for _, part := range strings.Split(p, "/") {
+		if part == "" || part == "." || part == ".." {
+			return false
+		}
+	}
+	return true
+}
+
+func isHex64(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, c := range s {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F') {
+			return false
+		}
+	}
+	return true
+}
 
 // RunsTool reports whether the need runs a program shipped in the release.
 func (n *Need) RunsTool() bool {
@@ -116,6 +309,13 @@ func ParseManifest(b []byte) (*Manifest, error) {
 	if err := json.Unmarshal(b, &m); err != nil {
 		return nil, fmt.Errorf("%s is not valid JSON: %v", ManifestName, err)
 	}
+	if raw := probe["build"]; len(raw) > 0 && string(raw) != "null" {
+		bd, err := parseBuild(raw)
+		if err != nil {
+			return nil, err
+		}
+		m.Build = bd
+	}
 	addHDPack(&m)
 	return &m, m.check()
 }
@@ -150,7 +350,8 @@ func LooksLikeManifest(file string) bool {
 	_, needs := probe["needs"]
 	_, vpk := probe["vpk"]
 	_, cp := probe["copy"]
-	return needs || vpk || cp
+	_, build := probe["build"]
+	return needs || vpk || cp || build
 }
 
 // AppOf returns what a release file says about its app: file name, SHA-256
@@ -159,6 +360,9 @@ func AppOf(b []byte) (name, sha256, titleID string) {
 	m, err := ParseManifest(b)
 	if err != nil {
 		return "", "", ""
+	}
+	if m.VPK == "" {
+		return "", strings.ToLower(m.VPKSHA256), m.TitleID
 	}
 	return path.Base(m.VPK), strings.ToLower(m.VPKSHA256), m.TitleID
 }
@@ -187,6 +391,14 @@ func (m *Manifest) check() error {
 				}
 			}
 		}
+		// "build" only marks the need (see knownSteps); it is not a step to run.
+		var steps []Step
+		for _, st := range n.Prepare {
+			if st.Step != "build" {
+				steps = append(steps, st)
+			}
+		}
+		n.Prepare = steps
 		if n.ID == "" {
 			n.ID = fmt.Sprintf("need%d", i+1)
 		}
@@ -209,6 +421,14 @@ func (m *Manifest) check() error {
 		}
 		if n.Label == "" {
 			n.Label = n.ID
+		}
+	}
+	if m.Build != nil {
+		if err := m.Build.check(m.Needs); err != nil {
+			return err
+		}
+		if m.VPK == "" && !vita.ValidTitleID(m.TitleID) {
+			return fmt.Errorf("a release that builds its app needs its titleId (for example INFC00001)")
 		}
 	}
 	for _, c := range m.Copy {
