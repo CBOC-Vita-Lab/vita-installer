@@ -1,8 +1,10 @@
 package install
 
 import (
+	"archive/tar"
 	"archive/zip"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -64,9 +66,15 @@ func fakeBuilder(t *testing.T) string {
 	return fakeBuilderExe
 }
 
-// kitZip packs the fake builder the way a kit is packed: the program with its
-// Unix permissions, a recipe and the licenses.
-func kitZip(t *testing.T, extra map[string][]byte) []byte {
+type kitEntry struct {
+	name string
+	data []byte
+	mode os.FileMode
+}
+
+// kitEntries is what a kit holds: the fake builder with its Unix permissions,
+// a recipe and the licenses.
+func kitEntries(t *testing.T) []kitEntry {
 	t.Helper()
 	exe, err := os.ReadFile(fakeBuilder(t))
 	if err != nil {
@@ -76,24 +84,51 @@ func kitZip(t *testing.T, extra map[string][]byte) []byte {
 	if runtime.GOOS == "windows" {
 		name += ".exe"
 	}
+	return []kitEntry{
+		{name, exe, 0o755},
+		{"kit.json", []byte(`{"recipe":"fake"}`), 0o644},
+		{"licenses/SOURCES.txt", []byte("sources"), 0o644},
+	}
+}
+
+// kitZip packs the kit as a ZIP.
+func kitZip(t *testing.T) []byte {
+	t.Helper()
 	var buf bytes.Buffer
 	z := zip.NewWriter(&buf)
-	add := func(name string, data []byte, mode os.FileMode) {
-		h := &zip.FileHeader{Name: name, Method: zip.Deflate}
-		h.SetMode(mode)
+	for _, e := range kitEntries(t) {
+		h := &zip.FileHeader{Name: e.name, Method: zip.Deflate}
+		h.SetMode(e.mode)
 		w, err := z.CreateHeader(h)
 		if err != nil {
 			t.Fatal(err)
 		}
-		w.Write(data)
-	}
-	add(name, exe, 0o755)
-	add("kit.json", []byte(`{"recipe":"fake"}`), 0o644)
-	add("licenses/SOURCES.txt", []byte("sources"), 0o644)
-	for n, d := range extra {
-		add(n, d, 0o644)
+		w.Write(e.data)
 	}
 	if err := z.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
+}
+
+// kitTarGz packs the kit as a .tar.gz, the way releases publish it.
+func kitTarGz(t *testing.T) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gz)
+	tw.WriteHeader(&tar.Header{Name: "./", Typeflag: tar.TypeDir, Mode: 0o755})
+	tw.WriteHeader(&tar.Header{Name: "licenses/", Typeflag: tar.TypeDir, Mode: 0o755})
+	for _, e := range kitEntries(t) {
+		if err := tw.WriteHeader(&tar.Header{Name: "./" + e.name, Typeflag: tar.TypeReg, Mode: int64(e.mode), Size: int64(len(e.data))}); err != nil {
+			t.Fatal(err)
+		}
+		tw.Write(e.data)
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := gz.Close(); err != nil {
 		t.Fatal(err)
 	}
 	return buf.Bytes()
@@ -116,16 +151,24 @@ type buildFixture struct {
 // newBuildFixture makes a release folder with a build, the kit next to it
 // (when withKit) and the player's disc.
 func newBuildFixture(t *testing.T, withKit bool, marker string) *buildFixture {
+	return newKitFixture(t, withKit, marker, false)
+}
+
+func newKitFixture(t *testing.T, withKit bool, marker string, asZip bool) *buildFixture {
 	t.Helper()
 	// The tests must not depend on how much room this computer has.
 	t.Cleanup(FakeFreeSpace(100 << 30))
 	f := &buildFixture{dir: t.TempDir()}
 	f.release = filepath.Join(f.dir, "Infected-Vita")
 	os.MkdirAll(f.release, 0o755)
-	f.kit = kitZip(t, nil)
+	f.kitFile = "Infected-Vita-builder-test.tar.gz"
+	f.kit = kitTarGz(t)
+	if asZip {
+		f.kitFile = "Infected-Vita-builder-test.zip"
+		f.kit = kitZip(t)
+	}
 	sum := sha256.Sum256(f.kit)
 	f.kitSum = hex.EncodeToString(sum[:])
-	f.kitFile = "Infected-Vita-builder-test.zip"
 	if withKit {
 		os.WriteFile(filepath.Join(f.release, f.kitFile), f.kit, 0o644)
 	}
@@ -548,7 +591,7 @@ func TestKitDownload(t *testing.T) {
 	}
 }
 
-func TestUnpackKitIsSafe(t *testing.T) {
+func TestUnpackKitZipIsSafe(t *testing.T) {
 	zipOf := func(entries func(z *zip.Writer)) string {
 		p := filepath.Join(t.TempDir(), "kit.zip")
 		fh, _ := os.Create(p)
@@ -619,5 +662,115 @@ func TestBuilderOutputLines(t *testing.T) {
 	tail.Write([]byte("first\n\nsecond\nthird\nfourth\n"))
 	if s := tail.last(2); s != "third fourth" {
 		t.Fatalf("%q", s)
+	}
+}
+
+// Kits are published as .tar.gz, but a ZIP works too, and which it is is
+// told by what is inside the file, not by its name.
+func TestKitFormatIsToldByContent(t *testing.T) {
+	for _, c := range []struct {
+		name  string
+		asZip bool
+		file  string
+	}{
+		{"zip", true, "Infected-Vita-builder-test.zip"},
+		{"tar.gz called .zip", false, "Infected-Vita-builder-test.zip"},
+		{"zip called .tar.gz", true, "Infected-Vita-builder-test.tar.gz"},
+		{"no extension", false, "kit"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			f := newKitFixture(t, true, "MODE:OK", c.asZip)
+			os.Remove(filepath.Join(f.release, f.kitFile))
+			os.WriteFile(filepath.Join(f.release, c.file), f.kit, 0o644)
+			f.kitFile = c.file
+			f.writeManifest(t, f.kitSum)
+			_, vita := startVita(t, f.dir)
+			res, err := Run(context.Background(), f.load(t, true), Options{Vita: vita, Cache: f.cache})
+			if err != nil || !res.Installed {
+				t.Fatalf("%v %+v", err, res)
+			}
+			if runtime.GOOS != "windows" {
+				if st, err := os.Stat(filepath.Join(f.cache, "kits", f.kitSum[:16], "infected-build")); err != nil || st.Mode()&0o111 == 0 {
+					t.Errorf("executable bit: %v %v", st, err)
+				}
+			}
+		})
+	}
+}
+
+func TestUnpackKitTarIsSafe(t *testing.T) {
+	tarOf := func(entries func(tw *tar.Writer)) string {
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		tw := tar.NewWriter(gz)
+		entries(tw)
+		tw.Close()
+		gz.Close()
+		p := filepath.Join(t.TempDir(), "kit.tar.gz")
+		os.WriteFile(p, buf.Bytes(), 0o644)
+		return p
+	}
+	file := func(tw *tar.Writer, name string, mode int64, data string) {
+		tw.WriteHeader(&tar.Header{Name: name, Typeflag: tar.TypeReg, Mode: mode, Size: int64(len(data))})
+		tw.Write([]byte(data))
+	}
+	for _, name := range []string{"../evil.txt", "a/../../evil.txt", "/abs/evil.txt", `..\evil.txt`, "C:/evil.txt", "./../evil.txt"} {
+		name := name
+		p := tarOf(func(tw *tar.Writer) { file(tw, name, 0o644, "x") })
+		dir := filepath.Join(t.TempDir(), "kit")
+		if err := unpackKit(context.Background(), p, dir, func(int64, int64) {}); err == nil {
+			t.Errorf("%q was unpacked", name)
+		}
+		if _, err := os.Stat(filepath.Join(filepath.Dir(dir), "evil.txt")); err == nil {
+			t.Errorf("%q escaped the kit folder", name)
+		}
+	}
+	// Not an archive, and a damaged one.
+	junk := filepath.Join(t.TempDir(), "junk")
+	os.WriteFile(junk, []byte("this is not a kit"), 0o644)
+	if err := unpackKit(context.Background(), junk, filepath.Join(t.TempDir(), "kit"), func(int64, int64) {}); err == nil {
+		t.Error("junk was unpacked")
+	}
+	good := kitTarGz(t)
+	cut := filepath.Join(t.TempDir(), "cut.tar.gz")
+	os.WriteFile(cut, good[:len(good)/2], 0o644)
+	if err := unpackKit(context.Background(), cut, filepath.Join(t.TempDir(), "kit"), func(int64, int64) {}); err == nil {
+		t.Error("a cut-off kit was accepted")
+	}
+	if runtime.GOOS == "windows" {
+		return
+	}
+	p := tarOf(func(tw *tar.Writer) {
+		file(tw, "./bin/tool", 0o755, "#!/bin/sh\n")
+		file(tw, "data.txt", 0o600, "d")
+		tw.WriteHeader(&tar.Header{Name: "bin/alias", Typeflag: tar.TypeSymlink, Linkname: "tool", Mode: 0o777})
+		tw.WriteHeader(&tar.Header{Name: "bin/hard", Typeflag: tar.TypeLink, Linkname: "bin/tool", Mode: 0o755})
+	})
+	dir := filepath.Join(t.TempDir(), "kit")
+	var last [2]int64
+	if err := unpackKit(context.Background(), p, dir, func(d, tot int64) { last = [2]int64{d, tot} }); err != nil {
+		t.Fatal(err)
+	}
+	if last[0] != last[1] || last[1] == 0 {
+		t.Errorf("progress ended at %v", last)
+	}
+	for _, n := range []string{"bin/tool", "bin/alias", "bin/hard"} {
+		if st, err := os.Stat(filepath.Join(dir, n)); err != nil || st.Mode()&0o111 == 0 {
+			t.Errorf("%s: %v %v", n, st, err)
+		}
+	}
+	if st, _ := os.Stat(filepath.Join(dir, "data.txt")); st.Mode()&0o111 != 0 {
+		t.Error("a data file became executable")
+	}
+	for name, h := range map[string]*tar.Header{
+		"link out":      {Name: "link", Typeflag: tar.TypeSymlink, Linkname: "../../etc/passwd", Mode: 0o777},
+		"absolute link": {Name: "link", Typeflag: tar.TypeSymlink, Linkname: "/etc/passwd", Mode: 0o777},
+		"hard link out": {Name: "link", Typeflag: tar.TypeLink, Linkname: "../../etc/passwd", Mode: 0o644},
+	} {
+		h := h
+		bad := tarOf(func(tw *tar.Writer) { tw.WriteHeader(h) })
+		if err := unpackKit(context.Background(), bad, filepath.Join(t.TempDir(), "kit"), func(int64, int64) {}); err == nil {
+			t.Errorf("%s was unpacked", name)
+		}
 	}
 }

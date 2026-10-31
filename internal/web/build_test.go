@@ -30,9 +30,10 @@ const buildManifestJSON = `{
  "build": {
   "from": "disc",
   "kit": {
-   "windows-amd64": {"file": "Infected-Vita-builder-windows.zip", "sha256": "%[1]s"},
-   "darwin-amd64":  {"file": "Infected-Vita-builder-mac.zip",     "sha256": "%[1]s"},
-   "linux-amd64":   {"file": "Infected-Vita-builder-linux.zip",   "sha256": "%[1]s"}
+   "windows-amd64": {"file": "Infected-Vita-builder-windows.tar.gz",   "sha256": "%[1]s"},
+   "darwin-amd64":  {"file": "Infected-Vita-builder-mac-intel.tar.gz", "sha256": "%[1]s"},
+   "darwin-arm64":  {"file": "Infected-Vita-builder-mac-arm.tar.gz",   "sha256": "%[1]s"},
+   "linux-amd64":   {"file": "Infected-Vita-builder-linux.tar.gz",     "sha256": "%[1]s"}
   },
   "run": "infected-build", "args": ["--progress", "--out", "{out}", "{in}"], "app": "infected.vpk", "minutes": 10
  },
@@ -47,27 +48,49 @@ const buildManifestJSON = `{
 func TestBuildReleaseDownloadsNoKitWhenAdded(t *testing.T) {
 	sum := strings.Repeat("a", 64)
 	manifest := []byte(strings.Replace(buildManifestJSON, "%[1]s", sum, -1))
-	var zbuf bytes.Buffer
-	zw := zip.NewWriter(&zbuf)
-	w, _ := zw.Create("vita-install.json")
-	w.Write(manifest)
-	zw.Close()
 	junk := bytes.Repeat([]byte("kit"), 1000)
 
-	cases := []struct {
+	kitNames := []string{"Infected-Vita-builder-windows.tar.gz", "Infected-Vita-builder-mac-intel.tar.gz", "Infected-Vita-builder-mac-arm.tar.gz", "Infected-Vita-builder-linux.tar.gz"}
+	// build makes the files of a release whose kits have one extension
+	// (.tar.gz is what releases use; the others must be skipped too).
+	build := func(ext string, file string, loose bool, inZip bool) (map[string][]byte, []string) {
+		files := map[string][]byte{}
+		var list []string
+		mf := []byte(strings.ReplaceAll(string(manifest), ".tar.gz", ext))
+		switch {
+		case inZip:
+			var zb bytes.Buffer
+			zw := zip.NewWriter(&zb)
+			w, _ := zw.Create("vita-install.json")
+			w.Write(mf)
+			zw.Close()
+			files["Infected-Vita-install.zip"] = zb.Bytes()
+		case loose:
+			files[file] = mf
+		}
+		for n := range files {
+			list = append(list, n)
+		}
+		for _, k := range kitNames {
+			k = strings.ReplaceAll(k, ".tar.gz", ext)
+			files[k] = junk
+			list = append(list, k)
+		}
+		return files, list
+	}
+	type cs struct {
 		name  string
 		files map[string][]byte
 		list  []string
-	}{
-		{"loose release file and kits",
-			map[string][]byte{"vita-install.json": manifest, "Infected-Vita-builder-windows.zip": junk, "Infected-Vita-builder-mac.zip": junk, "Infected-Vita-builder-linux.zip": junk},
-			[]string{"Infected-Vita-builder-windows.zip", "vita-install.json", "Infected-Vita-builder-mac.zip", "Infected-Vita-builder-linux.zip"}},
-		{"release file under another name",
-			map[string][]byte{"info.json": manifest, "Infected-Vita-builder-windows.zip": junk, "Infected-Vita-builder-mac.zip": junk, "Infected-Vita-builder-linux.zip": junk},
-			[]string{"Infected-Vita-builder-windows.zip", "info.json", "Infected-Vita-builder-mac.zip", "Infected-Vita-builder-linux.zip"}},
-		{"release file inside a ZIP, kits known by name",
-			map[string][]byte{"Infected-Vita-install.zip": zbuf.Bytes(), "Infected-Vita-builder-windows.zip": junk, "Infected-Vita-builder-mac.zip": junk, "Infected-Vita-builder-linux.zip": junk},
-			[]string{"Infected-Vita-builder-windows.zip", "Infected-Vita-builder-mac.zip", "Infected-Vita-builder-linux.zip", "Infected-Vita-install.zip"}},
+	}
+	var cases []cs
+	for _, ext := range []string{".tar.gz", ".tgz", ".zip"} {
+		f, l := build(ext, "vita-install.json", true, false)
+		cases = append(cases, cs{"loose release file and " + ext + " kits", f, l})
+		f, l = build(ext, "info.json", true, false)
+		cases = append(cases, cs{"release file under another name, " + ext + " kits", f, l})
+		f, l = build(ext, "", false, true)
+		cases = append(cases, cs{"release file inside a ZIP, " + ext + " kits known by name", f, l})
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

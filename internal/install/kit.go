@@ -1,7 +1,9 @@
 package install
 
 import (
+	"archive/tar"
 	"archive/zip"
+	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -63,7 +65,7 @@ func ensureKit(ctx context.Context, r *release.Release, kf release.KitFile, cach
 		if r.Repo == "" || r.Tag == "" {
 			return "", fmt.Errorf("the build tools (%s) are not in this download. Download the complete release from GitHub, or add the game by its GitHub link", kf.File)
 		}
-		archive, temp = dir+".zip", true
+		archive, temp = dir+".archive", true
 		if err := downloadKit(ctx, kitDownloadURL(r.Repo, r.Tag, kf.File), archive, want, kf.Size, report); err != nil {
 			return "", err
 		}
@@ -235,10 +237,81 @@ func downloadKit(ctx context.Context, u, dest, want string, size int64, report f
 	return os.Rename(tmp, dest)
 }
 
-// unpackKit extracts a kit archive into dir. Paths are checked so nothing
-// lands outside dir, and the programs inside get their executable bit back
-// from the archive (ZIP files keep Unix permissions).
+// unpackKit extracts a kit archive into dir. The format is told by what is
+// inside the file, not by its name: a ZIP or a gzip-compressed tar (.tar.gz).
+// Paths are checked so nothing lands outside dir, and the programs inside get
+// their executable bit back from the archive (both formats keep Unix
+// permissions).
 func unpackKit(ctx context.Context, archive, dir string, progress func(done, total int64)) error {
+	f, err := os.Open(archive)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	magic := make([]byte, 4)
+	n, _ := io.ReadFull(f, magic)
+	switch {
+	case n == 4 && string(magic) == "PK\x03\x04":
+		return unpackKitZip(ctx, archive, dir, progress)
+	case n >= 2 && magic[0] == 0x1f && magic[1] == 0x8b:
+		st, err := f.Stat()
+		if err != nil {
+			return err
+		}
+		if _, err := f.Seek(0, io.SeekStart); err != nil {
+			return err
+		}
+		return unpackKitTar(ctx, f, st.Size(), dir, progress)
+	}
+	return errors.New("the build tools are not a ZIP or .tar.gz file")
+}
+
+// kitTarget returns where an archive member goes, or an error if it would
+// land outside dir.
+func kitTarget(dir, name string) (string, error) {
+	name = strings.ReplaceAll(name, "\\", "/")
+	for strings.HasPrefix(name, "./") {
+		name = name[2:]
+	}
+	if !vita.SafeName(name) {
+		return "", fmt.Errorf("unsafe path in archive: %q", name)
+	}
+	target := filepath.Join(dir, filepath.FromSlash(name))
+	if !kitInside(dir, target) {
+		return "", fmt.Errorf("unsafe path in archive: %q", name)
+	}
+	return target, nil
+}
+
+func kitInside(dir, p string) bool {
+	root := filepath.Clean(dir) + string(filepath.Separator)
+	return strings.HasPrefix(filepath.Clean(p)+string(filepath.Separator), root)
+}
+
+// kitLink makes a symbolic link that stays inside dir (not on Windows, where
+// kits do not use them).
+func kitLink(dir, target, dest string) error {
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	if dest == "" || filepath.IsAbs(dest) || !kitInside(dir, filepath.Join(filepath.Dir(target), dest)) {
+		return fmt.Errorf("unsafe link in archive: %q", dest)
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		return err
+	}
+	return os.Symlink(dest, target)
+}
+
+// kitPerm is the permission a file gets: executable if the archive says so.
+func kitPerm(mode os.FileMode) os.FileMode {
+	if mode&0o111 != 0 {
+		return 0o755
+	}
+	return 0o644
+}
+
+func unpackKitZip(ctx context.Context, archive, dir string, progress func(done, total int64)) error {
 	z, err := zip.OpenReader(archive)
 	if err != nil {
 		return errors.New("the build tools are not a valid ZIP file")
@@ -251,20 +324,15 @@ func unpackKit(ctx context.Context, archive, dir string, progress func(done, tot
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	root := filepath.Clean(dir) + string(filepath.Separator)
-	inside := func(p string) bool { return strings.HasPrefix(filepath.Clean(p)+string(filepath.Separator), root) }
 	buf := make([]byte, 1<<20)
 	var done int64
 	for _, f := range z.File {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		if !vita.SafeName(f.Name) {
-			return fmt.Errorf("unsafe path in archive: %q", f.Name)
-		}
-		target := filepath.Join(dir, filepath.FromSlash(strings.ReplaceAll(f.Name, "\\", "/")))
-		if !inside(target) {
-			return fmt.Errorf("unsafe path in archive: %q", f.Name)
+		target, err := kitTarget(dir, f.Name)
+		if err != nil {
+			return err
 		}
 		mode := f.Mode()
 		switch {
@@ -273,9 +341,6 @@ func unpackKit(ctx context.Context, archive, dir string, progress func(done, tot
 				return err
 			}
 		case mode&os.ModeSymlink != 0:
-			if runtime.GOOS == "windows" {
-				continue
-			}
 			rc, err := f.Open()
 			if err != nil {
 				return err
@@ -285,28 +350,23 @@ func unpackKit(ctx context.Context, archive, dir string, progress func(done, tot
 			if err != nil {
 				return err
 			}
-			dest := string(link)
-			if dest == "" || filepath.IsAbs(dest) || !inside(filepath.Join(filepath.Dir(target), dest)) {
-				return fmt.Errorf("unsafe link in archive: %q", f.Name)
-			}
-			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-				return err
-			}
-			if err := os.Symlink(dest, target); err != nil {
+			if err := kitLink(dir, target, string(link)); err != nil {
 				return err
 			}
 		default:
 			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 				return err
 			}
-			perm := os.FileMode(0o644)
-			if mode&0o111 != 0 {
-				perm = 0o755
+			r, err := f.Open()
+			if err != nil {
+				return err
 			}
-			if err := extractFile(ctx, f, target, perm, buf, func(n int64) {
+			err = extractFile(ctx, r, target, kitPerm(mode), buf, func(n int64) {
 				done += n
 				progress(done, total)
-			}); err != nil {
+			})
+			r.Close()
+			if err != nil {
 				return err
 			}
 		}
@@ -315,12 +375,92 @@ func unpackKit(ctx context.Context, archive, dir string, progress func(done, tot
 	return nil
 }
 
-func extractFile(ctx context.Context, f *zip.File, target string, perm os.FileMode, buf []byte, add func(int64)) error {
-	r, err := f.Open()
-	if err != nil {
+// counter counts the bytes read through it (a .tar.gz does not say how big it
+// is when unpacked, so progress follows the compressed file).
+type counter struct {
+	r io.Reader
+	n int64
+}
+
+func (c *counter) Read(b []byte) (int, error) {
+	n, err := c.r.Read(b)
+	c.n += int64(n)
+	return n, err
+}
+
+func unpackKitTar(ctx context.Context, f io.Reader, size int64, dir string, progress func(done, total int64)) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	defer r.Close()
+	cr := &counter{r: f}
+	gz, err := gzip.NewReader(cr)
+	if err != nil {
+		return errors.New("the build tools are not a valid .tar.gz file")
+	}
+	defer gz.Close()
+	tr := tar.NewReader(gz)
+	buf := make([]byte, 1<<20)
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		h, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("the build tools are damaged (%v)", err)
+		}
+		name := strings.TrimSuffix(h.Name, "/")
+		if name == "." || name == "./" || name == "" {
+			continue
+		}
+		target, err := kitTarget(dir, name)
+		if err != nil {
+			return err
+		}
+		switch h.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, 0o755); err != nil {
+				return err
+			}
+		case tar.TypeSymlink:
+			if err := kitLink(dir, target, h.Linkname); err != nil {
+				return err
+			}
+		case tar.TypeReg, tar.TypeRegA:
+			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+				return err
+			}
+			if err := extractFile(ctx, tr, target, kitPerm(h.FileInfo().Mode()), buf, func(int64) {
+				progress(cr.n, size)
+			}); err != nil {
+				return err
+			}
+		case tar.TypeLink:
+			// A hard link is a second name for a file already unpacked.
+			src, err := kitTarget(dir, h.Linkname)
+			if err != nil {
+				return err
+			}
+			if runtime.GOOS == "windows" {
+				continue
+			}
+			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+				return err
+			}
+			if err := os.Link(src, target); err != nil {
+				return err
+			}
+		default:
+			// Devices, pipes and the like are not part of a kit.
+		}
+	}
+	progress(size, size)
+	return nil
+}
+
+func extractFile(ctx context.Context, r io.Reader, target string, perm os.FileMode, buf []byte, add func(int64)) error {
 	w, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm)
 	if err != nil {
 		return err

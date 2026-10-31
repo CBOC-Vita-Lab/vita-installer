@@ -286,7 +286,7 @@ func (a *App) addRelease(ctx context.Context, repo string, rel ghRelease) error 
 		}
 		return out
 	}
-	archives, sourceish = skipKits(archives), skipKits(sourceish)
+	archives, sourceish, unknown = skipKits(archives), skipKits(sourceish), skipKits(unknown)
 
 	// "-install" ZIPs first, then bigger ZIPs (more likely complete).
 	sort.SliceStable(archives, func(i, j int) bool {
@@ -331,8 +331,8 @@ func (a *App) addRelease(ctx context.Context, repo string, rel ghRelease) error 
 }
 
 // kitName matches the build tools a release ships for each kind of computer
-// (for example Infected-Vita-builder-windows.zip).
-var kitName = regexp.MustCompile(`(?i)-builder-(windows|win|mac|macos|darwin|linux)[^/]*\.zip$`)
+// (for example Infected-Vita-builder-windows.tar.gz or ...-mac-arm.tar.gz).
+var kitName = regexp.MustCompile(`(?i)-builder-(windows|win|mac|macos|darwin|linux)[^/]*\.(zip|tar\.gz|tgz)$`)
 
 // readSmall downloads a small release file (a release's description).
 func (a *App) readSmall(ctx context.Context, m asset) []byte {

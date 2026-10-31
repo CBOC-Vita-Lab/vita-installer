@@ -138,10 +138,10 @@ Some ports can't ship the game's own code or data, so nothing derived from the g
   "build": {
     "from": "disc",
     "kit": {
-      "windows-amd64": { "file": "Infected-Vita-builder-windows.zip", "sha256": "…64 hex digits…", "size": 312000000 },
-      "darwin-amd64":  { "file": "Infected-Vita-builder-mac.zip",     "sha256": "…", "size": 0 },
-      "darwin-arm64":  { "file": "Infected-Vita-builder-mac.zip",     "sha256": "…", "size": 0 },
-      "linux-amd64":   { "file": "Infected-Vita-builder-linux.zip",   "sha256": "…", "size": 0 }
+      "windows-amd64": { "file": "Infected-Vita-builder-windows.tar.gz",   "sha256": "…64 hex digits…", "size": 312000000 },
+      "darwin-amd64":  { "file": "Infected-Vita-builder-mac-intel.tar.gz", "sha256": "…", "size": 0 },
+      "darwin-arm64":  { "file": "Infected-Vita-builder-mac-arm.tar.gz",   "sha256": "…", "size": 0 },
+      "linux-amd64":   { "file": "Infected-Vita-builder-linux.tar.gz",     "sha256": "…", "size": 0 }
     },
     "run": "infected-build",
     "args": ["--progress", "--out", "{out}", "{in}"],
@@ -160,14 +160,16 @@ Some ports can't ship the game's own code or data, so nothing derived from the g
 | Field | Meaning |
 | --- | --- |
 | `from` | The `id` of the need whose file is `{in}`: a `psp-iso`, `wii-disc`, `gc-disc`, `file` or `folder` need that is not optional. That need is still copied to the Vita as usual |
-| `kit` | One kit archive per kind of computer, named `<os>-<arch>` as Go names them (`windows-amd64`, `windows-386`, `darwin-arm64`, `linux-arm64`…). Each has the `file` name in the same GitHub release, its `sha256`, and optionally its `size`. A Mac without an entry of its own uses the other Mac's (or `darwin-universal`); there is no other fallback, and a computer with no entry is told the game can't be built there yet |
+| `kit` | One kit archive per kind of computer, named `<os>-<arch>` as Go names them (`windows-amd64`, `windows-386`, `darwin-arm64`, `linux-arm64`…). Each has the `file` name in the same GitHub release, its `sha256`, and optionally its `size`. A Mac without an entry of its own uses the other Mac's (or `darwin-universal`; an Apple silicon Mac runs the Intel kit under Rosetta); there is no other fallback, and a computer with no entry is told the game can't be built there yet |
 | `run` | The program inside the kit (a relative path; `.exe` is added on Windows) |
 | `args` | Its arguments. `{in}` is the player's file, `{out}` an empty folder for the result and `{work}` an empty scratch folder. Must contain `{in}` and `{out}`. Default: `["{in}", "{out}"]` |
 | `app` | The name of the VPK the program writes into `{out}`. The app in it must have the release's `titleId` |
 | `label` | Shown while the build starts (default: "Building NAME from your disc") |
 | `minutes` | About how long it takes, shown to the player before they start |
 
-**The kit** is a ZIP per kind of computer, a file of the same release. The program, its tools and data are all inside; the installer unpacks it as it is, restoring the Unix permissions the ZIP stores. It is also the folder the program runs in.
+**The kit** is one archive per kind of computer, a file of the same release. The program, its tools and data are all inside; the installer unpacks it as it is, restoring the executable bits and links the archive stores (links must stay inside the kit). It is also the folder the program runs in. **Publish kits as `.tar.gz`** (a gzip-compressed tar, for example `Infected-Vita-builder-windows.tar.gz`); a ZIP works too. The installer tells which it is by looking inside the file, not at its name.
+
+Why `.tar.gz`: installers older than 1.8 try every `.zip` file of a GitHub release as a possible app, so they would download all the kits (hundreds of megabytes each) before saying that no app was found. They skip `.tar.gz` files, so they download nothing and simply say that the release has no app. Installers from 1.8 on never download a kit while adding a game, whatever its name, and leave out files named like `…-builder-<windows|mac|linux>….tar.gz` (or `.tgz`, `.zip`) and any file a loose `vita-install.json` lists under `kit`.
 
 **The program** reads `{in}`, writes the VPK to `{out}/<app>` and exits with 0. On failure it exits non-zero and writes **one plain-English line** to stderr, which is shown to the player as it is (for example "This is not the US version of Infected (ULUS-10054, 1.02)."). With `--progress` it also prints these lines on stdout; any other line is ignored:
 
@@ -190,7 +192,7 @@ The installer shows the step text and a progress bar with the time left, and the
 - The disc is asked for again on every install, even when a copy is on the Vita, because the build needs it on the computer.
 - Artwork can be chosen for a built game once it has been built the first time (before that there are no pictures to preview). It is applied to every later build.
 
-`vpk` may be given as well (for example a working app for older installers); a release with `build` always builds. The `{"step": "build"}` on the `from` need is optional: installers older than 1.8 refuse a release with an unknown step and say "a newer installer may be required", while without it they only see a release with no app. Either way, an older installer that is given the release by its GitHub link tries every ZIP of the release as a possible app, so it downloads the kits before reporting that no app was found; it can't be made to skip them.
+`vpk` may be given as well (for example a working app for older installers); a release with `build` always builds. The `{"step": "build"}` on the `from` need is optional: when a release folder or ZIP is opened, installers older than 1.8 refuse an unknown step and say "a newer installer may be required", while without it they only say the release's app is missing. Given the release by its GitHub link, an older installer ignores `.tar.gz` kits and reports that the release has no app; with ZIP kits it would download them all first (see above).
 
 ## Artwork
 

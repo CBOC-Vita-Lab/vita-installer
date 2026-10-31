@@ -20,9 +20,9 @@ func buildManifest() map[string]interface{} {
 		"build": map[string]interface{}{
 			"from": "disc",
 			"kit": map[string]interface{}{
-				"windows-amd64": map[string]interface{}{"file": "Infected-Vita-builder-windows.zip", "sha256": sum1, "size": 300 << 20},
-				"darwin-amd64":  map[string]interface{}{"file": "Infected-Vita-builder-mac.zip", "sha256": sum2, "size": 250 << 20},
-				"linux-amd64":   map[string]interface{}{"file": "Infected-Vita-builder-linux.zip", "sha256": sum1, "size": 280 << 20},
+				"windows-amd64": map[string]interface{}{"file": "Infected-Vita-builder-windows.tar.gz", "sha256": sum1, "size": 300 << 20},
+				"darwin-amd64":  map[string]interface{}{"file": "Infected-Vita-builder-mac-intel.tar.gz", "sha256": sum2, "size": 250 << 20},
+				"linux-amd64":   map[string]interface{}{"file": "Infected-Vita-builder-linux.tar.gz", "sha256": sum1, "size": 280 << 20},
 			},
 			"run":     "infected-build",
 			"args":    []string{"--progress", "--out", "{out}", "{in}"},
@@ -59,10 +59,10 @@ func TestBuildManifestParses(t *testing.T) {
 		t.Fatal("a build release needs no vpk")
 	}
 	// The kit for a computer, with a Mac falling back to the other Mac kit.
-	if k, f, ok := b.KitFor("windows", "amd64"); !ok || k != "windows-amd64" || f.File != "Infected-Vita-builder-windows.zip" {
+	if k, f, ok := b.KitFor("windows", "amd64"); !ok || k != "windows-amd64" || f.File != "Infected-Vita-builder-windows.tar.gz" {
 		t.Fatalf("windows kit: %v %v %v", k, f, ok)
 	}
-	if _, f, ok := b.KitFor("darwin", "arm64"); !ok || f.File != "Infected-Vita-builder-mac.zip" {
+	if _, f, ok := b.KitFor("darwin", "arm64"); !ok || f.File != "Infected-Vita-builder-mac-intel.tar.gz" {
 		t.Fatalf("an Apple Silicon Mac should use the Mac kit: %v %v", f, ok)
 	}
 	if _, _, ok := b.KitFor("windows", "386"); ok {
