@@ -10,19 +10,27 @@ Putting a game on a PS Vita used to mean FTP apps, folder hunting and a lot of g
 
 <p align="center"><b><a href="https://github.com/CBOC-Vita-Lab/vita-installer/releases/latest">Download the latest version</a></b> · <a href="#how-to-use-it">How to use it</a> · <a href="CHANGELOG.md">What's new</a> · <a href="#help">Help</a></p>
 
-## New In Version 1.7
+## New In Version 2.0
 
-**Works with more Vita setups.** Installs no longer stop right after creating the first folder on Vitas whose FTP server words its replies differently (seen with an sd2vita on firmware 3.60). If an install does stop, the reason stays on the game until you try again.
+**Games built from your own disc.** Choose your disc, press **Install**, and the installer builds the game on your computer, then installs it on your Vita. Infected works this way. It checks your disc the moment you choose it, asks you to allow the build first, takes about 10 minutes the first time, and nothing is uploaded.
+
+**Prepare your Vita.** Missing the shader compiler some games use? One click puts ShaRKBR33D on your Vita, a free app that gets it for you ([details](#prepare-your-vita)). The installer now finds the compiler in either place games load it from, and tells you when the copy on your Vita is damaged.
+
+**Artwork from your Vita.** Use a screenshot you took in the game, or Super Mario Galaxy's own title screen, as its bubble and background.
+
+**Bowser moves the way he should** in Super Mario Galaxy, and a full memory card is now explained in plain words.
 
 ## Recent Highlights
 
+- **Bowser fixed in Super Mario Galaxy** (1.8): his battle intros no longer twist and spin. Install Galaxy again and only the four corrected files are sent.
+- **More Vita setups** (1.7): installs no longer stop right after creating the first folder on Vitas whose FTP server words its replies differently.
 - **HD textures for Strikers and Galaxy** (1.5): choose your `hdtex.pack` as the file, a ZIP, a folder or split pieces.
 - **Custom artwork** (1.4): pick a new bubble, LiveArea background and logo from your own pictures, libretro-thumbnails or SteamGridDB, with a live preview first.
 - **Any file name works** (1.3): downloads are recognised by what's inside them, and every GitHub download is checked before it reaches your Vita.
 - **Keeps itself up to date** (1.2): new versions download in the background and switch over with one click.
 - **Runs almost everywhere** (1.1): Intel and Apple Silicon Macs back to macOS 10.13, Windows 7 to 11 (including 32-bit and ARM) and Linux, in a 7 MB download.
 - **Faster, hands-free installs:** several files at once, nothing to press on the Vita, and it picks up after a Wi-Fi drop.
-- **Bring your own game:** Wii, GameCube and PSP games, checked and converted for the Vita when needed (Super Mario Galaxy included). Homebrew like VitAdhoc gets slots for your own games and BIOS. Infected, Strikers and Galaxy take your own HD texture packs, as the file, a ZIP, a folder or split pieces.
+- **Bring your own game:** Wii, GameCube and PSP games, checked and converted for the Vita when needed (Super Mario Galaxy included), or built on your computer from your disc (Infected). Homebrew like VitAdhoc gets slots for your own games and BIOS. Infected, Strikers and Galaxy take your own HD texture packs, as the file, a ZIP, a folder or split pieces.
 - **Smart updates:** shows **Update** when a game has a new version and sends only what changed. Your saves are never touched.
 
 ## What To Expect
@@ -35,6 +43,7 @@ Putting a game on a PS Vita used to mean FTP apps, folder hunting and a lot of g
 | **Game updates** | Usually seconds, because only changed files are sent |
 | **Installer updates** | Automatic: downloaded in the background, switched over with one click or the next time you open it |
 | **Super Mario Galaxy** | About 2–3 minutes to convert your disc on a recent computer, once |
+| **Games built from your disc** | About 10 minutes to build the game on your computer the first time (Infected), and about 1 GB of free disk space while it works. The finished game is reused afterwards. Building works on Windows (64-bit Intel/AMD), macOS 14 or newer, and Linux (64-bit Intel/AMD). On any other computer, build the game on one of those and choose the `.vpk` it makes |
 | **Artwork** | Optional. Your own pictures, libretro-thumbnails, or SteamGridDB with your free API key |
 | **Your files** | Nothing is uploaded anywhere. Everything stays between your computer and your Vita |
 
@@ -60,11 +69,33 @@ Putting a game on a PS Vita used to mean FTP apps, folder hunting and a lot of g
    - **Your picture:** drop in a PNG or JPEG.
    - **libretro-thumbnails:** search box art, title screens and screenshots. No account needed.
    - **SteamGridDB:** paste your free API key once, then search icons, backgrounds and logos.
+   - **Your Vita:** screenshots you took in the game (PS + Start) and, for Super Mario Galaxy, the title screen the game saves of itself after its first start. Needs Wi-Fi.
 4. Watch the preview change, then press **Done** and **Install**.
 
 <p align="center"><img src="docs/img/artwork.png" width="560" alt="The artwork picker, previewing the home-screen bubble and LiveArea"></p>
 
 Your choice is remembered and goes back on every time the game is updated. **Use the game's own artwork** undoes it.
+
+### Dumping Your UMD
+
+A Vita has no UMD drive, so a game on a UMD (Infected, for example) has to be copied to a computer from a PSP 1000, 2000 or 3000 that runs custom firmware such as [ARK](https://github.com/PSP-Archive/ARK-4).
+
+1. Put the UMD in the PSP and connect it to your computer with a USB cable.
+2. On the PSP home screen, press **SELECT** to open the VSH menu and set **USB Device** to **UMD Disc**.
+3. In **Settings**, open **USB Connection**.
+4. Your computer shows the disc as a drive holding one `.iso`. Copy it to your computer.
+
+Choose that `.iso` in the installer. CSO and PBP files aren't supported.
+
+### Prepare Your Vita
+
+Some games need a file from Sony called the shader compiler (`libshacccg.suprx`) on your Vita, and it can't be shipped with them. If your Vita doesn't have it, the game shows **Prepare your Vita**:
+
+1. Press **Prepare your Vita**. The installer puts ShaRKBR33D, a free Vita app, on your Vita.
+2. **On your Vita,** open ShaRKBR33D once and follow it. It needs Wi-Fi.
+3. Come back and press **Check again**.
+
+Already have the file? Press **Choose** instead, and pick `libshacccg.suprx`, or a ZIP or folder that has it. The installer looks in both `ur0:data/` and `ur0:data/external/`, and if the file there is empty or cut short it says so, so you know to get it again. Infected doesn't need it to install: without it, a few rarely used effects are skipped.
 
 ### Updating
 
@@ -79,7 +110,15 @@ Your choice is remembered and goes back on every time the game is updated. **Use
 
 **I want it faster.** Use USB: in VitaShell press **START**, set **SELECT button** to **USB**, plug in the cable and press **SELECT**. When it's done, press **X** on the game in VitaShell's `ux0:VPK` folder.
 
-**The transfer stopped.** Press **Install** again. It picks up where it left off.
+**The transfer stopped.** Press **Install** again. It picks up where it left off. If it says your Vita's memory card is full, free up space in VitaShell (press **SELECT** on `ux0:` to see what's free), or leave out an HD pack.
+
+**A game says the shader compiler is missing, but I copied it.** Open the game in the installer with your Vita on Wi-Fi: it checks `ur0:data/` and `ur0:data/external/` and tells you if the file is damaged. If VitaShell can't open `ur0:data` at all, that folder is damaged: rename it, make a new `data` folder, and move the files into it.
+
+**A game that is built from my disc stopped.** The message on the game says why, usually a damaged disc copy or too little free space (about 1 GB is needed). Fix that and press **Install** again. The build tools are only downloaded once.
+
+**It says the game can't be built on my computer.** Building needs Windows (64-bit Intel/AMD), macOS 14 or newer, or Linux (64-bit Intel/AMD). Build the game on one of those and choose the `.vpk` it makes where the game says **Choose the .vpk**.
+
+**It says my disc is not the right version.** Use the US version of the game, as a plain `.iso` dumped from your own UMD. CSO and PBP files aren't supported.
 
 **My Mac or PC is older and it asks for an extracted folder.** Unpacking disc images needs macOS 12 or Windows 10. On older systems, extract the disc in Dolphin first (right-click the game > **Properties** > **Filesystem** > **Extract Entire Disc**) and choose that folder.
 
@@ -87,9 +126,9 @@ Your choice is remembered and goes back on every time the game is updated. **Use
 
 | File | What it is |
 | --- | --- |
-| `CBOC-Vita-Installer-1.7-mac.zip` | The Mac app, for Intel and Apple Silicon |
-| `CBOC-Vita-Installer-1.7-windows-x64.exe` / `-x86.exe` / `-arm64.exe` | Windows: most PCs, older or 32-bit PCs, and ARM PCs |
-| `CBOC-Vita-Installer-1.7-linux-amd64.tar.gz` / `-arm64.tar.gz` | Linux |
+| `CBOC-Vita-Installer-2.0-mac.zip` | The Mac app, for Intel and Apple Silicon |
+| `CBOC-Vita-Installer-2.0-windows-x64.exe` / `-x86.exe` / `-arm64.exe` | Windows: most PCs, older or 32-bit PCs, and ARM PCs |
+| `CBOC-Vita-Installer-2.0-linux-amd64.tar.gz` / `-arm64.tar.gz` | Linux |
 | `SHA256SUMS.txt` | Checksums, if you want to check your download |
 
 ## For Developers
@@ -98,7 +137,7 @@ Your choice is remembered and goes back on every time the game is updated. **Use
 | --- | --- |
 | [Ideas for later](docs/ROADMAP.md) | Features we'd like to add, such as custom loading screens |
 | [Release format](docs/release-format.md) | How a Vita release tells the installer what it needs, including converting the player's files |
-| Build and test | `go test ./...`, then `scripts/build.sh 1.7` (Go 1.20, no other dependencies) |
+| Build and test | `go test ./...`, then `scripts/build.sh 2.0` (Go 1.20, no other dependencies) |
 
 The app is one Go program with a plain HTML page in `ui/`. The code is in `internal/`.
 

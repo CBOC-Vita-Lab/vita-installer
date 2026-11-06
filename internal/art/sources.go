@@ -22,7 +22,7 @@ import (
 
 // Candidate is a picture the player can pick.
 type Candidate struct {
-	Source string `json:"source"` // libretro, steamgriddb
+	Source string `json:"source"` // libretro, steamgriddb, vita
 	Title  string `json:"title"`
 	Kind   string `json:"kind"` // boxart, title, snap, grid, hero, logo, icon
 	Slot   string `json:"slot"` // icon, background, logo
@@ -368,6 +368,9 @@ var allowedHosts = []string{"thumbnails.libretro.com", "steamgriddb.com", "raw.g
 // Fetch downloads a picture (from the sources above) into the cache and
 // checks it can be read. Returns the local file.
 func Fetch(ctx context.Context, cache, raw string) (string, error) {
+	if strings.HasPrefix(raw, "file:") {
+		return localLink(cache, raw)
+	}
 	u, err := url.Parse(raw)
 	if err != nil || u.Scheme != "https" {
 		return "", errors.New("not a picture link")

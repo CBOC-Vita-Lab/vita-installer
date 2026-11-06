@@ -1,0 +1,519 @@
+package install
+
+import (
+	"archive/tar"
+	"archive/zip"
+	"compress/gzip"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/CBOC-Vita-Lab/vita-installer/internal/release"
+	"github.com/CBOC-Vita-Lab/vita-installer/internal/vita"
+)
+
+// kitDownloadURL is where a release's kit archive comes from: a file of the
+// same GitHub release. Tests replace it.
+var kitDownloadURL = func(repo, tag, file string) string {
+	return "https://github.com/" + repo + "/releases/download/" + url.PathEscape(tag) + "/" + url.PathEscape(file)
+}
+
+var kitClient = &http.Client{Transport: &http.Transport{
+	Proxy:                 http.ProxyFromEnvironment,
+	DialContext:           (&net.Dialer{Timeout: 15 * time.Second}).DialContext,
+	TLSHandshakeTimeout:   15 * time.Second,
+	ResponseHeaderTimeout: 30 * time.Second,
+}}
+
+// ensureKit returns the folder holding the unpacked kit for this computer.
+// The archive is looked for next to the release first (an offline copy), then
+// downloaded from the release's GitHub page, checked against its SHA-256 and
+// unpacked once; later builds reuse the folder.
+func ensureKit(ctx context.Context, r *release.Release, kf release.KitFile, cache string, report func(Progress)) (string, error) {
+	want := strings.ToLower(kf.SHA256)
+	dir := filepath.Join(cache, "kits", want[:16])
+	if _, err := os.Stat(filepath.Join(dir, ".complete")); err == nil {
+		if _, err := os.Stat(kitProgram(dir, r.Build.Run)); err == nil {
+			return dir, nil
+		}
+	}
+	os.RemoveAll(dir)
+	if err := os.MkdirAll(filepath.Dir(dir), 0o755); err != nil {
+		return "", err
+	}
+
+	// Room for the archive and what it unpacks to (kits are mostly compressed
+	// programs, so allow about three times their size).
+	if free := freeSpace(filepath.Dir(dir)); free >= 0 && kf.Size > 0 && free < kf.Size*4+(512<<20) {
+		return "", fmt.Errorf("the build tools need about %s free on this computer, but only %s is free. Free up some space and try again", human(kf.Size*4+(512<<20)), human(free))
+	}
+
+	archive, temp := filepath.Join(r.Root, kf.File), false
+	if st, err := os.Stat(archive); err != nil || st.IsDir() {
+		if r.Repo == "" || r.Tag == "" {
+			return "", fmt.Errorf("the build tools (%s) are not in this download. Download the complete release from GitHub, or add the game by its GitHub link", kf.File)
+		}
+		archive, temp = dir+".archive", true
+		if err := downloadKit(ctx, kitDownloadURL(r.Repo, r.Tag, kf.File), archive, want, kf.Size, report); err != nil {
+			return "", err
+		}
+	} else {
+		report(Progress{Phase: "prepare", Text: "Checking the build tools", ETA: -1})
+		sum, err := hashFile(ctx, archive)
+		if err != nil {
+			return "", err
+		}
+		if sum != want {
+			return "", errors.New("the build tools in this release failed their integrity check. Download the release again")
+		}
+	}
+	if temp {
+		defer os.Remove(archive)
+	}
+
+	part := dir + ".partial"
+	os.RemoveAll(part)
+	var last time.Time
+	err := unpackKit(ctx, archive, part, func(done, total int64) {
+		if done != total && time.Since(last) < 250*time.Millisecond {
+			return
+		}
+		last = time.Now()
+		report(Progress{Phase: "prepare", Text: "Unpacking the build tools", Done: done, Total: total, ETA: -1})
+	})
+	if err == nil {
+		if _, serr := os.Stat(kitProgram(part, r.Build.Run)); serr != nil {
+			err = errors.New("the build tools are incomplete: the program to run is missing")
+		}
+	}
+	if err == nil {
+		// The kit may know better than the release which macOS it needs.
+		if msg := kitRequirement(part, r); msg != "" {
+			os.RemoveAll(part)
+			return "", errors.New(msg)
+		}
+		err = os.WriteFile(filepath.Join(part, ".complete"), nil, 0o644)
+	}
+	if err == nil {
+		err = os.Rename(part, dir)
+	}
+	if err != nil {
+		os.RemoveAll(part)
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
+		return "", fmt.Errorf("could not unpack the build tools: %v", err)
+	}
+	return dir, nil
+}
+
+// kitRequirement reads requires.macos from the kit's own kit.json and returns
+// the message to show when this Mac is older, or "".
+func kitRequirement(kitDir string, r *release.Release) string {
+	b, err := os.ReadFile(filepath.Join(kitDir, "kit.json"))
+	if err != nil {
+		return ""
+	}
+	var k struct {
+		Requires struct {
+			MacOS int `json:"macos"`
+		} `json:"requires"`
+	}
+	if json.Unmarshal(b, &k) != nil || k.Requires.MacOS <= 0 {
+		return ""
+	}
+	bb := *r.Build
+	bb.Require = &release.Requires{MacOS: k.Requires.MacOS}
+	return bb.Blocked(r.Name, release.CurrentHost())
+}
+
+// kitProgram is the path of the program to run inside an unpacked kit.
+func kitProgram(dir, run string) string {
+	p := filepath.Join(dir, filepath.FromSlash(run))
+	if runtime.GOOS == "windows" && !strings.HasSuffix(strings.ToLower(p), ".exe") {
+		p += ".exe"
+	}
+	return p
+}
+
+func hashFile(ctx context.Context, path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	buf := make([]byte, 1<<20)
+	for {
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
+		n, err := f.Read(buf)
+		h.Write(buf[:n])
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", err
+		}
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// downloadKit saves url to dest, checking its SHA-256 on the way. A download
+// that goes quiet for a minute is given up on.
+func downloadKit(ctx context.Context, u, dest, want string, size int64, report func(Progress)) error {
+	const text = "Downloading the build tools"
+	report(Progress{Phase: "prepare", Text: text, Total: size, ETA: -1})
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	var stalled bool
+	var mu sync.Mutex
+	watch := time.AfterFunc(60*time.Second, func() { mu.Lock(); stalled = true; mu.Unlock(); cancel() })
+	defer watch.Stop()
+	fail := func(err error) error {
+		mu.Lock()
+		defer mu.Unlock()
+		switch {
+		case stalled:
+			return errors.New("the download of the build tools stopped (nothing arrived for a minute). Check your internet connection and try again")
+		case ctx.Err() != nil:
+			return ctx.Err()
+		}
+		return fmt.Errorf("could not download the build tools: %v. Check your internet connection and try again", err)
+	}
+
+	req, _ := http.NewRequestWithContext(ctx, "GET", u, nil)
+	req.Header.Set("User-Agent", "cboc-vita-installer")
+	resp, err := kitClient.Do(req)
+	if err != nil {
+		return fail(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		if resp.StatusCode == 404 {
+			return errors.New("the build tools were not found on GitHub (this release may be incomplete)")
+		}
+		return fmt.Errorf("could not download the build tools (HTTP %d). Try again in a moment", resp.StatusCode)
+	}
+	total := resp.ContentLength
+	if total <= 0 {
+		total = size
+	}
+	tmp := dest + ".part"
+	f, err := os.Create(tmp)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp)
+	h := sha256.New()
+	buf := make([]byte, 1<<20)
+	var done int64
+	begin, last := time.Now(), time.Time{}
+	for {
+		n, rerr := resp.Body.Read(buf)
+		if n > 0 {
+			watch.Reset(60 * time.Second)
+			h.Write(buf[:n])
+			if _, err := f.Write(buf[:n]); err != nil {
+				f.Close()
+				return err
+			}
+			done += int64(n)
+			if time.Since(last) > 250*time.Millisecond {
+				last = time.Now()
+				p := Progress{Phase: "prepare", Text: text, Done: done, Total: total, ETA: -1}
+				if el := time.Since(begin).Seconds(); el > 1 {
+					p.Speed = float64(done) / el
+					if el > 2 && total > done {
+						p.ETA = int(float64(total-done) / p.Speed)
+					}
+				}
+				report(p)
+			}
+		}
+		if rerr == io.EOF {
+			break
+		}
+		if rerr != nil {
+			f.Close()
+			return fail(rerr)
+		}
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	if hex.EncodeToString(h.Sum(nil)) != want {
+		return errors.New("the build tools were damaged on the way (checksum mismatch). Try again")
+	}
+	os.Remove(dest)
+	return os.Rename(tmp, dest)
+}
+
+// unpackKit extracts a kit archive into dir. The format is told by what is
+// inside the file, not by its name: a ZIP or a gzip-compressed tar (.tar.gz).
+// Paths are checked so nothing lands outside dir, and the programs inside get
+// their executable bit back from the archive (both formats keep Unix
+// permissions).
+func unpackKit(ctx context.Context, archive, dir string, progress func(done, total int64)) error {
+	f, err := os.Open(archive)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	magic := make([]byte, 4)
+	n, _ := io.ReadFull(f, magic)
+	switch {
+	case n == 4 && string(magic) == "PK\x03\x04":
+		return unpackKitZip(ctx, archive, dir, progress)
+	case n >= 2 && magic[0] == 0x1f && magic[1] == 0x8b:
+		st, err := f.Stat()
+		if err != nil {
+			return err
+		}
+		if _, err := f.Seek(0, io.SeekStart); err != nil {
+			return err
+		}
+		return unpackKitTar(ctx, f, st.Size(), dir, progress)
+	}
+	return errors.New("the build tools are not a ZIP or .tar.gz file")
+}
+
+// kitTarget returns where an archive member goes, or an error if it would
+// land outside dir.
+func kitTarget(dir, name string) (string, error) {
+	name = strings.ReplaceAll(name, "\\", "/")
+	for strings.HasPrefix(name, "./") {
+		name = name[2:]
+	}
+	if !vita.SafeName(name) {
+		return "", fmt.Errorf("unsafe path in archive: %q", name)
+	}
+	target := filepath.Join(dir, filepath.FromSlash(name))
+	if !kitInside(dir, target) {
+		return "", fmt.Errorf("unsafe path in archive: %q", name)
+	}
+	return target, nil
+}
+
+func kitInside(dir, p string) bool {
+	root := filepath.Clean(dir) + string(filepath.Separator)
+	return strings.HasPrefix(filepath.Clean(p)+string(filepath.Separator), root)
+}
+
+// kitLink makes a symbolic link that stays inside dir (not on Windows, where
+// kits do not use them).
+func kitLink(dir, target, dest string) error {
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	if dest == "" || filepath.IsAbs(dest) || !kitInside(dir, filepath.Join(filepath.Dir(target), dest)) {
+		return fmt.Errorf("unsafe link in archive: %q", dest)
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		return err
+	}
+	return os.Symlink(dest, target)
+}
+
+// kitPerm is the permission a file gets: executable if the archive says so.
+func kitPerm(mode os.FileMode) os.FileMode {
+	if mode&0o111 != 0 {
+		return 0o755
+	}
+	return 0o644
+}
+
+func unpackKitZip(ctx context.Context, archive, dir string, progress func(done, total int64)) error {
+	z, err := zip.OpenReader(archive)
+	if err != nil {
+		return errors.New("the build tools are not a valid ZIP file")
+	}
+	defer z.Close()
+	var total int64
+	for _, f := range z.File {
+		total += int64(f.UncompressedSize64)
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	buf := make([]byte, 1<<20)
+	var done int64
+	for _, f := range z.File {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		target, err := kitTarget(dir, f.Name)
+		if err != nil {
+			return err
+		}
+		mode := f.Mode()
+		switch {
+		case f.FileInfo().IsDir():
+			if err := os.MkdirAll(target, 0o755); err != nil {
+				return err
+			}
+		case mode&os.ModeSymlink != 0:
+			rc, err := f.Open()
+			if err != nil {
+				return err
+			}
+			link, err := io.ReadAll(io.LimitReader(rc, 4096))
+			rc.Close()
+			if err != nil {
+				return err
+			}
+			if err := kitLink(dir, target, string(link)); err != nil {
+				return err
+			}
+		default:
+			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+				return err
+			}
+			r, err := f.Open()
+			if err != nil {
+				return err
+			}
+			err = extractFile(ctx, r, target, kitPerm(mode), buf, func(n int64) {
+				done += n
+				progress(done, total)
+			})
+			r.Close()
+			if err != nil {
+				return err
+			}
+		}
+	}
+	progress(total, total)
+	return nil
+}
+
+// counter counts the bytes read through it (a .tar.gz does not say how big it
+// is when unpacked, so progress follows the compressed file).
+type counter struct {
+	r io.Reader
+	n int64
+}
+
+func (c *counter) Read(b []byte) (int, error) {
+	n, err := c.r.Read(b)
+	c.n += int64(n)
+	return n, err
+}
+
+func unpackKitTar(ctx context.Context, f io.Reader, size int64, dir string, progress func(done, total int64)) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	cr := &counter{r: f}
+	gz, err := gzip.NewReader(cr)
+	if err != nil {
+		return errors.New("the build tools are not a valid .tar.gz file")
+	}
+	defer gz.Close()
+	tr := tar.NewReader(gz)
+	buf := make([]byte, 1<<20)
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		h, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("the build tools are damaged (%v)", err)
+		}
+		name := strings.TrimSuffix(h.Name, "/")
+		if name == "." || name == "./" || name == "" {
+			continue
+		}
+		target, err := kitTarget(dir, name)
+		if err != nil {
+			return err
+		}
+		switch h.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, 0o755); err != nil {
+				return err
+			}
+		case tar.TypeSymlink:
+			if err := kitLink(dir, target, h.Linkname); err != nil {
+				return err
+			}
+		case tar.TypeReg, tar.TypeRegA:
+			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+				return err
+			}
+			if err := extractFile(ctx, tr, target, kitPerm(h.FileInfo().Mode()), buf, func(int64) {
+				progress(cr.n, size)
+			}); err != nil {
+				return err
+			}
+		case tar.TypeLink:
+			// A hard link is a second name for a file already unpacked.
+			src, err := kitTarget(dir, h.Linkname)
+			if err != nil {
+				return err
+			}
+			if runtime.GOOS == "windows" {
+				continue
+			}
+			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+				return err
+			}
+			if err := os.Link(src, target); err != nil {
+				return err
+			}
+		default:
+			// Devices, pipes and the like are not part of a kit.
+		}
+	}
+	progress(size, size)
+	return nil
+}
+
+func extractFile(ctx context.Context, r io.Reader, target string, perm os.FileMode, buf []byte, add func(int64)) error {
+	w, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm)
+	if err != nil {
+		return err
+	}
+	for {
+		if ctx.Err() != nil {
+			w.Close()
+			return ctx.Err()
+		}
+		n, rerr := r.Read(buf)
+		if n > 0 {
+			if _, err := w.Write(buf[:n]); err != nil {
+				w.Close()
+				return err
+			}
+			add(int64(n))
+		}
+		if rerr == io.EOF {
+			break
+		}
+		if rerr != nil {
+			w.Close()
+			return rerr
+		}
+	}
+	if err := w.Close(); err != nil {
+		return err
+	}
+	return os.Chmod(target, perm) // the umask may have cleared the executable bit
+}

@@ -267,6 +267,10 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request, name string) {
 		reply(w, nil)
 	case "launch":
 		reply(w, a.Launch(body.Item))
+	case "shaderprep":
+		reply(w, a.PrepareShader())
+	case "shadercheck":
+		reply(w, a.CheckShader(r.Context()))
 	case "dismiss":
 		a.update(func(st *State) { st.Notice = "" })
 		reply(w, nil)

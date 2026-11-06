@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/device"
+	"github.com/CBOC-Vita-Lab/vita-installer/internal/ftp"
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/install"
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/release"
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/selfupdate"
@@ -68,6 +69,7 @@ type State struct {
 	Library   []LibraryGame  `json:"library"`   // games this installer put on the connected Vita
 	SteamGrid bool           `json:"steamGrid"` // a SteamGridDB API key is set
 	Dialogs   bool           `json:"dialogs"`
+	Shader    *ShaderState   `json:"shader"` // the shader compiler on the connected Vita, if known
 	Seq       int64          `json:"seq"`
 }
 
@@ -329,6 +331,7 @@ func (a *App) Connect(ctx context.Context, host, drive string) error {
 // refreshItems re-checks each release against the connected Vita.
 func (a *App) refreshItems() {
 	go a.refreshLibrary()
+	go a.refreshShader(context.Background())
 	a.mu.Lock()
 	v, drive := a.st.Vita, a.st.Drive
 	items := append([]*Item(nil), a.st.Items...)
@@ -348,6 +351,12 @@ func (a *App) refreshItems() {
 			for _, in := range it.Inputs {
 				have := p.Inputs[in.ID]
 				switch {
+				case it.Build != nil && it.Build.From == in.ID:
+					// The disc a game is built from is needed on this computer
+					// every time, even when a copy is already on the Vita.
+					if in.State == "skip" {
+						in.State, in.Message = "", ""
+					}
 				case have && in.Path == "":
 					// Already on the Vita: nothing to choose, nothing to send.
 					in.State, in.Message = "skip", "Already on your Vita."
@@ -372,10 +381,8 @@ func setStatus(it *Item) {
 		it.Status = "held"
 		return
 	}
-	for _, in := range it.Inputs {
-		if !in.Satisfied() {
-			it.Status = "needs"
-		}
+	if it.Release.Unmet() != nil {
+		it.Status = "needs"
 	}
 }
 
@@ -531,6 +538,11 @@ func (a *App) Install(onlyID string) error {
 				} else {
 					it.Status, it.Result = "done", res
 					it.Installed = res.Installed || it.Installed
+					if res.Built != nil {
+						// Now the app is known: its icon and artwork can be shown.
+						it.Release.VPK, it.Release.App = res.Built.Path, res.Built
+						a.applyArt(it)
+					}
 				}
 			})
 			if ctx.Err() != nil {
@@ -583,6 +595,15 @@ func (a *App) Launch(id string) error {
 func friendly(err error) string {
 	msg := err.Error()
 	low := strings.ToLower(msg)
+	var fe *ftp.Error
+	if errors.As(err, &fe) {
+		switch fe.Code {
+		case 452, 552:
+			return "Your Vita's memory card is full. Free up space on it (or choose a smaller HD pack), then press Install again. Finished files are not sent twice."
+		case 426, 451:
+			return "Your Vita stopped receiving a file. This usually means its memory card is full or the Vita went to sleep. Check its free space in VitaShell (Select on ux0:), keep it awake, then press Install again."
+		}
+	}
 	switch {
 	case strings.Contains(low, "connection refused"), strings.Contains(low, "i/o timeout"), strings.Contains(low, "connection reset"),
 		strings.Contains(low, "broken pipe"), strings.Contains(low, "no route"), strings.Contains(low, "eof"):

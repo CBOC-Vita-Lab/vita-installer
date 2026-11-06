@@ -88,7 +88,8 @@ func inPlace(fs vitaFiles, in *release.Input, drive bool) bool {
 		if drive {
 			return false // ur0: is not visible on a drive
 		}
-		return fs.exists(release.ShaderPath)
+		ok, _ := shaderOnVita(fs)
+		return ok
 	case release.NeedPSPISO, release.NeedFile:
 		return fs.exists(to)
 	case release.NeedWiiDisc, release.NeedGCDisc, release.NeedFolder:

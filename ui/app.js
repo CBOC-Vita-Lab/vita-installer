@@ -156,7 +156,8 @@
     'wii-disc': 'ISO, RVZ, WBFS or a folder extracted with Dolphin',
     'gc-disc': 'ISO, RVZ or a folder extracted with Dolphin',
     'psp-iso': 'An .iso file of your UMD',
-    'shader-compiler': 'Needed once per Vita. Choose libshacccg.suprx',
+    'shader-compiler': 'Needed once per Vita. Choose libshacccg.suprx, or a ZIP or folder that has it',
+    'built-app': 'Skips the build',
     'files': 'Choose a file or a folder of them'
   };
 
@@ -183,16 +184,31 @@
     var h = '<article class="' + cls + '" data-item="' + esc(it.id) + '"><div class="card-head">' + icon +
       '<div class="card-title"><h2>' + esc(it.name) + badge + '</h2><div class="meta">' + meta.join(' · ') + '</div></div>' +
       (busy ? '' : '<button class="x" data-remove="' + esc(it.id) + '" aria-label="Remove ' + esc(it.name) + '">×</button>') + '</div>';
+    var ownApp = (it.inputs || []).some(function (x) { return x.type === 'built-app' && x.state === 'ok'; });
+    if (it.buildBlock && it.status !== 'done') {
+      h += '<div class="note bad">' + esc(it.buildBlock) + '</div>';
+    } else if (it.build && it.status !== 'done' && !ownApp) {
+      var mins = it.build.minutes;
+      h += '<div class="note">Built on your computer from your own disc' +
+        (mins > 0 ? ' \u2014 about ' + mins + ' minute' + (mins === 1 ? '' : 's') + ' the first time' : '') + '.</div>';
+    }
     var inputs = it.inputs || [];
     if (inputs.length) {
       h += '<div class="needs">';
       inputs.forEach(function (n) {
+        if (n.type === 'consent' && ownApp) return; // nothing is built, so nothing to allow
+        var isShader = n.type === 'shader-compiler';
+        var sh = S.shader || {};
+        var shaderOpen = isShader && n.state !== 'ok' && n.state !== 'skip';
         var state = n.state === 'skip' || n.state === 'ok' ? 'ok' : n.state === 'error' ? 'error' : '';
         var mark = state === 'ok' ? '✓' : state === 'error' ? '!' : '';
         var sub = n.message || (n.path ? n.path.split(/[\\/]/).pop() : (n.help || typeHelp[n.type] || (n.optional ? 'Optional' : '')));
-        if (n.optional && !n.path && n.state !== 'skip' && n.type !== 'shader-compiler') sub = 'Optional · ' + sub;
+        if (shaderOpen && !n.path && !n.message) {
+          sub = sh.message || ((sh.known && !sh.present ? "Your Vita doesn't have it yet. " : '') + (n.help || typeHelp[n.type]));
+        }
+        if (n.optional && !n.path && n.state !== 'skip' && !isShader) sub = 'Optional · ' + sub;
         if (n.prepare && n.prepare.length && n.state === 'ok') sub += ' It will be converted for the Vita on this computer first.';
-        var folderOk = n.type === 'wii-disc' || n.type === 'gc-disc' || n.type === 'folder' || n.type === 'files' || n.type === 'file';
+        var folderOk = n.type === 'wii-disc' || n.type === 'gc-disc' || n.type === 'folder' || n.type === 'files' || n.type === 'file' || isShader;
         h += '<div class="need ' + state + '" data-drop-item="' + esc(it.id) + '" data-drop-input="' + esc(n.id) + '"><div class="st">' + mark + '</div>' +
           '<div class="nt"><div>' + esc(n.label) + '</div><span title="' + esc(n.path || '') + '">' + esc(sub) + '</span></div>';
         if (!busy && n.state === 'skip' && n.type !== 'shader-compiler') {
@@ -201,6 +217,10 @@
         if (n.type === 'consent') {
           if (!busy && n.state !== 'ok') h += '<button class="btn small primary" data-allow-item="' + esc(it.id) + '" data-allow-input="' + esc(n.id) + '">Allow</button>';
         } else if (!busy && n.state !== 'skip') {
+          if (shaderOpen && !n.path && (S.vita || S.drive)) {
+            if (sh.helper && sh.known) h += '<button class="btn small primary" data-shadercheck>Check again</button>';
+            else if (!sh.helper) h += '<button class="btn small primary" data-shaderprep>Prepare your Vita</button>';
+          }
           if (n.type !== 'folder') h += '<button class="btn small" data-pick-item="' + esc(it.id) + '" data-pick-input="' + esc(n.id) + '" data-kind="file">' + (n.path ? 'Change' : 'Choose') + '</button>';
           if (folderOk) h += '<button class="btn small ghost" data-pick-item="' + esc(it.id) + '" data-pick-input="' + esc(n.id) + '" data-kind="folder">Folder</button>';
         }
@@ -208,7 +228,7 @@
       });
       h += '</div>';
     }
-    if (app.titleId && it.art) {
+    if (app.titleId && it.art && it.art.preview) {
       var a = it.art, v = '&v=' + a.seq;
       var from = {};
       Object.keys(a.slots || {}).forEach(function (k) { from[String(a.slots[k]).split(',')[0]] = true; });
@@ -270,7 +290,8 @@
     var p = j.progress || {};
     var it = (S.items || []).filter(function (i) { return i.id === j.itemId; })[0];
     $('jobTitle').textContent = j.name || 'Preparing';
-    $('jobStep').textContent = j.count > 1 ? 'Game ' + (j.index + 1) + ' of ' + j.count : (it && it.installed ? 'Updating' : 'Installing');
+    $('jobStep').textContent = j.count > 1 ? 'Game ' + (j.index + 1) + ' of ' + j.count :
+      it && it.build && p.phase === 'prepare' ? 'Building on this computer' : (it && it.installed ? 'Updating' : 'Installing');
     var icon = $('jobIcon');
     var src = it && it.app && it.app.titleId ? base + 'api/icon?id=' + it.id : '';
     if (icon.getAttribute('data-src') !== src) {
@@ -292,7 +313,7 @@
     $('jobEta').textContent = p.eta > 0 ? dur(p.eta) + ' left' : '';
     var f = '';
     if (p.phase === 'send') f = p.files + ' of ' + p.filesTotal + ' files · ' + size(p.done) + ' of ' + size(p.total) + (p.current ? ' · ' + p.current : '');
-    else if (p.unit && p.total > 0) f = p.done + ' of ' + p.total + ' ' + p.unit;
+    else if (p.unit && p.total > 0) f = p.done + ' of ' + p.total + (p.unit === 'count' ? '' : ' ' + p.unit);
     else if (p.done > 0) f = size(p.done) + (p.total > 0 ? ' of ' + size(p.total) : '');
     $('jobFile').textContent = f;
   }
@@ -331,7 +352,7 @@
     var items = S.items || [];
     $('add').className = 'drop' + (items.length ? ' compact' : '');
     $('dropTitle').textContent = items.length ? 'Add more' : 'Drop a Vita game here';
-    var key = JSON.stringify([items, !!S.vita, S.vita && S.vita.companion, !!S.drive, S.library]);
+    var key = JSON.stringify([items, !!S.vita, S.vita && S.vita.companion, !!S.drive, S.library, S.shader]);
     if (key !== lastItems) { lastItems = key; $('items').innerHTML = items.map(itemCard).join(''); }
     dock();
     job();
@@ -342,7 +363,7 @@
 
 
   // ---- artwork picker ----
-  var art = { item: null, slot: 'icon', source: 'file', query: '', system: '', libretro: null, games: null, game: null, images: null, busy: '', error: '' };
+  var art = { item: null, slot: 'icon', source: 'file', query: '', system: '', libretro: null, vita: null, games: null, game: null, images: null, busy: '', error: '' };
   var systems = ['Sony - PlayStation Vita', 'Sony - PlayStation Portable', 'Nintendo - Wii', 'Nintendo - GameCube', 'Sony - PlayStation 2',
     'Sony - PlayStation', 'Microsoft - Xbox 360', 'Nintendo - Nintendo DS', 'Nintendo - Nintendo 64', 'Nintendo - Game Boy Advance',
     'Nintendo - Super Nintendo Entertainment System', 'Sega - Dreamcast'];
@@ -351,7 +372,7 @@
     var it = (S.items || []).filter(function (i) { return i.id === id; })[0];
     if (!it) return;
     if (art.item !== id) {
-      art = { item: id, slot: 'icon', source: 'file', query: it.name, system: '', libretro: null, games: null, game: null, images: null, busy: '', error: '' };
+      art = { item: id, slot: 'icon', source: 'file', query: it.name, system: '', libretro: null, vita: null, games: null, game: null, images: null, busy: '', error: '' };
     }
     $('artSheet').hidden = false;
     renderArtBody();
@@ -382,8 +403,9 @@
     }
     var cls = art.slot === 'background' ? ' wide' : art.slot === 'logo' ? ' logos wide' : '';
     return '<div class="art-grid' + cls + '">' + list.map(function (c) {
-      var label = c.source === 'steamgriddb' ? 'SteamGridDB' + (c.credit ? ' · ' + c.credit : '') : 'libretro · ' + c.kind;
-      return '<button type="button" data-artpick-url="' + esc(c.url) + '" data-artpick-label="' + esc((c.source === 'steamgriddb' ? 'SteamGridDB' : 'libretro-thumbnails') + ', ' + c.title) + '" title="' + esc(c.title) + '">' +
+      var label = c.source === 'steamgriddb' ? 'SteamGridDB' + (c.credit ? ' · ' + c.credit : '') : c.source === 'vita' ? c.title : 'libretro · ' + c.kind;
+      var from = c.source === 'steamgriddb' ? 'SteamGridDB' : c.source === 'vita' ? 'Your Vita' : 'libretro-thumbnails';
+      return '<button type="button" data-artpick-url="' + esc(c.url) + '" data-artpick-label="' + esc(from + ', ' + c.title) + '" title="' + esc(c.title) + '">' +
         '<img loading="lazy" src="' + base + 'api/artthumb?u=' + encodeURIComponent(c.thumb) + '" alt=""><span>' + esc(label) + '</span></button>';
     }).join('') + '</div>';
   }
@@ -398,6 +420,9 @@
         systems.map(function (x) { return '<option' + (x === art.system ? ' selected' : '') + ' value="' + esc(x) + '">' + esc(x.replace(/^[^-]+ - /, '')) + '</option>'; }).join('') +
         '</select><input id="artQuery" value="' + esc(art.query) + '" aria-label="Game name"><button class="btn" type="submit">Search</button></form>' + status +
         (art.libretro ? grid(art.libretro) : (art.busy ? '' : '<p class="muted small">Box art, title screens and screenshots from the libretro-thumbnails project. No account needed.</p>'));
+    } else if (art.source === 'vita') {
+      h = '<p class="muted small">Screenshots you took in this game (PS + Start), and pictures the game made of itself, copied from your Vita over Wi-Fi. <button class="linkish" type="button" data-artvita>Look again</button></p>' + status +
+        (art.vita ? grid(art.vita) : '');
     } else {
       if (!S.steamGrid) {
         h = '<p>SteamGridDB has icons, wide backgrounds and logos for most games. It needs your own free API key:</p>' +
@@ -421,6 +446,7 @@
   function artSearch(source, query, system) {
     art.busy = 'Searching…'; art.error = '';
     if (source === 'libretro') art.libretro = null;
+    if (source === 'vita') { art.vita = null; art.busy = 'Looking on your Vita…'; }
     if (source === 'steamgriddb') { art.games = null; art.game = null; art.images = null; }
     if (source === 'steamgriddb-game') art.images = null;
     renderArtBody();
@@ -431,6 +457,7 @@
         art.busy = '';
         if (j.error) { art.error = j.error; }
         else if (source === 'libretro') art.libretro = j.candidates || [];
+        else if (source === 'vita') art.vita = j.candidates || [];
         else if (source === 'steamgriddb') {
           art.games = j.games || [];
           if (art.games.length) { art.game = art.games[0]; return artSearch('steamgriddb-game', String(art.games[0].id), art.games[0].name); }
@@ -472,9 +499,11 @@
     if (d.source) {
       art.source = d.source; art.error = ''; renderArtBody(); renderArtPreview();
       if (d.source === 'libretro' && !art.libretro) artSearch('libretro', art.query, art.system);
+      if (d.source === 'vita' && !art.vita) artSearch('vita', '');
       if (d.source === 'steamgriddb' && S.steamGrid && !art.games) artSearch('steamgriddb', art.query);
       return;
     }
+    if (d.artvita !== undefined) { artSearch('vita', ''); return; }
     if (d.artpickUrl) { artSet({ item: art.item, input: art.slot, url: d.artpickUrl, label: d.artpickLabel }); return; }
     if (d.artfile !== undefined) { api('pick', { item: art.item, input: 'art:' + art.slot, kind: 'file' }); return; }
     if (d.artclear !== undefined) { artSet({ item: art.item, input: art.slot }); return; }
@@ -484,6 +513,8 @@
     if (d.remove) api('remove', { item: d.remove });
     else if (d.pickItem) api('pick', { item: d.pickItem, input: d.pickInput, kind: d.kind });
     else if (d.launch) api('launch', { item: d.launch });
+    else if (d.shaderprep !== undefined) api('shaderprep');
+    else if (d.shadercheck !== undefined) api('shadercheck');
     else if (d.allowItem) api('input', { item: d.allowItem, input: d.allowInput, path: 'yes' });
     else if (d.get) { api('url', { url: 'https://github.com/' + d.get }); }
     else if (d.open) api('open', { url: d.open });
