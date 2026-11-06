@@ -163,7 +163,7 @@ func (a *App) SetArt(ctx context.Context, itemID, slot, path, link, label string
 			}
 		}
 	})
-	go a.refreshItems()
+	a.background(a.refreshItems)
 	return nil
 }
 

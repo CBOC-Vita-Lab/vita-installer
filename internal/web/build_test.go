@@ -172,6 +172,7 @@ func TestBuildDiscIsNeverSkipped(t *testing.T) {
 	if err := app.Add(rel); err != nil {
 		t.Fatal(err)
 	}
+	app.bg.Wait()
 	app.mu.Lock()
 	app.st.Vita = &device.Vita{Host: "127.0.0.1", Port: v.Port()}
 	it := app.st.Items[0]
@@ -249,16 +250,19 @@ func TestBuildThroughTheApp(t *testing.T) {
 	if err := app.Add(rel); err != nil {
 		t.Fatal(err)
 	}
+	app.bg.Wait()
 	it := app.st.Items[0]
 	if err := app.SetInput(it.ID, "disc", disc); err != nil {
 		t.Fatal(err)
 	}
+	app.bg.Wait()
 	if it.Status != "needs" {
 		t.Fatalf("status %q before the build is allowed", it.Status)
 	}
 	if err := app.SetInput(it.ID, "allow-build", "yes"); err != nil {
 		t.Fatal(err)
 	}
+	app.bg.Wait()
 	if it.Status != "ready" {
 		t.Fatalf("status %q with everything chosen", it.Status)
 	}
@@ -302,6 +306,7 @@ func TestBuildThroughTheApp(t *testing.T) {
 	if err := app.SetArt(context.Background(), it.ID, "icon", pic, "", ""); err != nil {
 		t.Fatal(err)
 	}
+	app.bg.Wait()
 	if b, err := app.ArtPreview(it.ID, "icon"); err != nil || len(b) == 0 {
 		t.Errorf("artwork preview after the build: %v", err)
 	}
