@@ -35,6 +35,7 @@ func TestArtFromTheVita(t *testing.T) {
 	if err := app.Add(rel); err != nil {
 		t.Fatal(err)
 	}
+	app.bg.Wait()
 	item := app.st.Items[0].ID
 
 	if _, err := app.ArtSearch(context.Background(), item, "vita", "", ""); err == nil {
@@ -68,6 +69,7 @@ func TestArtFromTheVita(t *testing.T) {
 	if err := app.SetArt(context.Background(), item, "background", "", cands[1].URL, "Your Vita, title"); err != nil {
 		t.Fatal(err)
 	}
+	app.bg.Wait()
 	if b, err := app.ArtPreview(item, "background"); err != nil || len(b) == 0 {
 		t.Fatalf("preview: %v", err)
 	}
@@ -77,4 +79,5 @@ func TestArtFromTheVita(t *testing.T) {
 	if err := app.SetArt(context.Background(), item, "icon", "", art.LinkFor(outside), "x"); err == nil {
 		t.Fatal("a file: link outside the Vita pictures was accepted")
 	}
+	app.bg.Wait()
 }

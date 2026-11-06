@@ -82,6 +82,7 @@ func shaderApp(t *testing.T, optional bool) (*App, *fakevita.Vita, *Item) {
 	if err := app.Add(rel); err != nil {
 		t.Fatal(err)
 	}
+	app.bg.Wait()
 	app.refreshShader(context.Background())
 	return app, v, app.st.Items[0]
 }
@@ -334,6 +335,7 @@ func TestNoKitThroughTheApp(t *testing.T) {
 	if err := app.Add(rel); err != nil {
 		t.Fatal(err)
 	}
+	app.bg.Wait()
 	it := app.st.Items[0]
 
 	var state struct {
@@ -353,12 +355,14 @@ func TestNoKitThroughTheApp(t *testing.T) {
 		}
 	}
 	app.SetInput(it.ID, "disc", disc)
+	app.bg.Wait()
 	if it.Status != "needs" {
 		t.Fatalf("status %q with a disc but no app", it.Status)
 	}
 	if err := app.SetInput(it.ID, release.BuiltAppID, built); err != nil {
 		t.Fatal(err)
 	}
+	app.bg.Wait()
 	if it.Status != "ready" {
 		t.Fatalf("status %q with the disc and the app", it.Status)
 	}

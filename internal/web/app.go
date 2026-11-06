@@ -75,6 +75,7 @@ type State struct {
 
 // App owns the state. All methods are safe for concurrent use.
 type App struct {
+	bg        sync.WaitGroup // background refreshes (tests wait for them)
 	mu        sync.Mutex
 	st        State
 	cache     string
@@ -330,14 +331,20 @@ func (a *App) Connect(ctx context.Context, host, drive string) error {
 
 // refreshItems re-checks each release against the connected Vita.
 func (a *App) refreshItems() {
-	go a.refreshLibrary()
-	go a.refreshShader(context.Background())
+	a.background(a.refreshLibrary)
+	a.background(func() { a.refreshShader(context.Background()) })
 	a.mu.Lock()
 	v, drive := a.st.Vita, a.st.Drive
 	items := append([]*Item(nil), a.st.Items...)
+	// Check works on copies taken under the lock: the player may be choosing
+	// an input (which changes it) while the Vita is being looked at.
+	rels := make([]*release.Release, len(items))
+	for i, it := range items {
+		rels[i] = snapshot(it.Release)
+	}
 	a.mu.Unlock()
-	for _, it := range items {
-		p, err := install.Check(context.Background(), v, drive, it.Release)
+	for i, it := range items {
+		p, err := install.Check(context.Background(), v, drive, rels[i])
 		if err != nil {
 			continue
 		}
@@ -423,7 +430,7 @@ func (a *App) addFrom(path, repo, tag string) error {
 		}
 		s.Notice = ""
 	})
-	go a.refreshItems()
+	a.background(a.refreshItems)
 	return nil
 }
 
@@ -616,4 +623,28 @@ func friendly(err error) string {
 		}
 	}
 	return msg
+}
+
+// snapshot copies a release and its inputs, so it can be read without the
+// lock while the original keeps changing.
+func snapshot(r *release.Release) *release.Release {
+	if r == nil {
+		return nil
+	}
+	c := *r
+	c.Inputs = make([]*release.Input, len(r.Inputs))
+	for i, in := range r.Inputs {
+		x := *in
+		c.Inputs[i] = &x
+	}
+	return &c
+}
+
+// background runs f on its own goroutine, counted in a.bg.
+func (a *App) background(f func()) {
+	a.bg.Add(1)
+	go func() {
+		defer a.bg.Done()
+		f()
+	}()
 }
