@@ -1,5 +1,11 @@
 # What's New
 
+## Version 2.0.1 — November 6, 2026
+
+A little steadier.
+
+- **Choosing files while your Vita is being checked is now safe.** The installer re-checks your Vita in the background, and if you picked a disc or file at that exact moment, a game's status could briefly show the wrong thing. That can't happen any more.
+
 ## Version 2.0 — November 6, 2026
 
 Games built from your own disc, a smarter shader compiler check, artwork from your Vita, and Bowser fixed.

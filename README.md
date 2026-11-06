@@ -126,9 +126,9 @@ Already have the file? Press **Choose** instead, and pick `libshacccg.suprx`, or
 
 | File | What it is |
 | --- | --- |
-| `CBOC-Vita-Installer-2.0-mac.zip` | The Mac app, for Intel and Apple Silicon |
-| `CBOC-Vita-Installer-2.0-windows-x64.exe` / `-x86.exe` / `-arm64.exe` | Windows: most PCs, older or 32-bit PCs, and ARM PCs |
-| `CBOC-Vita-Installer-2.0-linux-amd64.tar.gz` / `-arm64.tar.gz` | Linux |
+| `CBOC-Vita-Installer-2.0.1-mac.zip` | The Mac app, for Intel and Apple Silicon |
+| `CBOC-Vita-Installer-2.0.1-windows-x64.exe` / `-x86.exe` / `-arm64.exe` | Windows: most PCs, older or 32-bit PCs, and ARM PCs |
+| `CBOC-Vita-Installer-2.0.1-linux-amd64.tar.gz` / `-arm64.tar.gz` | Linux |
 | `SHA256SUMS.txt` | Checksums, if you want to check your download |
 
 ## For Developers
@@ -137,7 +137,7 @@ Already have the file? Press **Choose** instead, and pick `libshacccg.suprx`, or
 | --- | --- |
 | [Ideas for later](docs/ROADMAP.md) | Features we'd like to add, such as custom loading screens |
 | [Release format](docs/release-format.md) | How a Vita release tells the installer what it needs, including converting the player's files |
-| Build and test | `go test ./...`, then `scripts/build.sh 2.0` (Go 1.20, no other dependencies) |
+| Build and test | `go test ./...`, then `scripts/build.sh 2.0.1` (Go 1.20, no other dependencies) |
 
 The app is one Go program with a plain HTML page in `ui/`. The code is in `internal/`.
 
