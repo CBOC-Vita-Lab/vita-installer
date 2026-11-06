@@ -39,6 +39,8 @@ type ShaderState struct {
 	Message string `json:"message,omitempty"` // what to do next, in plain words
 }
 
+const shaderDamaged = "The shader compiler on your Vita is damaged (the file is empty or cut short). Install it again: open ShaRKBR33D, or choose the file yourself."
+
 const sharkOpenIt = "On your Vita, open ShaRKBR33D once and follow it (it needs Wi-Fi); then come back and press Check again."
 
 // refreshShader looks at the Vita and updates what the page shows.
@@ -51,6 +53,8 @@ func (a *App) refreshShader(ctx context.Context) {
 		msg := ""
 		switch {
 		case st.Present:
+		case st.Damaged:
+			msg = shaderDamaged
 		case st.Helper && st.Known:
 			msg = sharkOpenIt
 		case st.Helper && s.Shader != nil: // a drive: keep what the install told the player
@@ -83,6 +87,9 @@ func (a *App) CheckShader(ctx context.Context) error {
 	case st.Present:
 		a.update(func(s *State) { s.Shader.Message = "" })
 		a.notice("Your Vita has the shader compiler now.", false)
+	case st.Damaged:
+		a.update(func(s *State) { s.Shader.Message = shaderDamaged })
+		a.notice(shaderDamaged, true)
 	case st.Helper:
 		a.update(func(s *State) { s.Shader.Message = sharkOpenIt })
 		a.notice("Not there yet. "+sharkOpenIt, false)

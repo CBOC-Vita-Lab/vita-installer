@@ -17,7 +17,8 @@ const SharkTitleID = "SHRKBR33D"
 // ShaderStatus is what the Vita has for the shader compiler.
 type ShaderStatus struct {
 	Known   bool `json:"known"`   // the installer could look (it can't see ur0: on a drive)
-	Present bool `json:"present"` // ur0:data/libshacccg.suprx is there
+	Present bool `json:"present"` // libshacccg.suprx is in ur0:data/ or ur0:data/external/
+	Damaged bool `json:"damaged"` // a libshacccg.suprx is there but empty or cut short
 	Helper  bool `json:"helper"`  // ShaRKBR33D is installed
 }
 
@@ -33,10 +34,37 @@ func CheckShader(ctx context.Context, v *device.Vita, drive string) ShaderStatus
 		}
 		defer c.Close()
 		fs = ftpFiles{c}
-		return ShaderStatus{Known: true, Present: fs.exists(release.ShaderPath), Helper: fs.exists("ux0:app/" + SharkTitleID + "/eboot.bin")}
+		present, damaged := shaderOnVita(fs)
+		return ShaderStatus{Known: true, Present: present, Damaged: damaged, Helper: fs.exists("ux0:app/" + SharkTitleID + "/eboot.bin")}
 	case drive != "":
 		fs = driveFiles{&driveTarget{root: drive}}
 		return ShaderStatus{Helper: fs.exists("ux0:app/" + SharkTitleID + "/eboot.bin")}
 	}
 	return ShaderStatus{}
+}
+
+// shaderMinBytes is less than any real libshacccg.suprx; a smaller file was
+// cut short (a copy that failed, or an extraction that stopped).
+const shaderMinBytes = 64 << 10
+
+// shaderOnVita reports whether a usable shader compiler is in one of the
+// places the games load it from, and whether a damaged one was seen.
+func shaderOnVita(fs vitaFiles) (present, damaged bool) {
+	for _, p := range release.ShaderPaths {
+		if f, ok := fs.(ftpFiles); ok {
+			n, found, err := f.c.Size(p)
+			if err != nil || !found {
+				continue
+			}
+			if n < shaderMinBytes {
+				damaged = true
+				continue
+			}
+			return true, false
+		}
+		if fs.exists(p) {
+			return true, false
+		}
+	}
+	return false, damaged
 }

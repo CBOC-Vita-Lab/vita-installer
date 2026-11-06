@@ -10,7 +10,7 @@ The installer works with any VPK. It handles a release ZIP or folder like this:
 | `ur0/data/…` next to the VPK | `ur0:data/…` |
 | everything else (readme, source, licenses) | not copied |
 
-Updates only send what changed. The installer keeps a small record of each install on the Vita (`ux0:data/cboc-installer/installed/TITLEID.json`) with a hash of every file the release shipped, so a changed file is sent even when its size stayed the same, and unchanged files are skipped. The player's own files (discs, ISOs) are skipped when the same size is already there. If the app uses vitaGL (it mentions `libshacccg` or `vitagl`), the installer checks the Vita for `ur0:data/libshacccg.suprx` and asks for it when it's missing.
+Updates only send what changed. The installer keeps a small record of each install on the Vita (`ux0:data/cboc-installer/installed/TITLEID.json`) with a hash of every file the release shipped, so a changed file is sent even when its size stayed the same, and unchanged files are skipped. The player's own files (discs, ISOs) are skipped when the same size is already there. If the app uses vitaGL (it mentions `libshacccg` or `vitagl`), the installer checks the Vita for `ur0:data/libshacccg.suprx` and asks for it when it's missing. It looks in both places games load it from (`ur0:data/` and `ur0:data/external/`), and a file under 64 KB counts as damaged.
 
 ## vita-install.json
 
@@ -158,7 +158,7 @@ For anything the built-in steps don't cover, ship a converter for each computer 
 
 Keys are `<os>-<arch>` as Go names them (`windows-386`, `windows-arm64`, `darwin-arm64`, `darwin-amd64`, `linux-arm64`…); `darwin-universal` covers both Macs. `{in}` is the player's (or the previous step's) folder, which the tool must only read; `{out}` is an empty folder it fills, which the next steps and the Vita get. The program is refused if its SHA-256 doesn't match, and the player is asked to **Allow** it before anything runs. A non-zero exit stops the install and shows the last lines the tool wrote to stderr.
 
-Older CBOC releases ship `cboc-release.json` instead; the installer reads that too. Infected releases get two optional HD texture slots (`texpack_2x.bin`, and `texpack_4x_mixed.bin` installed as `texpack_4x.bin`) automatically. Strikers and Galaxy releases (any release that asks for disc `R4QE01` or `RMGE01`) get an optional HD texture slot for `hdtex.pack`, installed to `ux0:data/mscharged/hdtex.pack` or `ux0:data/smg/hdtex.pack`.
+Older CBOC releases ship `cboc-release.json` instead; the installer reads that too. Infected releases get two optional HD texture slots (`texpack_2x.bin`, and `texpack_4x_mixed.bin` installed as `texpack_4x.bin`) automatically. VitAdhoc releases can list an optional input of kind `snes-roms` (`.sfc`/`.smc` files), sent to the release's `snes` destination or `ux0:ROMS/SNES` when it has none; older installers skip it. Strikers and Galaxy releases (any release that asks for disc `R4QE01` or `RMGE01`) get an optional HD texture slot for `hdtex.pack`, installed to `ux0:data/mscharged/hdtex.pack` or `ux0:data/smg/hdtex.pack`.
 
 A `file` need can set `magic`, the bytes the file starts with. The installer then recognises the file by its contents, whatever it is called. For every `file` need the player can choose the file itself, a ZIP that holds it, a folder that holds it, or the first of its split pieces (`.part00`, `.part01`, … or `.001`, `.002`, …); the installer unpacks or joins it before copying.
 

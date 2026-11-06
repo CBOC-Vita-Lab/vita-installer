@@ -166,7 +166,7 @@ func TestBuildDiscIsNeverSkipped(t *testing.T) {
 	defer v.Close()
 	os.MkdirAll(filepath.Join(vroot, "ux0/data/infected"), 0o755)
 	os.WriteFile(filepath.Join(vroot, "ux0/data/infected/Infected.iso"), []byte("disc"), 0o644)
-	os.WriteFile(filepath.Join(vroot, "ur0/data/libshacccg.suprx"), []byte("shader"), 0o644)
+	os.WriteFile(filepath.Join(vroot, "ur0/data/libshacccg.suprx"), bytes.Repeat([]byte("s"), 200<<10), 0o644)
 
 	app := NewApp("1.8", t.TempDir(), t.TempDir())
 	if err := app.Add(rel); err != nil {

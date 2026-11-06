@@ -363,7 +363,7 @@
 
 
   // ---- artwork picker ----
-  var art = { item: null, slot: 'icon', source: 'file', query: '', system: '', libretro: null, games: null, game: null, images: null, busy: '', error: '' };
+  var art = { item: null, slot: 'icon', source: 'file', query: '', system: '', libretro: null, vita: null, games: null, game: null, images: null, busy: '', error: '' };
   var systems = ['Sony - PlayStation Vita', 'Sony - PlayStation Portable', 'Nintendo - Wii', 'Nintendo - GameCube', 'Sony - PlayStation 2',
     'Sony - PlayStation', 'Microsoft - Xbox 360', 'Nintendo - Nintendo DS', 'Nintendo - Nintendo 64', 'Nintendo - Game Boy Advance',
     'Nintendo - Super Nintendo Entertainment System', 'Sega - Dreamcast'];
@@ -372,7 +372,7 @@
     var it = (S.items || []).filter(function (i) { return i.id === id; })[0];
     if (!it) return;
     if (art.item !== id) {
-      art = { item: id, slot: 'icon', source: 'file', query: it.name, system: '', libretro: null, games: null, game: null, images: null, busy: '', error: '' };
+      art = { item: id, slot: 'icon', source: 'file', query: it.name, system: '', libretro: null, vita: null, games: null, game: null, images: null, busy: '', error: '' };
     }
     $('artSheet').hidden = false;
     renderArtBody();
@@ -403,8 +403,9 @@
     }
     var cls = art.slot === 'background' ? ' wide' : art.slot === 'logo' ? ' logos wide' : '';
     return '<div class="art-grid' + cls + '">' + list.map(function (c) {
-      var label = c.source === 'steamgriddb' ? 'SteamGridDB' + (c.credit ? ' · ' + c.credit : '') : 'libretro · ' + c.kind;
-      return '<button type="button" data-artpick-url="' + esc(c.url) + '" data-artpick-label="' + esc((c.source === 'steamgriddb' ? 'SteamGridDB' : 'libretro-thumbnails') + ', ' + c.title) + '" title="' + esc(c.title) + '">' +
+      var label = c.source === 'steamgriddb' ? 'SteamGridDB' + (c.credit ? ' · ' + c.credit : '') : c.source === 'vita' ? c.title : 'libretro · ' + c.kind;
+      var from = c.source === 'steamgriddb' ? 'SteamGridDB' : c.source === 'vita' ? 'Your Vita' : 'libretro-thumbnails';
+      return '<button type="button" data-artpick-url="' + esc(c.url) + '" data-artpick-label="' + esc(from + ', ' + c.title) + '" title="' + esc(c.title) + '">' +
         '<img loading="lazy" src="' + base + 'api/artthumb?u=' + encodeURIComponent(c.thumb) + '" alt=""><span>' + esc(label) + '</span></button>';
     }).join('') + '</div>';
   }
@@ -419,6 +420,9 @@
         systems.map(function (x) { return '<option' + (x === art.system ? ' selected' : '') + ' value="' + esc(x) + '">' + esc(x.replace(/^[^-]+ - /, '')) + '</option>'; }).join('') +
         '</select><input id="artQuery" value="' + esc(art.query) + '" aria-label="Game name"><button class="btn" type="submit">Search</button></form>' + status +
         (art.libretro ? grid(art.libretro) : (art.busy ? '' : '<p class="muted small">Box art, title screens and screenshots from the libretro-thumbnails project. No account needed.</p>'));
+    } else if (art.source === 'vita') {
+      h = '<p class="muted small">Screenshots you took in this game (PS + Start), and pictures the game made of itself, copied from your Vita over Wi-Fi. <button class="linkish" type="button" data-artvita>Look again</button></p>' + status +
+        (art.vita ? grid(art.vita) : '');
     } else {
       if (!S.steamGrid) {
         h = '<p>SteamGridDB has icons, wide backgrounds and logos for most games. It needs your own free API key:</p>' +
@@ -442,6 +446,7 @@
   function artSearch(source, query, system) {
     art.busy = 'Searching…'; art.error = '';
     if (source === 'libretro') art.libretro = null;
+    if (source === 'vita') { art.vita = null; art.busy = 'Looking on your Vita…'; }
     if (source === 'steamgriddb') { art.games = null; art.game = null; art.images = null; }
     if (source === 'steamgriddb-game') art.images = null;
     renderArtBody();
@@ -452,6 +457,7 @@
         art.busy = '';
         if (j.error) { art.error = j.error; }
         else if (source === 'libretro') art.libretro = j.candidates || [];
+        else if (source === 'vita') art.vita = j.candidates || [];
         else if (source === 'steamgriddb') {
           art.games = j.games || [];
           if (art.games.length) { art.game = art.games[0]; return artSearch('steamgriddb-game', String(art.games[0].id), art.games[0].name); }
@@ -493,9 +499,11 @@
     if (d.source) {
       art.source = d.source; art.error = ''; renderArtBody(); renderArtPreview();
       if (d.source === 'libretro' && !art.libretro) artSearch('libretro', art.query, art.system);
+      if (d.source === 'vita' && !art.vita) artSearch('vita', '');
       if (d.source === 'steamgriddb' && S.steamGrid && !art.games) artSearch('steamgriddb', art.query);
       return;
     }
+    if (d.artvita !== undefined) { artSearch('vita', ''); return; }
     if (d.artpickUrl) { artSet({ item: art.item, input: art.slot, url: d.artpickUrl, label: d.artpickLabel }); return; }
     if (d.artfile !== undefined) { api('pick', { item: art.item, input: 'art:' + art.slot, kind: 'file' }); return; }
     if (d.artclear !== undefined) { artSet({ item: art.item, input: art.slot }); return; }

@@ -10,14 +10,19 @@ Putting a game on a PS Vita used to mean FTP apps, folder hunting and a lot of g
 
 <p align="center"><b><a href="https://github.com/CBOC-Vita-Lab/vita-installer/releases/latest">Download the latest version</a></b> · <a href="#how-to-use-it">How to use it</a> · <a href="CHANGELOG.md">What's new</a> · <a href="#help">Help</a></p>
 
-## New In Version 1.9
+## New In Version 2.0
 
 **Games built from your own disc.** Choose your disc, press **Install**, and the installer builds the game on your computer, then installs it on your Vita. Infected works this way. It checks your disc the moment you choose it, asks you to allow the build first, takes about 10 minutes the first time, and nothing is uploaded.
 
-**Prepare your Vita.** Missing the shader compiler some games use? One click puts ShaRKBR33D on your Vita, a free app that gets it for you ([details](#prepare-your-vita)).
+**Prepare your Vita.** Missing the shader compiler some games use? One click puts ShaRKBR33D on your Vita, a free app that gets it for you ([details](#prepare-your-vita)). The installer now finds the compiler in either place games load it from, and tells you when the copy on your Vita is damaged.
+
+**Artwork from your Vita.** Use a screenshot you took in the game, or Super Mario Galaxy's own title screen, as its bubble and background.
+
+**Bowser moves the way he should** in Super Mario Galaxy, and a full memory card is now explained in plain words.
 
 ## Recent Highlights
 
+- **Bowser fixed in Super Mario Galaxy** (1.8): his battle intros no longer twist and spin. Install Galaxy again and only the four corrected files are sent.
 - **More Vita setups** (1.7): installs no longer stop right after creating the first folder on Vitas whose FTP server words its replies differently.
 - **HD textures for Strikers and Galaxy** (1.5): choose your `hdtex.pack` as the file, a ZIP, a folder or split pieces.
 - **Custom artwork** (1.4): pick a new bubble, LiveArea background and logo from your own pictures, libretro-thumbnails or SteamGridDB, with a live preview first.
@@ -64,6 +69,7 @@ Putting a game on a PS Vita used to mean FTP apps, folder hunting and a lot of g
    - **Your picture:** drop in a PNG or JPEG.
    - **libretro-thumbnails:** search box art, title screens and screenshots. No account needed.
    - **SteamGridDB:** paste your free API key once, then search icons, backgrounds and logos.
+   - **Your Vita:** screenshots you took in the game (PS + Start) and, for Super Mario Galaxy, the title screen the game saves of itself after its first start. Needs Wi-Fi.
 4. Watch the preview change, then press **Done** and **Install**.
 
 <p align="center"><img src="docs/img/artwork.png" width="560" alt="The artwork picker, previewing the home-screen bubble and LiveArea"></p>
@@ -89,7 +95,7 @@ Some games need a file from Sony called the shader compiler (`libshacccg.suprx`)
 2. **On your Vita,** open ShaRKBR33D once and follow it. It needs Wi-Fi.
 3. Come back and press **Check again**.
 
-Already have the file? Press **Choose** instead, and pick `libshacccg.suprx`, or a ZIP or folder that has it. Infected doesn't need it to install: without it, a few rarely used effects are skipped.
+Already have the file? Press **Choose** instead, and pick `libshacccg.suprx`, or a ZIP or folder that has it. The installer looks in both `ur0:data/` and `ur0:data/external/`, and if the file there is empty or cut short it says so, so you know to get it again. Infected doesn't need it to install: without it, a few rarely used effects are skipped.
 
 ### Updating
 
@@ -104,7 +110,9 @@ Already have the file? Press **Choose** instead, and pick `libshacccg.suprx`, or
 
 **I want it faster.** Use USB: in VitaShell press **START**, set **SELECT button** to **USB**, plug in the cable and press **SELECT**. When it's done, press **X** on the game in VitaShell's `ux0:VPK` folder.
 
-**The transfer stopped.** Press **Install** again. It picks up where it left off.
+**The transfer stopped.** Press **Install** again. It picks up where it left off. If it says your Vita's memory card is full, free up space in VitaShell (press **SELECT** on `ux0:` to see what's free), or leave out an HD pack.
+
+**A game says the shader compiler is missing, but I copied it.** Open the game in the installer with your Vita on Wi-Fi: it checks `ur0:data/` and `ur0:data/external/` and tells you if the file is damaged. If VitaShell can't open `ur0:data` at all, that folder is damaged: rename it, make a new `data` folder, and move the files into it.
 
 **A game that is built from my disc stopped.** The message on the game says why, usually a damaged disc copy or too little free space (about 1 GB is needed). Fix that and press **Install** again. The build tools are only downloaded once.
 
@@ -118,9 +126,9 @@ Already have the file? Press **Choose** instead, and pick `libshacccg.suprx`, or
 
 | File | What it is |
 | --- | --- |
-| `CBOC-Vita-Installer-1.7-mac.zip` | The Mac app, for Intel and Apple Silicon |
-| `CBOC-Vita-Installer-1.7-windows-x64.exe` / `-x86.exe` / `-arm64.exe` | Windows: most PCs, older or 32-bit PCs, and ARM PCs |
-| `CBOC-Vita-Installer-1.7-linux-amd64.tar.gz` / `-arm64.tar.gz` | Linux |
+| `CBOC-Vita-Installer-2.0-mac.zip` | The Mac app, for Intel and Apple Silicon |
+| `CBOC-Vita-Installer-2.0-windows-x64.exe` / `-x86.exe` / `-arm64.exe` | Windows: most PCs, older or 32-bit PCs, and ARM PCs |
+| `CBOC-Vita-Installer-2.0-linux-amd64.tar.gz` / `-arm64.tar.gz` | Linux |
 | `SHA256SUMS.txt` | Checksums, if you want to check your download |
 
 ## For Developers
@@ -129,7 +137,7 @@ Already have the file? Press **Choose** instead, and pick `libshacccg.suprx`, or
 | --- | --- |
 | [Ideas for later](docs/ROADMAP.md) | Features we'd like to add, such as custom loading screens |
 | [Release format](docs/release-format.md) | How a Vita release tells the installer what it needs, including converting the player's files |
-| Build and test | `go test ./...`, then `scripts/build.sh 1.7` (Go 1.20, no other dependencies) |
+| Build and test | `go test ./...`, then `scripts/build.sh 2.0` (Go 1.20, no other dependencies) |
 
 The app is one Go program with a plain HTML page in `ui/`. The code is in `internal/`.
 

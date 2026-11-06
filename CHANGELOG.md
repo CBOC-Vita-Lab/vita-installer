@@ -1,8 +1,10 @@
 # What's New
 
-## Version 1.9 — (unreleased)
+## Version 2.0 — November 6, 2026
 
-Infected installs straight from your disc, and gets your Vita ready for it.
+Games built from your own disc, a smarter shader compiler check, artwork from your Vita, and Bowser fixed.
+
+**New: games built from your own disc**
 
 - **Games built from your own disc.** Some games can't be shared ready-made, so the installer now builds them on your computer. Choose your own disc, press **Install**, and it builds the game for your Vita and installs it. No terminal, no tools to set up. The first build takes about 10 minutes (the game says how long before you start) and needs about 1 GB of free disk space.
 - **Your disc is checked right away.** The moment you choose it, the game says whether it is the right version, a damaged copy, or a CSO or PBP file (those aren't supported). Nothing is downloaded and nothing is built until the disc is right.
@@ -15,7 +17,21 @@ Infected installs straight from your disc, and gets your Vita ready for it.
 - **Clear messages.** A wrong disc version or too little free space shows a plain explanation on the game.
 - **Artwork** for a built game can be chosen once it has been built for the first time.
 
-For port authors: releases can build their app on the player's computer, check the disc's version with `check`, and say which macOS the build tools need. See [Release format](docs/release-format.md).
+**Better: the shader compiler**
+
+- **Found where games look.** The installer now checks both `ur0:data/` and `ur0:data/external/`, the two places games load the shader compiler from, so a Vita that has it in `external/` is no longer told it's missing.
+- **Damaged copies are spotted.** An empty or cut-short `libshacccg.suprx` used to count as "there", and the game then said it was missing. The installer now calls it damaged and offers to get it again.
+
+**New: artwork from your Vita**
+
+- A new **Your Vita** tab in Artwork offers the screenshots you took in that game (PS + Start) and, for Super Mario Galaxy 1.2, the title screen the game saves of itself on its first start. Pick one for the bubble or the background. Needs Wi-Fi.
+
+**Fixes**
+
+- **Bowser moves the way he should in Super Mario Galaxy.** Eight of the game's longest animations, including Bowser's three battle intros, were converted with part of their data the wrong way round, so his model twisted and spun while he talked. Already installed? Install Galaxy again and only the four corrected files are sent. Checked on a real disc: all 2,365 converted files match.
+- **A full memory card is explained.** When the Vita stops taking files because its card is full (or it fell asleep), the game now says so in plain words instead of showing an FTP code.
+
+For port authors: releases can build their app on the player's computer, check the disc's version with `check`, and say which macOS the build tools need. VitAdhoc releases can ask for SNES games with the new `snes-roms` kind. See [Release format](docs/release-format.md).
 
 ## Version 1.7 — October 25, 2026
 

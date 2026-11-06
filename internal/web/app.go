@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/device"
+	"github.com/CBOC-Vita-Lab/vita-installer/internal/ftp"
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/install"
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/release"
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/selfupdate"
@@ -594,6 +595,15 @@ func (a *App) Launch(id string) error {
 func friendly(err error) string {
 	msg := err.Error()
 	low := strings.ToLower(msg)
+	var fe *ftp.Error
+	if errors.As(err, &fe) {
+		switch fe.Code {
+		case 452, 552:
+			return "Your Vita's memory card is full. Free up space on it (or choose a smaller HD pack), then press Install again. Finished files are not sent twice."
+		case 426, 451:
+			return "Your Vita stopped receiving a file. This usually means its memory card is full or the Vita went to sleep. Check its free space in VitaShell (Select on ux0:), keep it awake, then press Install again."
+		}
+	}
 	switch {
 	case strings.Contains(low, "connection refused"), strings.Contains(low, "i/o timeout"), strings.Contains(low, "connection reset"),
 		strings.Contains(low, "broken pipe"), strings.Contains(low, "no route"), strings.Contains(low, "eof"):

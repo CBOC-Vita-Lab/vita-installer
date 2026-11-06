@@ -335,6 +335,11 @@ const BuiltAppID = "built-app"
 // ShaderPath is where vitaGL ports look for the shader compiler.
 const ShaderPath = "ur0:data/libshacccg.suprx"
 
+// ShaderPaths are every place vitaGL ports load the shader compiler from, in
+// the order they try them (vitaShaRK tries ur0:data/external/ when
+// ur0:data/ has none).
+var ShaderPaths = []string{ShaderPath, "ur0:data/external/libshacccg.suprx"}
+
 // ShaderOptionalHelp is what the player is told about an optional shader
 // compiler when the release says nothing itself: what they lose without it.
 const ShaderOptionalHelp = "Recommended. A few rarely used effects compile on the Vita; without the compiler they are skipped"
@@ -588,6 +593,13 @@ func fromCBOC(b []byte) (*Manifest, error) {
 		case "roms":
 			n.Type, n.To, n.Ext = NeedFiles, data, []string{".gb", ".gbc", ".gba"}
 			n.Label = "Your GB, GBC or GBA games (optional)"
+		case "snes-roms":
+			to := c.Destinations["snes"]
+			if to == "" {
+				to = "ux0:ROMS/SNES"
+			}
+			n.Type, n.To, n.Ext = NeedFiles, to, []string{".sfc", ".smc"}
+			n.Label = "Your SNES games (optional)"
 		case "gba-bios":
 			n.Type, n.To = NeedFile, "ux0:data/GBAdhoc/gba_bios.bin"
 			n.Label = "Your GBA BIOS (optional)"

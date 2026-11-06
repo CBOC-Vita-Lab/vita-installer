@@ -236,7 +236,8 @@ func (a *App) ArtPreview(itemID, slot string) ([]byte, error) {
 }
 
 // ArtSearch looks for pictures. source: "libretro" (query, optional system),
-// "steamgriddb" (query: returns games) or "steamgriddb-game" (game ID).
+// "steamgriddb" (query: returns games), "steamgriddb-game" (game ID) or
+// "vita" (the game's own pictures on the player's Vita).
 func (a *App) ArtSearch(ctx context.Context, itemID, source, query, system string) (interface{}, error) {
 	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
@@ -251,6 +252,9 @@ func (a *App) ArtSearch(ctx context.Context, itemID, source, query, system strin
 	case "steamgriddb":
 		g, err := art.SteamGridGames(ctx, a.steamGridKey(), query)
 		return map[string]interface{}{"games": g}, err
+	case "vita":
+		c, err := a.vitaPictures(ctx, itemID)
+		return map[string]interface{}{"candidates": c}, err
 	case "steamgriddb-game":
 		var id int
 		fmt.Sscan(query, &id)

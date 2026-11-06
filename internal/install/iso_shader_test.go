@@ -477,3 +477,25 @@ func TestKitCanDemandANewerMac(t *testing.T) {
 		t.Errorf("a kit without kit.json: %q", msg)
 	}
 }
+
+// The games also load the compiler from ur0:data/external/, and a file cut
+// short is reported as damaged instead of present.
+func TestShaderStatusPlaces(t *testing.T) {
+	dir := t.TempDir()
+	v, vita := startVita(t, dir)
+	real := bytes.Repeat([]byte{0x7f}, shaderMinBytes+1)
+	os.MkdirAll(filepath.Join(v.Root, "ur0/data/external"), 0o755)
+	os.WriteFile(filepath.Join(v.Root, "ur0/data/external/libshacccg.suprx"), real, 0o644)
+	if st := CheckShader(context.Background(), vita, ""); !st.Present || st.Damaged {
+		t.Fatalf("in external/: %+v", st)
+	}
+	os.Remove(filepath.Join(v.Root, "ur0/data/external/libshacccg.suprx"))
+	os.WriteFile(filepath.Join(v.Root, "ur0/data/libshacccg.suprx"), nil, 0o644)
+	if st := CheckShader(context.Background(), vita, ""); st.Present || !st.Damaged {
+		t.Fatalf("an empty file: %+v", st)
+	}
+	os.WriteFile(filepath.Join(v.Root, "ur0/data/libshacccg.suprx"), real, 0o644)
+	if st := CheckShader(context.Background(), vita, ""); !st.Present || st.Damaged {
+		t.Fatalf("a whole file: %+v", st)
+	}
+}

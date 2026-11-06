@@ -715,7 +715,7 @@ func send(ctx context.Context, t target, items []item, report func(Progress)) er
 						qmu.Unlock()
 						return
 					}
-					errc <- fmt.Errorf("could not send %s: %v", path.Base(it.remote), err)
+					errc <- fmt.Errorf("could not send %s: %w", path.Base(it.remote), err)
 					cancel()
 					return
 				}
