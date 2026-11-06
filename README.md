@@ -43,7 +43,7 @@ Putting a game on a PS Vita used to mean FTP apps, folder hunting and a lot of g
 | **Game updates** | Usually seconds, because only changed files are sent |
 | **Installer updates** | Automatic: downloaded in the background, switched over with one click or the next time you open it |
 | **Super Mario Galaxy** | About 2–3 minutes to convert your disc on a recent computer, once |
-| **Games built from your disc** | About 10 minutes to build the game on your computer the first time (Infected), and about 1 GB of free disk space while it works. The finished game is reused afterwards. Building works on Windows (64-bit Intel/AMD), macOS 14 or newer, and Linux (64-bit Intel/AMD). On any other computer, build the game on one of those and choose the `.vpk` it makes |
+| **Games built from your disc** | About 10 minutes to build the game on your computer the first time (Infected), and about 1 GB of free disk space while it works. The finished game is reused afterwards. Building works on Windows (64-bit Intel/AMD), macOS 10.13 or newer (Apple silicon: macOS 11), and Linux (64-bit Intel/AMD). On any other computer, build the game on one of those and choose the `.vpk` it makes |
 | **Artwork** | Optional. Your own pictures, libretro-thumbnails, or SteamGridDB with your free API key |
 | **Your files** | Nothing is uploaded anywhere. Everything stays between your computer and your Vita |
 
@@ -116,7 +116,7 @@ Already have the file? Press **Choose** instead, and pick `libshacccg.suprx`, or
 
 **A game that is built from my disc stopped.** The message on the game says why, usually a damaged disc copy or too little free space (about 1 GB is needed). Fix that and press **Install** again. The build tools are only downloaded once.
 
-**It says the game can't be built on my computer.** Building needs Windows (64-bit Intel/AMD), macOS 14 or newer, or Linux (64-bit Intel/AMD). Build the game on one of those and choose the `.vpk` it makes where the game says **Choose the .vpk**.
+**It says the game can't be built on my computer.** Building needs Windows (64-bit Intel/AMD), macOS 10.13 or newer (Apple silicon: macOS 11), or Linux (64-bit Intel/AMD). Build the game on one of those and choose the `.vpk` it makes where the game says **Choose the .vpk**.
 
 **It says my disc is not the right version.** Use the US version of the game, as a plain `.iso` dumped from your own UMD. CSO and PBP files aren't supported.
 

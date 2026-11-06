@@ -16,5 +16,11 @@
     "repo": "CBOC-Vita-Lab/galaxy-vita",
     "about": "Native PS Vita port of the Wii platformer.",
     "needs": "Your own Wii USA disc (RMGE01: ISO, RVZ, WBFS or extracted folder)"
+  },
+  {
+    "name": "Infected",
+    "repo": "CBOC-Vita-Lab/infected-vita",
+    "about": "Native PS Vita port of the PSP zombie shooter, built on your computer from your own disc.",
+    "needs": "Your own Infected UMD backup (PSP, USA, ISO)"
   }
 ]
