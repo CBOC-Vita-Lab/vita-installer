@@ -1,10 +1,16 @@
 package prep
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/CBOC-Vita-Lab/vita-installer/internal/fakevita"
 )
 
 func TestIdentifyImages(t *testing.T) {
@@ -61,5 +67,74 @@ func TestPSPGameID(t *testing.T) {
 	id, err := PSPGameID(p)
 	if err != nil || id != "ULUS-10054" {
 		t.Fatalf("%q %v", id, err)
+	}
+}
+
+const bootPath = "PSP_GAME/SYSDIR/BOOT.BIN"
+
+func writeISO(t *testing.T, data []byte) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "g.iso")
+	if err := os.WriteFile(p, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+// A file deep inside the image is found by its path and hashed.
+func TestPSPFileSHA256(t *testing.T) {
+	boot := []byte("the boot file of the US 1.02 version")
+	p := writeISO(t, fakevita.PSPISOFiles("ULUS-10054", "", map[string][]byte{
+		bootPath:                  boot,
+		"PSP_GAME/PARAM.SFO":      []byte("sfo"),
+		"PSP_GAME/USRDIR/EMPTY.X": nil,
+	}))
+	if id, err := PSPGameID(p); err != nil || id != "ULUS-10054" {
+		t.Fatalf("game id: %q %v", id, err)
+	}
+	sum := sha256.Sum256(boot)
+	got, err := PSPFileSHA256(p, bootPath)
+	if err != nil || got != hex.EncodeToString(sum[:]) {
+		t.Fatalf("hash: %q %v", got, err)
+	}
+	if got, err := PSPFileSHA256(p, "psp_game/sysdir/boot.bin"); err != nil || got == "" {
+		t.Errorf("names are not case sensitive: %q %v", got, err)
+	}
+	if _, err := PSPFileSHA256(p, "PSP_GAME/SYSDIR/NOPE.BIN"); !errors.Is(err, ErrNotInISO) {
+		t.Errorf("a missing file: %v", err)
+	}
+	if _, err := PSPFileSHA256(p, "PSP_GAME/SYSDIR"); !errors.Is(err, ErrNotInISO) {
+		t.Errorf("a folder is not a file: %v", err)
+	}
+}
+
+// A cut-off image, an image with a file past its end, and files that are not
+// PSP images each give their own answer.
+func TestPSPFileSHA256BadImages(t *testing.T) {
+	img := fakevita.PSPISOFiles("ULUS-10054", "", map[string][]byte{bootPath: bytes.Repeat([]byte("B"), 5000)})
+	// Cut short: the image says it is longer than the file.
+	if _, err := PSPFileSHA256(writeISO(t, img[:len(img)-4096]), bootPath); err == nil || errors.Is(err, ErrNotPSPISO) {
+		t.Errorf("a truncated image: %v", err)
+	}
+	if _, err := PSPGameID(writeISO(t, img[:len(img)-4096])); err == nil {
+		t.Error("a truncated image gave a game ID")
+	}
+	// The directory is intact but the file's data is missing and the image
+	// does not know its own size.
+	blind := append([]byte(nil), img...)
+	binary.LittleEndian.PutUint32(blind[16*2048+80:], 0)
+	if _, err := PSPFileSHA256(writeISO(t, blind[:len(blind)-3*2048]), bootPath); !errors.Is(err, ErrDamagedISO) {
+		t.Errorf("a file past the end: %v", err)
+	}
+	for name, data := range map[string][]byte{
+		"cso": append([]byte("CISO"), make([]byte, 100000)...),
+		"pbp": append([]byte("\x00PBP"), make([]byte, 100000)...),
+	} {
+		if _, err := PSPFileSHA256(writeISO(t, data), bootPath); !errors.Is(err, ErrNotPSPISO) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	if _, err := PSPFileSHA256(filepath.Join(t.TempDir(), "missing.iso"), bootPath); err == nil {
+		t.Error("a missing file")
 	}
 }

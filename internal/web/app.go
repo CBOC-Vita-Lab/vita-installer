@@ -68,6 +68,7 @@ type State struct {
 	Library   []LibraryGame  `json:"library"`   // games this installer put on the connected Vita
 	SteamGrid bool           `json:"steamGrid"` // a SteamGridDB API key is set
 	Dialogs   bool           `json:"dialogs"`
+	Shader    *ShaderState   `json:"shader"` // the shader compiler on the connected Vita, if known
 	Seq       int64          `json:"seq"`
 }
 
@@ -329,6 +330,7 @@ func (a *App) Connect(ctx context.Context, host, drive string) error {
 // refreshItems re-checks each release against the connected Vita.
 func (a *App) refreshItems() {
 	go a.refreshLibrary()
+	go a.refreshShader(context.Background())
 	a.mu.Lock()
 	v, drive := a.st.Vita, a.st.Drive
 	items := append([]*Item(nil), a.st.Items...)
@@ -378,10 +380,8 @@ func setStatus(it *Item) {
 		it.Status = "held"
 		return
 	}
-	for _, in := range it.Inputs {
-		if !in.Satisfied() {
-			it.Status = "needs"
-		}
+	if it.Release.Unmet() != nil {
+		it.Status = "needs"
 	}
 }
 

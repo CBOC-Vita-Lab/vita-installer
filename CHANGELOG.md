@@ -1,17 +1,21 @@
 # What's New
 
-## Version 1.8 — October 31, 2026
+## Version 1.9 — (unreleased)
 
-Infected installs straight from your disc.
+Infected installs straight from your disc, and gets your Vita ready for it.
 
-- **Games built from your own disc.** Some games can't be shared ready-made, so the installer now builds them on your computer. Choose your own disc, press **Install**, and it builds the game for your Vita and installs it. No terminal, no tools to set up. The first build takes about 10 minutes (the game says how long before you start) and needs about 2 GB of free disk space.
+- **Games built from your own disc.** Some games can't be shared ready-made, so the installer now builds them on your computer. Choose your own disc, press **Install**, and it builds the game for your Vita and installs it. No terminal, no tools to set up. The first build takes about 10 minutes (the game says how long before you start) and needs about 1 GB of free disk space.
+- **Your disc is checked right away.** The moment you choose it, the game says whether it is the right version, a damaged copy, or a CSO or PBP file (those aren't supported). Nothing is downloaded and nothing is built until the disc is right.
+- **Prepare your Vita.** If your Vita is missing the shader compiler, one click installs ShaRKBR33D, a free Vita app that gets it for you. Open it once on your Vita, then press **Check again**. You can still choose the file yourself, or a ZIP or folder that has it. Infected doesn't need it: without it, a few rarely used effects are skipped.
+- **Tells you early.** If a game can't be built on your computer (Windows 32-bit or ARM, Linux ARM, a Mac older than macOS 14), the game says so before anything is downloaded, and you can choose an `.vpk` built on another computer instead.
+- **Already built it?** Choose a built `.vpk` to skip the build.
 - **You decide first.** The installer asks you to **Allow** it, and says what it will do. Nothing from your disc is uploaded; everything stays on your computer and your Vita.
 - **Downloaded only when needed.** The build tools are fetched when you start the build, checked for damage, and kept for next time. Just looking at a game downloads nothing big.
 - **Only built once.** If an install is interrupted, or you install again, the finished game is reused. You can press **Stop** during a build.
 - **Clear messages.** A wrong disc version or too little free space shows a plain explanation on the game.
 - **Artwork** for a built game can be chosen once it has been built for the first time.
 
-For port authors: releases can now build their app on the player's computer. See [Release format](docs/release-format.md).
+For port authors: releases can build their app on the player's computer, check the disc's version with `check`, and say which macOS the build tools need. See [Release format](docs/release-format.md).
 
 ## Version 1.7 — October 25, 2026
 

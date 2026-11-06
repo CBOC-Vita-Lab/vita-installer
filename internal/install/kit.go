@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -99,6 +100,11 @@ func ensureKit(ctx context.Context, r *release.Release, kf release.KitFile, cach
 		}
 	}
 	if err == nil {
+		// The kit may know better than the release which macOS it needs.
+		if msg := kitRequirement(part, r); msg != "" {
+			os.RemoveAll(part)
+			return "", errors.New(msg)
+		}
 		err = os.WriteFile(filepath.Join(part, ".complete"), nil, 0o644)
 	}
 	if err == nil {
@@ -112,6 +118,26 @@ func ensureKit(ctx context.Context, r *release.Release, kf release.KitFile, cach
 		return "", fmt.Errorf("could not unpack the build tools: %v", err)
 	}
 	return dir, nil
+}
+
+// kitRequirement reads requires.macos from the kit's own kit.json and returns
+// the message to show when this Mac is older, or "".
+func kitRequirement(kitDir string, r *release.Release) string {
+	b, err := os.ReadFile(filepath.Join(kitDir, "kit.json"))
+	if err != nil {
+		return ""
+	}
+	var k struct {
+		Requires struct {
+			MacOS int `json:"macos"`
+		} `json:"requires"`
+	}
+	if json.Unmarshal(b, &k) != nil || k.Requires.MacOS <= 0 {
+		return ""
+	}
+	bb := *r.Build
+	bb.Require = &release.Requires{MacOS: k.Requires.MacOS}
+	return bb.Blocked(r.Name, release.CurrentHost())
 }
 
 // kitProgram is the path of the program to run inside an unpacked kit.

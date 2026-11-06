@@ -77,9 +77,16 @@ func Run(ctx context.Context, r *release.Release, opt Options) (*Result, error) 
 	if r.Held != "" {
 		return nil, errors.New(r.Held)
 	}
+	if in := r.Unmet(); in != nil {
+		return nil, fmt.Errorf("%s is still needed", in.Label)
+	}
+	// The disc may have changed since it was chosen. Look again before
+	// anything slow (the build tools, the build) is started.
 	for _, in := range r.Inputs {
-		if !in.Satisfied() {
-			return nil, fmt.Errorf("%s is still needed", in.Label)
+		if in.Type == release.NeedPSPISO && in.Check != nil && in.Path != "" && in.State == "ok" {
+			if msg := checkISO(in.Path, in.Check); msg != "" {
+				return nil, errors.New(msg)
+			}
 		}
 	}
 	if opt.Connections <= 0 {
@@ -145,7 +152,15 @@ func Run(ctx context.Context, r *release.Release, opt Options) (*Result, error) 
 	var built *vita.App
 	if r.Build != nil {
 		var err error
-		if built, err = buildApp(ctx, r, opt, report); err != nil {
+		if own := r.UsingBuiltApp(); own != nil {
+			// The player built the app elsewhere: no build tools, no build.
+			if built, err = vita.OpenVPK(own.Path); err != nil {
+				return nil, fmt.Errorf("the app you chose cannot be opened: %v", err)
+			}
+			if r.TitleID != "" && built.TitleID != r.TitleID {
+				return nil, fmt.Errorf("the app you chose is %s, but this release is %s", built.TitleID, r.TitleID)
+			}
+		} else if built, err = buildApp(ctx, r, opt, report); err != nil {
 			return nil, err
 		}
 		rr := *r
@@ -474,14 +489,30 @@ func prepareInput(ctx context.Context, in *release.Input, releaseRoot string, op
 		}
 		return []item{{local: in.Path, remote: in.To, size: st.Size()}}, nil, nil
 	case release.NeedShader:
-		st, err := os.Stat(in.Path)
+		src, err := findShader(in.Path)
+		if err != nil {
+			return nil, nil, errors.New(in.Label + ": " + err.Error())
+		}
+		if src.member != "" {
+			report(Progress{Phase: "prepare", Text: "Unpacking " + in.Label, ETA: -1})
+		}
+		local, temp, err := src.local(filepath.Join(opt.Cache, "inputs"))
 		if err != nil {
 			return nil, nil, err
 		}
-		if opt.Drive != "" { // a drive only exposes ux0:
-			return []item{{local: in.Path, remote: "ux0:VPK/libshacccg.suprx", size: st.Size(), onlyIfMissing: true}}, nil, nil
+		var tmp []string
+		if temp {
+			tmp = append(tmp, local)
 		}
-		return []item{{local: in.Path, remote: release.ShaderPath, size: st.Size(), onlyIfMissing: true}}, nil, nil
+		st, err := os.Stat(local)
+		if err != nil {
+			return nil, tmp, err
+		}
+		remote := release.ShaderPath
+		if opt.Drive != "" { // a drive only exposes ux0:
+			remote = "ux0:VPK/libshacccg.suprx"
+		}
+		return []item{{local: local, remote: remote, size: st.Size(), onlyIfMissing: true}}, tmp, nil
 	case release.NeedFolder:
 		if len(in.Prepare) > 0 {
 			dir, err := runPrepare(ctx, in, releaseRoot, in.Path, opt.Cache, report)

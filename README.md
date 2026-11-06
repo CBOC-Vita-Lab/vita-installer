@@ -10,9 +10,11 @@ Putting a game on a PS Vita used to mean FTP apps, folder hunting and a lot of g
 
 <p align="center"><b><a href="https://github.com/CBOC-Vita-Lab/vita-installer/releases/latest">Download the latest version</a></b> · <a href="#how-to-use-it">How to use it</a> · <a href="CHANGELOG.md">What's new</a> · <a href="#help">Help</a></p>
 
-## New In Version 1.8
+## New In Version 1.9
 
-**Games built from your own disc.** Choose your disc, press **Install**, and the installer builds the game on your computer, then installs it on your Vita. Infected works this way. It asks you to allow it first, takes about 10 minutes the first time, and nothing is uploaded.
+**Games built from your own disc.** Choose your disc, press **Install**, and the installer builds the game on your computer, then installs it on your Vita. Infected works this way. It checks your disc the moment you choose it, asks you to allow the build first, takes about 10 minutes the first time, and nothing is uploaded.
+
+**Prepare your Vita.** Missing the shader compiler some games use? One click puts ShaRKBR33D on your Vita, a free app that gets it for you ([details](#prepare-your-vita)).
 
 ## Recent Highlights
 
@@ -36,7 +38,7 @@ Putting a game on a PS Vita used to mean FTP apps, folder hunting and a lot of g
 | **Game updates** | Usually seconds, because only changed files are sent |
 | **Installer updates** | Automatic: downloaded in the background, switched over with one click or the next time you open it |
 | **Super Mario Galaxy** | About 2–3 minutes to convert your disc on a recent computer, once |
-| **Games built from your disc** | About 10 minutes to build the game on your computer the first time (Infected), and about 1 GB of free disk space while it works. The finished game is reused afterwards |
+| **Games built from your disc** | About 10 minutes to build the game on your computer the first time (Infected), and about 1 GB of free disk space while it works. The finished game is reused afterwards. Building works on Windows (64-bit Intel/AMD), macOS 14 or newer, and Linux (64-bit Intel/AMD). On any other computer, build the game on one of those and choose the `.vpk` it makes |
 | **Artwork** | Optional. Your own pictures, libretro-thumbnails, or SteamGridDB with your free API key |
 | **Your files** | Nothing is uploaded anywhere. Everything stays between your computer and your Vita |
 
@@ -68,6 +70,27 @@ Putting a game on a PS Vita used to mean FTP apps, folder hunting and a lot of g
 
 Your choice is remembered and goes back on every time the game is updated. **Use the game's own artwork** undoes it.
 
+### Dumping Your UMD
+
+A Vita has no UMD drive, so a game on a UMD (Infected, for example) has to be copied to a computer from a PSP 1000, 2000 or 3000 that runs custom firmware such as [ARK](https://github.com/PSP-Archive/ARK-4).
+
+1. Put the UMD in the PSP and connect it to your computer with a USB cable.
+2. On the PSP home screen, press **SELECT** to open the VSH menu and set **USB Device** to **UMD Disc**.
+3. In **Settings**, open **USB Connection**.
+4. Your computer shows the disc as a drive holding one `.iso`. Copy it to your computer.
+
+Choose that `.iso` in the installer. CSO and PBP files aren't supported.
+
+### Prepare Your Vita
+
+Some games need a file from Sony called the shader compiler (`libshacccg.suprx`) on your Vita, and it can't be shipped with them. If your Vita doesn't have it, the game shows **Prepare your Vita**:
+
+1. Press **Prepare your Vita**. The installer puts ShaRKBR33D, a free Vita app, on your Vita.
+2. **On your Vita,** open ShaRKBR33D once and follow it. It needs Wi-Fi.
+3. Come back and press **Check again**.
+
+Already have the file? Press **Choose** instead, and pick `libshacccg.suprx`, or a ZIP or folder that has it. Infected doesn't need it to install: without it, a few rarely used effects are skipped.
+
 ### Updating
 
 - **Games:** connect your Vita and open the installer. Games with a new version show **Update**. Only what changed is sent, and your saves stay put.
@@ -83,7 +106,11 @@ Your choice is remembered and goes back on every time the game is updated. **Use
 
 **The transfer stopped.** Press **Install** again. It picks up where it left off.
 
-**A game that is built from my disc stopped.** The message on the game says why, usually the wrong version of the disc or too little free space (about 2.5 GB is needed). Fix that and press **Install** again. The build tools are only downloaded once.
+**A game that is built from my disc stopped.** The message on the game says why, usually a damaged disc copy or too little free space (about 1 GB is needed). Fix that and press **Install** again. The build tools are only downloaded once.
+
+**It says the game can't be built on my computer.** Building needs Windows (64-bit Intel/AMD), macOS 14 or newer, or Linux (64-bit Intel/AMD). Build the game on one of those and choose the `.vpk` it makes where the game says **Choose the .vpk**.
+
+**It says my disc is not the right version.** Use the US version of the game, as a plain `.iso` dumped from your own UMD. CSO and PBP files aren't supported.
 
 **My Mac or PC is older and it asks for an extracted folder.** Unpacking disc images needs macOS 12 or Windows 10. On older systems, extract the disc in Dolphin first (right-click the game > **Properties** > **Filesystem** > **Extract Entire Disc**) and choose that folder.
 

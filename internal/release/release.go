@@ -39,6 +39,10 @@ type Release struct {
 	Warning string     `json:"warning,omitempty"`
 	Art     art.Choice `json:"-"`               // the player's own bubble and LiveArea pictures
 	Build   *Build     `json:"build,omitempty"` // the app is built on the player's computer (VPK is empty until then)
+	// BuildBlock is set when the game can't be built on this computer (no
+	// build tools for it, or macOS too old). The player can still give an app
+	// built elsewhere.
+	BuildBlock string `json:"buildBlock,omitempty"`
 }
 
 // BuildConsentID is the ID of the permission the player gives before a
@@ -422,9 +426,20 @@ func fromManifest(m *Manifest, dir, vpk, source string) (*Release, error) {
 		tool = tool || n.RunsTool()
 	}
 	if m.Build != nil {
-		r.Inputs = append(r.Inputs, &Input{Need: Need{ID: BuildConsentID, Type: NeedConsent,
-			Label: "Allow building the game on this computer from your own disc",
-			Help:  m.Build.consentHelp()}, Auto: true})
+		r.BuildBlock = m.Build.Blocked(name, CurrentHost())
+		built := Need{ID: BuiltAppID, Type: NeedBuiltApp, GameID: app.TitleID, Optional: true,
+			Label: "Already built it? Choose the " + m.Build.App,
+			Help:  "Skips the build. Use an app you built earlier with the " + m.Build.Run + " program from the release"}
+		if r.BuildBlock != "" {
+			built.Optional = false
+			built.Label = "Choose the " + m.Build.App + " you built on another computer"
+			built.Help = "Build it on a computer that can, with the " + m.Build.Run + " program from the release, then choose the " + m.Build.App + " it makes"
+		} else {
+			r.Inputs = append(r.Inputs, &Input{Need: Need{ID: BuildConsentID, Type: NeedConsent,
+				Label: "Allow building the game on this computer from your own disc",
+				Help:  m.Build.consentHelp()}, Auto: true})
+		}
+		r.Inputs = append(r.Inputs, &Input{Need: built, Auto: true})
 	}
 	if tool {
 		r.Inputs = append(r.Inputs, &Input{Need: Need{ID: "allow-tool", Type: NeedConsent,
@@ -457,7 +472,7 @@ func (r *Release) addShaderNeed() {
 		}
 	}
 	if r.App != nil && r.App.UsesShaders {
-		r.Inputs = append(r.Inputs, &Input{Need: Need{ID: "shader", Type: NeedShader, Label: "Shader compiler (libshacccg.suprx)", To: ShaderPath, Optional: true}, Auto: true})
+		r.Inputs = append(r.Inputs, &Input{Need: Need{ID: "shader", Type: NeedShader, Label: "Shader compiler (libshacccg.suprx)", To: ShaderPath, Optional: true, Help: ShaderOptionalHelp}, Auto: true})
 	}
 }
 
@@ -531,4 +546,34 @@ func sha256File(path string) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// UsingBuiltApp returns the input holding an app the player built elsewhere,
+// when they chose one. The release then builds nothing.
+func (r *Release) UsingBuiltApp() *Input {
+	if r.Build == nil {
+		return nil
+	}
+	for _, in := range r.Inputs {
+		if in.Type == NeedBuiltApp && in.State == "ok" && in.Path != "" {
+			return in
+		}
+	}
+	return nil
+}
+
+// Unmet returns the first input that still stops the install, or nil. The
+// permission to build is not needed when the player brings an app they built
+// themselves.
+func (r *Release) Unmet() *Input {
+	own := r.UsingBuiltApp() != nil
+	for _, in := range r.Inputs {
+		if own && in.Type == NeedConsent && in.ID == BuildConsentID {
+			continue
+		}
+		if !in.Satisfied() {
+			return in
+		}
+	}
+	return nil
 }

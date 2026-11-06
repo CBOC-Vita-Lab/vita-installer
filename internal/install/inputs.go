@@ -1,6 +1,7 @@
 package install
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/prep"
 	"github.com/CBOC-Vita-Lab/vita-installer/internal/release"
+	"github.com/CBOC-Vita-Lab/vita-installer/internal/vita"
 )
 
 // CheckInput validates the file or folder chosen for in and records the result.
@@ -71,12 +73,35 @@ func CheckInput(in *release.Input, path string) {
 			return
 		}
 		in.State, in.Message, in.Bytes = "ok", "Game "+id+" found.", st.Size()
-	case release.NeedShader:
-		if st.IsDir() || !strings.EqualFold(filepath.Base(path), "libshacccg.suprx") || st.Size() < 100<<10 {
-			fail("Choose the file named libshacccg.suprx.")
+		if in.Check != nil {
+			if msg := checkISO(path, in.Check); msg != "" {
+				fail(msg)
+				return
+			}
+			in.Message = "Game " + id + " found and checked."
+		}
+	case release.NeedBuiltApp:
+		if st.IsDir() {
+			fail("Choose the .vpk file, not a folder.")
 			return
 		}
-		in.State, in.Message, in.Bytes = "ok", "Shader compiler found.", st.Size()
+		app, err := vita.OpenVPK(path)
+		if err != nil {
+			fail("This is not a Vita app (.vpk).")
+			return
+		}
+		if in.GameID != "" && app.TitleID != in.GameID {
+			fail("This app is " + app.TitleID + ", but this release is " + in.GameID + ".")
+			return
+		}
+		in.State, in.Message, in.Bytes = "ok", "App found. The build is skipped.", 0
+	case release.NeedShader:
+		src, err := findShader(path)
+		if err != nil {
+			fail(err.Error())
+			return
+		}
+		in.State, in.Message, in.Bytes = "ok", "Shader compiler found."+whatSuffix(src), src.size
 	case release.NeedFile:
 		src, err := findFileSource(in, path)
 		if err != nil {
@@ -111,6 +136,70 @@ func CheckInput(in *release.Input, path string) {
 			in.Message = itoa(n) + " files will be copied."
 		}
 	}
+}
+
+// checkISO reads the file the release names inside a disc image and compares
+// its hash. It returns what to tell the player, or "" when the image is the
+// right one.
+func checkISO(path string, c *release.ISOCheck) string {
+	sum, err := prep.PSPFileSHA256(path, c.File)
+	switch {
+	case err == nil && strings.EqualFold(sum, c.SHA256):
+		return ""
+	case err == nil, errors.Is(err, prep.ErrNotInISO):
+		if c.Message != "" {
+			return c.Message
+		}
+		return "This is not the version of the game this release needs."
+	case errors.Is(err, prep.ErrNotPSPISO):
+		return capital(err.Error()) + "."
+	default:
+		return "This disc image is damaged or incomplete. Make a new copy of your disc and try again."
+	}
+}
+
+// shaderName is the file vitaGL games look for.
+const shaderName = "libshacccg.suprx"
+
+// shaderInput describes the shader compiler as a file to look for, so it can
+// be taken out of a ZIP or found in a folder like any other file.
+func shaderInput() *release.Input {
+	return &release.Input{Need: release.Need{Type: release.NeedFile, Names: []string{shaderName}, Ext: []string{".suprx"}}}
+}
+
+// findShader finds libshacccg.suprx in what the player chose: the file, a ZIP
+// that holds it, or a folder that holds it.
+func findShader(path string) (*fileSource, error) {
+	st, err := os.Stat(path)
+	if err != nil {
+		return nil, errors.New("This file cannot be opened.")
+	}
+	bad := errors.New("Choose the file named libshacccg.suprx, or a ZIP or folder that contains it.")
+	if !st.IsDir() && !isZip(path) {
+		if !strings.EqualFold(filepath.Base(path), shaderName) || st.Size() < 100<<10 {
+			return nil, bad
+		}
+		return &fileSource{path: path, size: st.Size()}, nil
+	}
+	src, err := findFileSource(shaderInput(), path)
+	if err != nil || len(src.parts) > 0 {
+		return nil, bad
+	}
+	name := filepath.Base(src.path)
+	if src.member != "" {
+		name = filepath.Base(src.member)
+	}
+	if !strings.EqualFold(name, shaderName) || src.size < 100<<10 {
+		return nil, bad
+	}
+	return src, nil
+}
+
+func whatSuffix(s *fileSource) string {
+	if w := s.what(); w != "" {
+		return " " + w
+	}
+	return ""
 }
 
 func capital(s string) string {

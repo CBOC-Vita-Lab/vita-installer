@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -56,6 +57,39 @@ type Need struct {
 	Names    []string          `json:"names,omitempty"`    // file: names to look for automatically (default: the name in to)
 	MaxBytes int64             `json:"maxBytes,omitempty"` // file: refuse bigger files
 	Magic    string            `json:"magic,omitempty"`    // file: the bytes it starts with (then any name is fine)
+	Check    *ISOCheck         `json:"check,omitempty"`    // psp-iso: a file inside the image must have this hash
+}
+
+// ISOCheck says which version of a disc image a release needs: the file
+// inside the image must have exactly this SHA-256. It is checked as soon as
+// the player chooses the image, before anything is downloaded or built.
+type ISOCheck struct {
+	File    string `json:"file"`              // path inside the image, such as PSP_GAME/SYSDIR/BOOT.BIN
+	SHA256  string `json:"sha256"`            // the file's SHA-256
+	Message string `json:"message,omitempty"` // shown when it does not match
+}
+
+// errNewerInstaller marks a release that uses something this installer does
+// not know. The player is told a newer installer may be required.
+type errNewerInstaller struct{ msg string }
+
+func (e *errNewerInstaller) Error() string { return e.msg }
+
+// UnmarshalJSON reads the check strictly: a setting this installer does not
+// know could change what the check means, so the release needs a newer one.
+func (c *ISOCheck) UnmarshalJSON(b []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.DisallowUnknownFields()
+	type plain ISOCheck
+	var p plain
+	if err := dec.Decode(&p); err != nil {
+		if strings.Contains(err.Error(), "unknown field") {
+			return &errNewerInstaller{fmt.Sprintf("the release's disc check uses something this installer does not know (%v); a newer installer may be required", err)}
+		}
+		return fmt.Errorf("the release's disc check is not valid: %v", err)
+	}
+	*c = ISOCheck(p)
+	return nil
 }
 
 // Step is one preparation step run on the player's files before they are
@@ -84,13 +118,19 @@ var knownSteps = map[string]bool{"galaxy": true, "galaxy-cook": true, "yaz0": tr
 // game disc), with a program that ships in a "kit" archive of the same
 // GitHub release. Nothing made from the game is ever published.
 type Build struct {
-	From    string             `json:"from"`              // ID of the need whose file is {in}
-	Kit     map[string]KitFile `json:"kit"`               // "<os>-<arch>" -> the kit archive for that computer
-	Run     string             `json:"run"`               // program inside the kit
-	Args    []string           `json:"args,omitempty"`    // {in}, {out} (an empty folder for the VPK) and {work} (a scratch folder) are replaced
-	App     string             `json:"app"`               // name of the VPK the program writes into {out}
-	Label   string             `json:"label,omitempty"`   // shown while the build starts
-	Minutes int                `json:"minutes,omitempty"` // about how long it takes, for the player
+	From    string             `json:"from"`               // ID of the need whose file is {in}
+	Kit     map[string]KitFile `json:"kit"`                // "<os>-<arch>" -> the kit archive for that computer
+	Run     string             `json:"run"`                // program inside the kit
+	Args    []string           `json:"args,omitempty"`     // {in}, {out} (an empty folder for the VPK) and {work} (a scratch folder) are replaced
+	App     string             `json:"app"`                // name of the VPK the program writes into {out}
+	Label   string             `json:"label,omitempty"`    // shown while the build starts
+	Minutes int                `json:"minutes,omitempty"`  // about how long it takes, for the player
+	Require *Requires          `json:"requires,omitempty"` // what the computer must have
+}
+
+// Requires says what a computer needs to run the kits.
+type Requires struct {
+	MacOS int `json:"macos,omitempty"` // lowest macOS major version (14 for macOS Sonoma)
 }
 
 // KitFile is one kit archive, shipped as a file of the release.
@@ -210,6 +250,9 @@ func (b *Build) check(needs []Need) error {
 	if b.Minutes < 0 || b.Minutes > 1440 {
 		return fmt.Errorf("build.minutes is not a sensible number")
 	}
+	if b.Require != nil && (b.Require.MacOS < 0 || b.Require.MacOS > 99) {
+		return fmt.Errorf("build.requires.macos is not a sensible version")
+	}
 	return nil
 }
 
@@ -274,18 +317,27 @@ func (n *Need) RunsTool() bool {
 
 // Need types.
 const (
-	NeedWiiDisc = "wii-disc"
-	NeedGCDisc  = "gc-disc"
-	NeedPSPISO  = "psp-iso"
-	NeedFile    = "file"
-	NeedFolder  = "folder"
-	NeedFiles   = "files"
-	NeedShader  = "shader-compiler"
-	NeedConsent = "consent" // added by the installer when a release runs its own converter
+	NeedWiiDisc  = "wii-disc"
+	NeedGCDisc   = "gc-disc"
+	NeedPSPISO   = "psp-iso"
+	NeedFile     = "file"
+	NeedFolder   = "folder"
+	NeedFiles    = "files"
+	NeedShader   = "shader-compiler"
+	NeedConsent  = "consent"   // added by the installer when a release runs its own converter
+	NeedBuiltApp = "built-app" // added by the installer when a release builds its app: an app built elsewhere
 )
+
+// BuiltAppID is the ID of the optional "Already built it?" input a release
+// that builds its app gets.
+const BuiltAppID = "built-app"
 
 // ShaderPath is where vitaGL ports look for the shader compiler.
 const ShaderPath = "ur0:data/libshacccg.suprx"
+
+// ShaderOptionalHelp is what the player is told about an optional shader
+// compiler when the release says nothing itself: what they lose without it.
+const ShaderOptionalHelp = "Recommended. A few rarely used effects compile on the Vita; without the compiler they are skipped"
 
 func readManifest(file string) (*Manifest, error) {
 	b, err := os.ReadFile(file)
@@ -307,6 +359,10 @@ func ParseManifest(b []byte) (*Manifest, error) {
 	}
 	var m Manifest
 	if err := json.Unmarshal(b, &m); err != nil {
+		var newer *errNewerInstaller
+		if errors.As(err, &newer) {
+			return nil, newer
+		}
 		return nil, fmt.Errorf("%s is not valid JSON: %v", ManifestName, err)
 	}
 	if raw := probe["build"]; len(raw) > 0 && string(raw) != "null" {
@@ -416,11 +472,26 @@ func (m *Manifest) check() error {
 			if n.Label == "" {
 				n.Label = "Shader compiler (libshacccg.suprx)"
 			}
+			if n.Help == "" && n.Optional {
+				n.Help = ShaderOptionalHelp
+			}
 		default:
 			return fmt.Errorf("need %q has unknown type %q; a newer installer may be required", n.ID, n.Type)
 		}
 		if n.Label == "" {
 			n.Label = n.ID
+		}
+		if n.Check != nil {
+			if n.Type != NeedPSPISO {
+				return fmt.Errorf("need %q: check only works on a psp-iso need", n.ID)
+			}
+			if !safeRelPath(n.Check.File) || !isHex64(n.Check.SHA256) {
+				return fmt.Errorf("need %q: check needs a file path inside the image and its 64-digit SHA-256", n.ID)
+			}
+			n.Check.SHA256 = strings.ToLower(n.Check.SHA256)
+			if len(n.Check.Message) > 300 {
+				return fmt.Errorf("need %q: the check message is too long", n.ID)
+			}
 		}
 	}
 	if m.Build != nil {

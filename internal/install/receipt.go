@@ -148,7 +148,11 @@ func newReceipt(r *release.Release) *Receipt {
 // buildHash fingerprints a release: its VPK and the files it ships.
 func buildHash(r *release.Release) string {
 	h := sha1.New()
-	if r.Build != nil {
+	if own := r.UsingBuiltApp(); own != nil {
+		// An app the player built elsewhere is only the same when it is the same file.
+		sum, _ := fileHash(own.Path)
+		h.Write([]byte("built-elsewhere\x00" + sum))
+	} else if r.Build != nil {
 		// The app is made on the player's computer: it is the same app when it
 		// comes from the same recipe, whichever computer built it.
 		h.Write([]byte("build\x00" + r.Build.Fingerprint()))

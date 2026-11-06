@@ -57,13 +57,48 @@ Every field is optional.
 | `type` | Player chooses | Copied to `to` |
 | --- | --- | --- |
 | `wii-disc`, `gc-disc` | ISO, RVZ, WIA, WBFS, CISO, GCZ, or a Dolphin/nodtool extracted folder. `gameId`, `revision` and `verify` (SHA-256 of files in the extracted disc) are checked | the disc's `sys/` and `files/` |
-| `psp-iso` | a PSP `.iso`; `gameId` (for example `ULUS-10054`) is checked | the file, at the exact path in `to` |
+| `psp-iso` | a PSP `.iso`; `gameId` (for example `ULUS-10054`) is checked, and `check` can pin the exact version ([below](#checking-the-version-of-a-disc-check)) | the file, at the exact path in `to` |
 | `file` | one file (`ext` limits the extensions, `names` are looked for automatically next to the download, `maxBytes` refuses bigger files) | the exact path in `to` |
 | `files` | a file or a folder of files (`ext` filters them); existing files are kept | the folder in `to` |
 | `folder` | a folder | the folder in `to` |
-| `shader-compiler` | `libshacccg.suprx`, only asked for if the Vita doesn't have it | `ur0:data/libshacccg.suprx` |
+| `shader-compiler` | `libshacccg.suprx` (the file, a ZIP or a folder that holds it), only asked for if the Vita doesn't have it. See [the shader compiler](#the-shader-compiler-shader-compiler) | `ur0:data/libshacccg.suprx` |
 
 Add `"optional": true` to a need that may be skipped, and `"help"` for one line of advice.
+
+### Checking the version of a disc (`check`)
+
+A `psp-iso` need can say which version of the game it needs. The installer reads one file inside the image and compares its SHA-256, **as soon as the player chooses the image**, so a wrong version is reported on the spot, before the build tools are downloaded and before a 10-minute build.
+
+```json
+{ "id": "disc", "type": "psp-iso", "gameId": "ULUS-10054", "to": "ux0:data/infected/Infected.iso",
+  "check": {
+    "file": "PSP_GAME/SYSDIR/BOOT.BIN",
+    "sha256": "952d4bb2c08209f4cbc0020d95c4cc601e9944cad5c7ade4c1d060fe8daab1bc",
+    "message": "This is not the US 1.02 version of Infected (ULUS-10054)."
+  } }
+```
+
+| Field | Meaning |
+| --- | --- |
+| `file` | Path of the file inside the image (case does not matter; a safe relative path) |
+| `sha256` | The file's SHA-256 |
+| `message` | What the player reads when the file is missing or different (default: "This is not the version of the game this release needs.") |
+
+What the player sees: the `message` for another version of the game, "This disc image is damaged or incomplete. Make a new copy of your disc and try again." when the image can't be read or is shorter than it says it is, and "This is not a PSP ISO (CSO and PBP files are not supported)." for CSO and PBP files. The check runs again when the install starts, in case the file changed.
+
+`check` is read strictly. A setting inside it that this installer doesn't know (a future field) makes the release fail with "a newer installer may be required" instead of being skipped, because it could be what keeps the wrong disc out. Installers older than 1.9 don't know `check` at all and ignore it: the player's disc is then only checked by your build program, so make that print a plain one-line message (see below).
+
+### The shader compiler (`shader-compiler`)
+
+vitaGL games need `ur0:data/libshacccg.suprx`, which is Sony's and can't be shipped. A release whose app already contains its shaders (Infected) should list the need with `"optional": true`: the player can skip it and the install is never blocked. Say in `help` what is lost without it; if you don't, the installer says "Recommended. A few rarely used effects compile on the Vita; without the compiler they are skipped".
+
+The installer only asks when the Vita doesn't already have the file, and offers three ways to get it:
+
+- **Prepare your Vita.** The installer downloads the newest release of [ShaRKBR33D](https://github.com/Rinnegatamante/ShaRKBR33D) (a free Vita app that downloads Sony's PSM runtime on the Vita and extracts the file), checks it against the checksum GitHub publishes for the download, and installs it like any app. The player is told: "On your Vita, open ShaRKBR33D once and follow it (it needs Wi-Fi); then come back and press Check again." **Check again** looks for the file over FTP. A release GitHub published without a checksum is only accepted if the installer knows its SHA-256.
+- **Choose the file**, or a **ZIP** or **folder** that contains `libshacccg.suprx` (it is found by name, a few folders deep).
+- Over a USB drive, the file is copied to `ux0:VPK` and the player is told to copy it to `ur0:data` in VitaShell (a drive can't show `ur0:`).
+
+The installer never carries the compiler itself.
 
 ### Converting the player's files (`prepare`)
 
@@ -166,6 +201,7 @@ Some ports can't ship the game's own code or data, so nothing derived from the g
 | `app` | The name of the VPK the program writes into `{out}`. The app in it must have the release's `titleId` |
 | `label` | Shown while the build starts (default: "Building NAME from your disc") |
 | `minutes` | About how long it takes, shown to the player before they start |
+| `requires` | Optional. `{"macos": 14}`: the lowest macOS version the kits run on. A Mac with an older one is treated like a computer with no kit |
 
 **The kit** is one archive per kind of computer, a file of the same release. The program, its tools and data are all inside; the installer unpacks it as it is, restoring the executable bits and links the archive stores (links must stay inside the kit). It is also the folder the program runs in. **Publish kits as `.tar.gz`** (a gzip-compressed tar, for example `Infected-Vita-builder-windows.tar.gz`); a ZIP works too. The installer tells which it is by looking inside the file, not at its name.
 
@@ -186,9 +222,11 @@ The installer shows the step text and a progress bar with the time left, and the
 - Before installing, the game says it is built on their computer from their own disc, and about how long it takes.
 - They must press **Allow** first, like for a `tool` step. The text says that the game is built on this computer from their own disc, about how many minutes it takes, that it needs about 1 GB of free disk space, and that nothing is uploaded.
 - Only then is the kit for their computer downloaded from the release (a progress bar, "Downloading the build tools"), checked against its `sha256` (a mismatch is refused and nothing is unpacked), unpacked once and kept. Browsing a release or adding it to the list downloads no kit. A release folder or ZIP that already holds the kit file next to `vita-install.json` is used instead, so a release works offline.
-- The installer checks for about 2.5 GB of free space before it starts.
+- The installer checks for about 1 GB of free space before it starts.
 - The finished VPK is kept in the installer's cache, keyed by the kit, the player's file (path, size and date) and the arguments. A retry after a failed install, or a reinstall, doesn't build again; a different disc file or a new kit does. Older builds of the same game are removed.
 - The built VPK then goes through the normal install exactly like a shipped one: artwork, PROM/Companion/USB install, the receipt, and update detection (the app on the Vita counts as this release's when the kit, program and arguments are the same).
+- **Computers without a kit.** If the release has no kit for this computer (for example Windows 32-bit or ARM, Linux ARM64), or the Mac is older than `requires.macos`, the game says so before anything else, e.g. "Infected can't be built on this computer yet. It can be built on Windows (64-bit Intel/AMD), macOS 14 or newer, or Linux (64-bit Intel/AMD)." (the list comes from your `kit` keys). Nothing is downloaded and no permission is asked. The kit's own `kit.json` may also say `{"requires": {"macos": 14}}`, which is checked once the kit is unpacked.
+- **Already built it?** Every game that builds gets an extra input where the player chooses an `.vpk` they built elsewhere (for example with your `run` program on another computer). It must be the release's `titleId` and skips the permission, the kit and the build; the disc is still needed, because it goes to the Vita. On a computer that can't build, this input is required instead of optional.
 - The disc is asked for again on every install, even when a copy is on the Vita, because the build needs it on the computer.
 - Artwork can be chosen for a built game once it has been built the first time (before that there are no pictures to preview). It is applied to every later build.
 

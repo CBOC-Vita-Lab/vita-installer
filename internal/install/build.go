@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -53,7 +52,11 @@ func buildApp(ctx context.Context, r *release.Release, opt Options, report func(
 	if err != nil {
 		return nil, fmt.Errorf("your disc cannot be opened: %v", err)
 	}
-	kitKey, kf, ok := b.KitFor(runtime.GOOS, runtime.GOARCH)
+	if msg := b.Blocked(r.Name, release.CurrentHost()); msg != "" {
+		return nil, errors.New(msg)
+	}
+	h := release.CurrentHost()
+	kitKey, kf, ok := b.KitFor(h.OS, h.Arch)
 	if !ok {
 		return nil, fmt.Errorf("this game cannot be built on this kind of computer yet (%s)", kitKey)
 	}

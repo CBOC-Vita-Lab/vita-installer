@@ -156,7 +156,8 @@
     'wii-disc': 'ISO, RVZ, WBFS or a folder extracted with Dolphin',
     'gc-disc': 'ISO, RVZ or a folder extracted with Dolphin',
     'psp-iso': 'An .iso file of your UMD',
-    'shader-compiler': 'Needed once per Vita. Choose libshacccg.suprx',
+    'shader-compiler': 'Needed once per Vita. Choose libshacccg.suprx, or a ZIP or folder that has it',
+    'built-app': 'Skips the build',
     'files': 'Choose a file or a folder of them'
   };
 
@@ -183,7 +184,10 @@
     var h = '<article class="' + cls + '" data-item="' + esc(it.id) + '"><div class="card-head">' + icon +
       '<div class="card-title"><h2>' + esc(it.name) + badge + '</h2><div class="meta">' + meta.join(' · ') + '</div></div>' +
       (busy ? '' : '<button class="x" data-remove="' + esc(it.id) + '" aria-label="Remove ' + esc(it.name) + '">×</button>') + '</div>';
-    if (it.build && it.status !== 'done') {
+    var ownApp = (it.inputs || []).some(function (x) { return x.type === 'built-app' && x.state === 'ok'; });
+    if (it.buildBlock && it.status !== 'done') {
+      h += '<div class="note bad">' + esc(it.buildBlock) + '</div>';
+    } else if (it.build && it.status !== 'done' && !ownApp) {
       var mins = it.build.minutes;
       h += '<div class="note">Built on your computer from your own disc' +
         (mins > 0 ? ' \u2014 about ' + mins + ' minute' + (mins === 1 ? '' : 's') + ' the first time' : '') + '.</div>';
@@ -192,12 +196,19 @@
     if (inputs.length) {
       h += '<div class="needs">';
       inputs.forEach(function (n) {
+        if (n.type === 'consent' && ownApp) return; // nothing is built, so nothing to allow
+        var isShader = n.type === 'shader-compiler';
+        var sh = S.shader || {};
+        var shaderOpen = isShader && n.state !== 'ok' && n.state !== 'skip';
         var state = n.state === 'skip' || n.state === 'ok' ? 'ok' : n.state === 'error' ? 'error' : '';
         var mark = state === 'ok' ? '✓' : state === 'error' ? '!' : '';
         var sub = n.message || (n.path ? n.path.split(/[\\/]/).pop() : (n.help || typeHelp[n.type] || (n.optional ? 'Optional' : '')));
-        if (n.optional && !n.path && n.state !== 'skip' && n.type !== 'shader-compiler') sub = 'Optional · ' + sub;
+        if (shaderOpen && !n.path && !n.message) {
+          sub = sh.message || ((sh.known && !sh.present ? "Your Vita doesn't have it yet. " : '') + (n.help || typeHelp[n.type]));
+        }
+        if (n.optional && !n.path && n.state !== 'skip' && !isShader) sub = 'Optional · ' + sub;
         if (n.prepare && n.prepare.length && n.state === 'ok') sub += ' It will be converted for the Vita on this computer first.';
-        var folderOk = n.type === 'wii-disc' || n.type === 'gc-disc' || n.type === 'folder' || n.type === 'files' || n.type === 'file';
+        var folderOk = n.type === 'wii-disc' || n.type === 'gc-disc' || n.type === 'folder' || n.type === 'files' || n.type === 'file' || isShader;
         h += '<div class="need ' + state + '" data-drop-item="' + esc(it.id) + '" data-drop-input="' + esc(n.id) + '"><div class="st">' + mark + '</div>' +
           '<div class="nt"><div>' + esc(n.label) + '</div><span title="' + esc(n.path || '') + '">' + esc(sub) + '</span></div>';
         if (!busy && n.state === 'skip' && n.type !== 'shader-compiler') {
@@ -206,6 +217,10 @@
         if (n.type === 'consent') {
           if (!busy && n.state !== 'ok') h += '<button class="btn small primary" data-allow-item="' + esc(it.id) + '" data-allow-input="' + esc(n.id) + '">Allow</button>';
         } else if (!busy && n.state !== 'skip') {
+          if (shaderOpen && !n.path && (S.vita || S.drive)) {
+            if (sh.helper && sh.known) h += '<button class="btn small primary" data-shadercheck>Check again</button>';
+            else if (!sh.helper) h += '<button class="btn small primary" data-shaderprep>Prepare your Vita</button>';
+          }
           if (n.type !== 'folder') h += '<button class="btn small" data-pick-item="' + esc(it.id) + '" data-pick-input="' + esc(n.id) + '" data-kind="file">' + (n.path ? 'Change' : 'Choose') + '</button>';
           if (folderOk) h += '<button class="btn small ghost" data-pick-item="' + esc(it.id) + '" data-pick-input="' + esc(n.id) + '" data-kind="folder">Folder</button>';
         }
@@ -337,7 +352,7 @@
     var items = S.items || [];
     $('add').className = 'drop' + (items.length ? ' compact' : '');
     $('dropTitle').textContent = items.length ? 'Add more' : 'Drop a Vita game here';
-    var key = JSON.stringify([items, !!S.vita, S.vita && S.vita.companion, !!S.drive, S.library]);
+    var key = JSON.stringify([items, !!S.vita, S.vita && S.vita.companion, !!S.drive, S.library, S.shader]);
     if (key !== lastItems) { lastItems = key; $('items').innerHTML = items.map(itemCard).join(''); }
     dock();
     job();
@@ -490,6 +505,8 @@
     if (d.remove) api('remove', { item: d.remove });
     else if (d.pickItem) api('pick', { item: d.pickItem, input: d.pickInput, kind: d.kind });
     else if (d.launch) api('launch', { item: d.launch });
+    else if (d.shaderprep !== undefined) api('shaderprep');
+    else if (d.shadercheck !== undefined) api('shadercheck');
     else if (d.allowItem) api('input', { item: d.allowItem, input: d.allowInput, path: 'yes' });
     else if (d.get) { api('url', { url: 'https://github.com/' + d.get }); }
     else if (d.open) api('open', { url: d.open });
