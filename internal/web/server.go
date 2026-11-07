@@ -195,6 +195,11 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request, name string) {
 		reply(w, a.SetArt(r.Context(), body.Item, body.Input, "", body.URL, body.Label))
 	case "artkey":
 		reply(w, a.SetSteamGridKey(r.Context(), body.Key))
+	case "artauto":
+		a.SetArtAuto(body.Path == "on")
+		reply(w, nil)
+	case "artrefresh":
+		reply(w, a.RefreshArt(r.Context()))
 	case "scan":
 		go a.Scan(context.Background())
 		reply(w, nil)

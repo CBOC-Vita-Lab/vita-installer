@@ -53,6 +53,9 @@ func TestUpdateSendsSameSizeChanges(t *testing.T) {
 	if err != nil || len(got) != 1 || got[0].TitleID != "MYGM00001" || got[0].Release != "v1" || got[0].Repo != "CBOC-Vita-Lab/my-game" {
 		t.Fatalf("receipt: %v %+v", err, got)
 	}
+	if len(got[0].Icon) != 64 {
+		t.Errorf("receipt has no bubble picture fingerprint: %q", got[0].Icon)
+	}
 	if got[0].Files["ux0:data/mygame/config.ini"] == "" {
 		t.Errorf("receipt has no entry for config.ini: %v", got[0].Files)
 	}

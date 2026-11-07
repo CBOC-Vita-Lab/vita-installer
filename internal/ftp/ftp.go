@@ -33,6 +33,7 @@ type Entry struct {
 	Name  string
 	Size  int64
 	IsDir bool
+	Date  string // the date and time as the server lists them
 }
 
 // Conn is one control connection.
@@ -298,7 +299,7 @@ func parseList(data string) []Entry {
 			continue
 		}
 		size, _ := strconv.ParseInt(fields[4], 10, 64)
-		out = append(out, Entry{Name: name, Size: size, IsDir: strings.HasPrefix(fields[0], "d")})
+		out = append(out, Entry{Name: name, Size: size, IsDir: strings.HasPrefix(fields[0], "d"), Date: strings.Join(fields[5:8], " ")})
 	}
 	return out
 }

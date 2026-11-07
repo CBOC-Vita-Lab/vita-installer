@@ -1,8 +1,10 @@
 package install
 
 import (
+	"archive/zip"
 	"context"
 	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"io"
@@ -32,7 +34,8 @@ type Receipt struct {
 	Source      string            `json:"source,omitempty"`  // file the player chose
 	Build       string            `json:"build,omitempty"`   // fingerprint of the app and its files
 	InstalledAt time.Time         `json:"installedAt"`
-	Files       map[string]string `json:"files"` // Vita path -> SHA-1 of the release's own files
+	Files       map[string]string `json:"files"`          // Vita path -> SHA-1 of the release's own files
+	Icon        string            `json:"icon,omitempty"` // sha256 of the bubble picture installed (sce_sys/icon0.png)
 }
 
 func receiptPath(titleID string) string { return ReceiptDir + "/" + titleID + ".json" }
@@ -167,4 +170,29 @@ func buildHash(r *release.Release) string {
 		h.Write([]byte("art\x00" + fp))
 	}
 	return hex.EncodeToString(h.Sum(nil))[:16]
+}
+
+// vpkIcon returns the sha256 of a VPK's bubble picture ("" if it has none).
+func vpkIcon(vpk string) string {
+	z, err := zip.OpenReader(vpk)
+	if err != nil {
+		return ""
+	}
+	defer z.Close()
+	for _, f := range z.File {
+		if f.Name != "sce_sys/icon0.png" {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			return ""
+		}
+		defer rc.Close()
+		h := sha256.New()
+		if _, err := io.Copy(h, io.LimitReader(rc, 8<<20)); err != nil {
+			return ""
+		}
+		return hex.EncodeToString(h.Sum(nil))
+	}
+	return ""
 }

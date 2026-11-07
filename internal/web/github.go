@@ -464,8 +464,9 @@ func (a *App) refreshLibrary() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	var games []LibraryGame
+	var rs []*install.Receipt
 	if v != nil || drive != "" {
-		rs, _ := install.Installed(ctx, v, drive)
+		rs, _ = install.Installed(ctx, v, drive)
 		seen := map[string]bool{}
 		for _, r := range rs {
 			if seen[r.TitleID] {
@@ -481,6 +482,9 @@ func (a *App) refreshLibrary() {
 		}
 	}
 	a.update(func(s *State) { s.Library = games })
+	if v != nil {
+		a.refreshArtAuto(rs)
+	}
 }
 
 func (a *App) download(ctx context.Context, u, dest, name, digest string) error {

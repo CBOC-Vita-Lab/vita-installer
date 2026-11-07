@@ -10,18 +10,17 @@ Putting a game on a PS Vita used to mean FTP apps, folder hunting and a lot of g
 
 <p align="center"><b><a href="https://github.com/CBOC-Vita-Lab/vita-installer/releases/latest">Download the latest version</a></b> · <a href="#how-to-use-it">How to use it</a> · <a href="CHANGELOG.md">What's new</a> · <a href="#help">Help</a></p>
 
-## New In Version 2.0
+## New In Version 2.1
 
-**Games built from your own disc.** Choose your disc, press **Install**, and the installer builds the game on your computer, then installs it on your Vita. Infected works this way. It checks your disc the moment you choose it, asks you to allow the build first, takes about 10 minutes the first time, and nothing is uploaded.
+**Your artwork keeps itself up to date.** Play a game, take a screenshot, and the next time your Vita connects its home screen bubble and LiveArea pictures are refreshed from it. Super Mario Galaxy even uses the title screen it saves the first time you play. No reinstall, nothing else touched, and the old pictures are kept in case you want them back.
 
-**Prepare your Vita.** Missing the shader compiler some games use? One click puts ShaRKBR33D on your Vita, a free app that gets it for you ([details](#prepare-your-vita)). The installer now finds the compiler in either place games load it from, and tells you when the copy on your Vita is damaged.
+**Your own art stays yours.** Pictures you chose, or changed yourself on the Vita, are never replaced automatically. Turn the refresh off, or run it now, from the window you use to connect your Vita.
 
-**Artwork from your Vita.** Use a screenshot you took in the game, or Super Mario Galaxy's own title screen, as its bubble and background.
-
-**Bowser moves the way he should** in Super Mario Galaxy, and a full memory card is now explained in plain words.
+**Ready for the newest games:** Super Mario Galaxy 2.1 and VitAdhoc 1.3 with SNES.
 
 ## Recent Highlights
 
+- **Games built from your own disc** (2.0): choose your disc and the installer builds the game on your computer, then installs it. One-click **Prepare your Vita** for the shader compiler, and artwork from your Vita's screenshots.
 - **Bowser fixed in Super Mario Galaxy** (1.8): his battle intros no longer twist and spin. Install Galaxy again and only the four corrected files are sent.
 - **More Vita setups** (1.7): installs no longer stop right after creating the first folder on Vitas whose FTP server words its replies differently.
 - **HD textures for Strikers and Galaxy** (1.5): choose your `hdtex.pack` as the file, a ZIP, a folder or split pieces.
@@ -126,9 +125,9 @@ Already have the file? Press **Choose** instead, and pick `libshacccg.suprx`, or
 
 | File | What it is |
 | --- | --- |
-| `CBOC-Vita-Installer-2.0.1-mac.zip` | The Mac app, for Intel and Apple Silicon |
-| `CBOC-Vita-Installer-2.0.1-windows-x64.exe` / `-x86.exe` / `-arm64.exe` | Windows: most PCs, older or 32-bit PCs, and ARM PCs |
-| `CBOC-Vita-Installer-2.0.1-linux-amd64.tar.gz` / `-arm64.tar.gz` | Linux |
+| `CBOC-Vita-Installer-2.1-mac.zip` | The Mac app, for Intel and Apple Silicon |
+| `CBOC-Vita-Installer-2.1-windows-x64.exe` / `-x86.exe` / `-arm64.exe` | Windows: most PCs, older or 32-bit PCs, and ARM PCs |
+| `CBOC-Vita-Installer-2.1-linux-amd64.tar.gz` / `-arm64.tar.gz` | Linux |
 | `SHA256SUMS.txt` | Checksums, if you want to check your download |
 
 ## For Developers
@@ -137,7 +136,7 @@ Already have the file? Press **Choose** instead, and pick `libshacccg.suprx`, or
 | --- | --- |
 | [Ideas for later](docs/ROADMAP.md) | Features we'd like to add, such as custom loading screens |
 | [Release format](docs/release-format.md) | How a Vita release tells the installer what it needs, including converting the player's files |
-| Build and test | `go test ./...`, then `scripts/build.sh 2.0.1` (Go 1.20, no other dependencies) |
+| Build and test | `go test ./...`, then `scripts/build.sh 2.1` (Go 1.20, no other dependencies) |
 
 The app is one Go program with a plain HTML page in `ui/`. The code is in `internal/`.
 

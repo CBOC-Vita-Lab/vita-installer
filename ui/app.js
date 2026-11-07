@@ -90,6 +90,8 @@
     if (!list) list = '<p class="muted">' + (S.scanning ? 'Searching your network…' : 'No Vita found yet. Follow one of the steps below; it is found automatically.') + '</p>';
     $('connList').innerHTML = list;
     $('versionText').textContent = 'Version ' + S.version;
+    $('artAuto').checked = !!S.artAuto;
+    $('artRefresh').disabled = !S.vita;
   }
 
   function banners() {
@@ -530,6 +532,11 @@
   $('pickFile').onclick = function () { api('pick', { kind: 'file' }); };
   $('pickFolder').onclick = function () { api('pick', { kind: 'folder' }); };
   $('pickDrive').onclick = function () { api('pick', { kind: 'drive' }).then(closeSheets); };
+  $('artAuto').onchange = function () { api('artauto', { path: this.checked ? 'on' : 'off' }); };
+  $('artRefresh').onclick = function () {
+    var b = this; b.disabled = true;
+    api('artrefresh').then(function () { b.disabled = !S.vita; closeSheets(); });
+  };
   $('installBtn').onclick = function () { localNotice = null; api('install'); };
   $('stopBtn').onclick = function () { api('cancel'); };
   $('quitBtn').onclick = function () {
