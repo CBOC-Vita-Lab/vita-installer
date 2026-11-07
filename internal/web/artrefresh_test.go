@@ -250,14 +250,14 @@ func TestArtRefreshSetting(t *testing.T) {
 		t.Fatal("did something with the setting off")
 	}
 	// The button works anyway, and turning it on again refreshes.
-	if err := e.app_.RefreshArt(t.Context()); err != nil {
+	if err := e.app_.RefreshArt(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	if e.stores() == 0 {
 		t.Fatal("manual refresh did nothing")
 	}
 	n := e.stores()
-	if err := e.app_.RefreshArt(t.Context()); err != nil {
+	if err := e.app_.RefreshArt(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	if e.stores() <= n {
@@ -282,7 +282,7 @@ func TestArtRefreshKeepsPlayersChoice(t *testing.T) {
 	os.WriteFile(pic, b.Bytes(), 0o644)
 	e.app_.saveArt(galaxyID, savedArt{Choice: art.Choice{Icon: pic}, Labels: map[string]string{}})
 	e.connect()
-	if err := e.app_.RefreshArt(t.Context()); err != nil {
+	if err := e.app_.RefreshArt(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	if e.stores() != 0 {
