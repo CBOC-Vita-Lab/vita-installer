@@ -47,6 +47,7 @@ type artMarker struct {
 	SHA256    string    `json:"sha256"`    // of the set of pictures written
 	Install   string    `json:"install"`   // the install (receipt time) they were written for
 	Files     []string  `json:"files"`     // where they were written
+	Icon      string    `json:"icon"`      // sha256 of the bubble written, to notice a later change by hand
 	UpdatedAt time.Time `json:"updatedAt"` //
 }
 
@@ -245,6 +246,9 @@ func (a *App) refreshArtOf(ctx context.Context, c *ftp.Conn, r *install.Receipt,
 	if !force && m != nil && m.Source == src.sig && m.Install == stamp {
 		return false, nil // nothing changed: no more than the listing and the marker were touched
 	}
+	if !force && !a.artIsOurs(c, r, m) {
+		return false, nil // the player has put their own pictures there: leave them
+	}
 	set, err := a.artSetFor(c, src)
 	if err != nil {
 		return false, err
@@ -261,7 +265,7 @@ func (a *App) refreshArtOf(ctx context.Context, c *ftp.Conn, r *install.Receipt,
 	if files == nil {
 		return false, nil // the game is no longer on the Vita
 	}
-	return true, putArtMarker(ctx, c, r.TitleID, &artMarker{Version: 1, Source: src.sig, SHA256: set.sum, Install: stamp, Files: files, UpdatedAt: time.Now().UTC()})
+	return true, putArtMarker(ctx, c, r.TitleID, &artMarker{Version: 1, Source: src.sig, SHA256: set.sum, Install: stamp, Files: files, Icon: sha256Hex(set.png["icon"]), UpdatedAt: time.Now().UTC()})
 }
 
 func putArtMarker(ctx context.Context, c *ftp.Conn, title string, m *artMarker) error {
@@ -524,4 +528,36 @@ func mkdirAll(c *ftp.Conn, dir string) error {
 		}
 	}
 	return nil
+}
+
+func sha256Hex(b []byte) string {
+	h := sha256.Sum256(b)
+	return hex.EncodeToString(h[:])
+}
+
+// artIsOurs reports whether the game's bubble on the Vita is still one the
+// installer put there: the one it installed (recorded in the receipt), the
+// package's own, or the one the last refresh wrote. Anything else was
+// changed by hand (in VitaShell, another tool, or a custom install) and is
+// never replaced automatically.
+func (a *App) artIsOurs(c *ftp.Conn, r *install.Receipt, m *artMarker) bool {
+	title := r.TitleID
+	cur, err := c.Retrieve("ux0:app/"+title+"/sce_sys/icon0.png", 4<<20)
+	if err != nil {
+		return false
+	}
+	sum := sha256Hex(cur)
+	if (m != nil && m.Icon != "" && sum == m.Icon) || (r.Icon != "" && sum == r.Icon) {
+		return true
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	for _, it := range a.st.Items {
+		if it.Release != nil && it.Release.App != nil && it.Release.App.TitleID == title && len(it.Release.App.Icon) > 0 {
+			if bytes.Equal(cur, it.Release.App.Icon) {
+				return true
+			}
+		}
+	}
+	return false
 }

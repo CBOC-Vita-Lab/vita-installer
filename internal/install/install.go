@@ -227,6 +227,7 @@ func Run(ctx context.Context, r *release.Release, opt Options) (*Result, error) 
 		}
 	}
 	rc := newReceipt(r)
+	rc.Icon = vpkIcon(vpk)
 	rc.Build = buildHash(r)
 	prev := readReceipt(ctx, t, r.TitleID)
 	var known map[string]string

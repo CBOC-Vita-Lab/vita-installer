@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"image"
 	"image/color"
@@ -75,7 +76,7 @@ func newArtEnv(t *testing.T, title, repo string) *artEnv {
 }
 
 func (e *artEnv) receipt(title, repo string) {
-	rc := &install.Receipt{Name: "Game " + title, TitleID: title, Repo: repo, Release: "v1", InstalledAt: e.when, Files: map[string]string{}}
+	rc := &install.Receipt{Name: "Game " + title, TitleID: title, Repo: repo, Release: "v1", InstalledAt: e.when, Files: map[string]string{}, Icon: sha256Hex([]byte("star-icon"))}
 	b, _ := json.MarshalIndent(rc, "", " ")
 	e.write("ux0/data/cboc-installer/installed/"+title+".json", b)
 }
@@ -321,4 +322,32 @@ func TestArtRefreshScreenshotsAndOthers(t *testing.T) {
 	if e2.stores() != 0 {
 		t.Fatal("wrote without a picture")
 	}
+}
+
+// A bubble the player changed by hand (VitaShell, another tool, their own
+// art) is never replaced automatically; pressing Refresh artwork still does.
+func TestArtRefreshKeepsHandMadeArt(t *testing.T) {
+	e := newArtEnv(t, galaxyID, galaxyRepo)
+	e.write("ux0/data/smg/art/title.rgba", capture(1))
+	icon := "ux0/app/" + galaxyID + "/sce_sys/icon0.png"
+	e.write(icon, []byte("my-own-icon"))
+	e.connect()
+	if got := string(e.read(icon)); got != "my-own-icon" {
+		t.Fatalf("hand-made bubble replaced on connect")
+	}
+	// After a refresh, a later change by hand is kept too.
+	e.write(icon, []byte("star-icon"))
+	e.connect()
+	isVitaPNG(t, e.read(icon), art.IconW, art.IconH)
+	e.write(icon, []byte("changed-again"))
+	e.write("ux0/data/smg/art/title.rgba", capture(9))
+	e.app(true)
+	e.connect()
+	if got := string(e.read(icon)); got != "changed-again" {
+		t.Fatalf("bubble changed by hand after a refresh was replaced")
+	}
+	if err := e.app_.RefreshArt(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	isVitaPNG(t, e.read(icon), art.IconW, art.IconH)
 }
