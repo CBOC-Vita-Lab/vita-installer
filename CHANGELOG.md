@@ -1,5 +1,14 @@
 # What's New
 
+## Unreleased
+
+Your games' artwork stays up to date.
+
+- **Artwork refreshes by itself.** When your Vita connects, the installer checks each game it put there and brings its home screen bubble and LiveArea pictures up to date from the game's own screenshots, and, for Super Mario Galaxy, the title picture the game saves the first time you play it. You don't have to install the game again. Restart your Vita (or use Refresh LiveArea in VitaShell) to see the new pictures.
+- **Quick and careful.** Nothing is sent when nothing has changed. Only the picture files are written; your games, saves and settings are never touched. The pictures they replace are kept once, in `ux0:data/cboc-installer/art-backup/`.
+- **Your choice comes first.** A game whose artwork you chose yourself is left as you set it.
+- **You're in control.** Turn **Refresh artwork automatically** off, or press **Refresh artwork** to do it now, in the window you use to connect your Vita. It only works over Wi-Fi.
+
 ## Version 2.0.1 — November 6, 2026
 
 A little steadier.

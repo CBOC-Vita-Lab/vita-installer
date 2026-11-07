@@ -31,6 +31,7 @@ type Vita struct {
 	clients    int32
 	Launched   []string
 	mu         sync.Mutex
+	cmds       []string
 	// Speed limits each upload to this many bytes per second (0 = unlimited),
 	// roughly like a Vita on Wi-Fi.
 	Speed int64
@@ -44,7 +45,7 @@ type Vita struct {
 
 // Start runs a fake Vita. companion adds the 1338-style command port.
 func Start(root string, prom, companion bool) (*Vita, error) {
-	for _, d := range []string{"ux0/app", "ux0/data", "ux0/license", "ur0/data"} {
+	for _, d := range []string{"ux0/app", "ux0/data", "ux0/license", "ur0/data", "ur0/appmeta"} {
 		os.MkdirAll(filepath.Join(root, d), 0o755)
 	}
 	l, err := net.Listen("tcp", "127.0.0.1:0")
@@ -62,6 +63,14 @@ func Start(root string, prom, companion bool) (*Vita, error) {
 		go v.serveCompanion()
 	}
 	return v, nil
+}
+
+// Commands returns every FTP command received so far (names only), so tests
+// can say exactly what a client did.
+func (v *Vita) Commands() []string {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	return append([]string(nil), v.cmds...)
 }
 
 // Port is the FTP port.
@@ -160,6 +169,9 @@ func (v *Vita) session(c net.Conn) {
 		if i := strings.IndexByte(line, ' '); i >= 0 {
 			cmd, arg = line[:i], line[i+1:]
 		}
+		v.mu.Lock()
+		v.cmds = append(v.cmds, strings.ToUpper(cmd))
+		v.mu.Unlock()
 		switch strings.ToUpper(cmd) {
 		case "USER":
 			say("331 Username OK, need password b0ss.")
@@ -200,7 +212,11 @@ func (v *Vita) session(c net.Conn) {
 				} else {
 					size = info.Size()
 				}
-				fmt.Fprintf(d, "%s 1 vita vita %d Jan  1 00:00 %s\r\n", perm, size, e.Name())
+				when := "Jan  1 00:00"
+				if info != nil {
+					when = info.ModTime().Format("Jan _2 15:04")
+				}
+				fmt.Fprintf(d, "%s 1 vita vita %d %s %s\r\n", perm, size, when, e.Name())
 			}
 			d.Close()
 			say("226 Transfer complete.")
@@ -301,6 +317,10 @@ func (v *Vita) session(c net.Conn) {
 		case "RNTO":
 			a, ok1 := v.local(rnfr)
 			b, ok2 := v.local(abs(arg))
+			// Like a real Vita, renaming onto a file that exists is refused.
+			if _, err := os.Stat(b); ok2 && err == nil {
+				ok2 = false
+			}
 			if ok1 && ok2 && os.Rename(a, b) == nil {
 				say("226 Rename completed.")
 			} else {
@@ -358,6 +378,12 @@ func (v *Vita) installVPK(vpk string) error {
 		io.Copy(out, rc)
 		out.Close()
 		rc.Close()
+	}
+	// The system keeps its own copy of the bubble icon (only the icon).
+	if b, err := os.ReadFile(filepath.Join(dest, "sce_sys", "icon0.png")); err == nil {
+		meta := filepath.Join(v.Root, "ur0", "appmeta", id)
+		os.MkdirAll(meta, 0o755)
+		os.WriteFile(filepath.Join(meta, "icon0.png"), b, 0o644)
 	}
 	return nil
 }

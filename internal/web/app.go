@@ -68,6 +68,7 @@ type State struct {
 	Catalog   []CatalogEntry `json:"catalog"`
 	Library   []LibraryGame  `json:"library"`   // games this installer put on the connected Vita
 	SteamGrid bool           `json:"steamGrid"` // a SteamGridDB API key is set
+	ArtAuto   bool           `json:"artAuto"`   // artwork is refreshed when a Vita connects
 	Dialogs   bool           `json:"dialogs"`
 	Shader    *ShaderState   `json:"shader"` // the shader compiler on the connected Vita, if known
 	Seq       int64          `json:"seq"`
@@ -88,6 +89,7 @@ type App struct {
 	tags      map[string]latestTag
 	staged    *selfupdate.Staged
 	sgdbKey   string
+	artMu     sync.Mutex // one artwork refresh at a time
 }
 
 // NewApp prepares state, loading saved settings.
@@ -95,16 +97,18 @@ func NewApp(version, cache, config string) *App {
 	a := &App{cache: cache, config: config, subs: map[chan struct{}]bool{}}
 	a.st.Version = version
 	a.st.Dialogs = true
+	a.st.ArtAuto = true
 	a.st.Catalog = builtinCatalog()
 	os.MkdirAll(cache, 0o755)
 	os.MkdirAll(config, 0o755)
-	var saved struct{ LastHost, SteamGridKey string }
+	var saved settingsFile
 	if b, err := os.ReadFile(filepath.Join(config, "settings.json")); err == nil {
 		json.Unmarshal(b, &saved)
 	}
 	a.lastHost = saved.LastHost
 	a.sgdbKey = saved.SteamGridKey
 	a.st.SteamGrid = a.sgdbKey != ""
+	a.st.ArtAuto = !saved.NoArtRefresh
 	go cleanOld(cache, 48*time.Hour)
 	return a
 }
@@ -123,9 +127,15 @@ func cleanOld(cache string, age time.Duration) {
 	}
 }
 
+// settingsFile is what is kept between runs.
+type settingsFile struct {
+	LastHost, SteamGridKey string
+	NoArtRefresh           bool `json:",omitempty"` // "Refresh artwork automatically" is on unless this says otherwise
+}
+
 func (a *App) saveSettings() {
 	a.mu.Lock()
-	b, _ := json.Marshal(struct{ LastHost, SteamGridKey string }{a.lastHost, a.sgdbKey})
+	b, _ := json.Marshal(settingsFile{a.lastHost, a.sgdbKey, !a.st.ArtAuto})
 	a.mu.Unlock()
 	os.WriteFile(filepath.Join(a.config, "settings.json"), b, 0o600) // holds the player's API key
 }

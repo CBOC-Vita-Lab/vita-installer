@@ -68,8 +68,14 @@ func Find(z *zip.Reader) Paths {
 			}
 		}
 	}
+	return FindIn(func(n string) bool { return have[n] }, tmpl)
+}
+
+// FindIn is Find for any place the files can be looked up: have says whether
+// a path (such as "sce_sys/pic0.png") exists, tmpl is template.xml.
+func FindIn(have func(string) bool, tmpl []byte) Paths {
 	p := Paths{Icon: "sce_sys/icon0.png"}
-	if have["sce_sys/pic0.png"] {
+	if have("sce_sys/pic0.png") {
 		p.Pic0 = "sce_sys/pic0.png"
 	}
 	bg, st := "bg.png", "startup.png"
@@ -79,10 +85,10 @@ func Find(z *zip.Reader) Paths {
 	if m := reStartup.FindSubmatch(tmpl); m != nil {
 		st = strings.TrimSpace(string(m[1]))
 	}
-	if n := "sce_sys/livearea/contents/" + bg; have[n] {
+	if n := "sce_sys/livearea/contents/" + bg; have(n) {
 		p.Background = n
 	}
-	if n := "sce_sys/livearea/contents/" + st; have[n] {
+	if n := "sce_sys/livearea/contents/" + st; have(n) {
 		p.Startup = n
 	}
 	return p
